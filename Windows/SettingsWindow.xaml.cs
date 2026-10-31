@@ -123,7 +123,6 @@ public partial class SettingsWindow : Window
         AnimationPrimitives.ApplyFpsToTree(this);
         FirstOpenProbe?.Invoke($"DEBUG-FIRST-OPEN Settings FPS tree {firstOpenProbe.Elapsed.TotalMilliseconds:F1} ms");
         firstOpenProbe.Restart();
-        PulseStarWhileShown();
 
         _settings = settings.Clone();
         _editSession = new SettingsEditSession(settings);
@@ -184,6 +183,7 @@ public partial class SettingsWindow : Window
     private void Window_Loaded(object sender, RoutedEventArgs e)
     {
         CompleteFirstRealShow();
+        UpdateAnimatedStarStoryboard();
     }
 
     private void TitleBar_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -496,6 +496,12 @@ public partial class SettingsWindow : Window
         EnableSpotlightHint.Text = Loc.Get("settings.enableSpotlight.hint");
         LocalizeSpotlightAiSettings();
         LocalizeTranslationSettings();
+        if (TranslationModelProgress != null)
+        {
+            System.Windows.Automation.AutomationProperties.SetName(
+                TranslationModelProgress,
+                Loc.Get("settings.translation.modelDownloadProgress"));
+        }
         SpotlightHotkeyWarning.Text = Loc.Get("settings.enableSpotlight.conflict");
         SearchingHeader.Text = Loc.Get(LocKeySearching);
         SearchingEmptyText.Text = Loc.Get("settings.search.noResults");
@@ -1208,6 +1214,28 @@ public partial class SettingsWindow : Window
 
     private void ViewChangelog_Click(object sender, RoutedEventArgs e)
         => _updatePresenter.ShowChangelog();
+
+    private void PanelDonating_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+        => UpdateAnimatedStarStoryboard();
+
+    internal void UpdateAnimatedStarStoryboard()
+    {
+        if (AnimatedStarPath?.Resources["StarPulseStoryboard"] is not Storyboard storyboard)
+        {
+            return;
+        }
+
+        // IsVisible, not Visibility: the window is prepared hidden at start-up, and a Forever storyboard started
+        // there keeps every window on this thread redrawing at the display's rate (31-59 % of a core).
+        if (!AnimationConfig.ReduceMotion && PanelDonating.IsVisible)
+        {
+            storyboard.Begin(this, isControllable: true);
+        }
+        else
+        {
+            storyboard.Stop(this);
+        }
+    }
 
 }
 

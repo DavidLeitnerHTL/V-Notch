@@ -47,22 +47,6 @@ public partial class SettingsWindow
         settings.MutedNotificationApps = string.Join('|', _appNotifyMuted);
     }
 
-    private void ResetAppNotifications(NotchSettings defaults)
-    {
-        if (_appNotifyCheck == null) return;
-        _appNotifyFilling = true;
-        try
-        {
-            _appNotifyCheck.IsChecked = defaults.ShowAppNotifications;
-            _appNotifyMuted.Clear();
-        }
-        finally
-        {
-            _appNotifyFilling = false;
-        }
-        RefreshAppNotificationApps();
-    }
-
     private void LocalizeAppNotifications()
     {
         if (_appNotifyCheck == null || _appNotifyHint == null || _appNotifyAccessButton == null) return;
