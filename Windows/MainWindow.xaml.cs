@@ -277,6 +277,8 @@ public partial class MainWindow : Window
             AudioScrollViewer = AudioScrollViewer,
             SecondaryContent = SecondaryContent,
             CameraContent = CameraContent,
+            ClaudeContent = ClaudeContent,
+            PiContent = PiContent,
             IsSessionCurrent = sessionId => !_cleanedUp && sessionId == _transitionCoordinator.ActiveTransitionId
         });
         _viewModel = viewModel;
@@ -305,6 +307,7 @@ public partial class MainWindow : Window
             mediaService.InvalidateVolumeSessionCache();
             _volumeSynced = false;
         };
+        InitializeControlCenter();
         _isExpandedCheck = () => _isExpanded || _isMusicExpanded;
         _viewModel.IsExpandedCheck = _isExpandedCheck;
         _viewModel.MediaInfoUpdated += ViewModel_MediaInfoUpdated;
@@ -701,6 +704,7 @@ public partial class MainWindow : Window
         InputMonitorService.MouseActionTriggered -= GlobalMouseHook_MouseLeftButtonDown;
 
         _clipboardTrayView?.Dispose();
+        DisposeControlCenter();
         if (_clipboardHistory != null) _clipboardHistory.DropImported -= PlayClipboardDropFeedback;
         _clipboardShutdown = _clipboardHistory?.DisposeAsync().AsTask() ?? Task.CompletedTask;
         _clipboardShutdown.SafeFireAndForget("CLIPBOARD-SHUTDOWN");
@@ -788,6 +792,8 @@ public partial class MainWindow : Window
             HideSharedSettingsButton();
         if (snapshot.TargetView == VNotch.Models.NotchView.Compact) ResetClipboardDropFeedback();
         _isCameraView = snapshot.CurrentView == VNotch.Models.NotchView.Camera;
+        _isClaudeView = snapshot.CurrentView == VNotch.Models.NotchView.Claude;
+        _isPiView = snapshot.CurrentView == VNotch.Models.NotchView.Pi;
         _isAudioView = snapshot.CurrentView == VNotch.Models.NotchView.AudioMixer;
         _isSecondaryView = snapshot.CurrentView == VNotch.Models.NotchView.Secondary;
         _isTimerView = snapshot.CurrentView == VNotch.Models.NotchView.Timer;
@@ -859,7 +865,8 @@ public partial class MainWindow : Window
         else if (args.TargetView == VNotch.Models.NotchView.Camera && _pendingCameraPreviewVisualTeardown)
             FinalizePendingCameraPreviewTeardown();
         if (args.TargetView != VNotch.Models.NotchView.Compact && args.Reason != "CountdownCompletion" &&
-            (args.TargetView is VNotch.Models.NotchView.Secondary or VNotch.Models.NotchView.Camera || args.FromView is VNotch.Models.NotchView.Secondary or VNotch.Models.NotchView.Camera))
+            (args.TargetView is VNotch.Models.NotchView.Secondary or VNotch.Models.NotchView.Camera or VNotch.Models.NotchView.Claude or VNotch.Models.NotchView.Pi ||
+             args.FromView is VNotch.Models.NotchView.Secondary or VNotch.Models.NotchView.Camera or VNotch.Models.NotchView.Claude or VNotch.Models.NotchView.Pi))
         {
             ExpandNotch(args.TransitionId, targetView: args.TargetView, fromView: args.FromView);
             return;
@@ -1189,10 +1196,11 @@ public partial class MainWindow : Window
     }
 
     private double MaxExpandedNotchHeight =>
+        Math.Max(ClaudeViewMaxHeight,
         Math.Max(CameraViewHeight,
         Math.Max(ClipboardTrayHeight,
         Math.Max(_clockViewHeight,
-        Math.Max(_expandedHeight, _audioViewMaxHeight))));
+        Math.Max(_expandedHeight, _audioViewMaxHeight)))));
 
     private void PositionAtTop()
     {
@@ -1635,6 +1643,8 @@ public partial class MainWindow : Window
             double islandTop = Math.Max(0, (GetCollapsedHeight() - 22) / 2.0);
             MusicCompactContent.VerticalAlignment = VerticalAlignment.Top;
             MusicCompactContent.Margin = islandMode ? new Thickness(12, islandTop, 12, 0) : new Thickness(8, 4, 8, 4);
+            // The Claude star sits exactly in the cover's slot.
+            if (ClaudeLive != null) ClaudeLive.Margin = MusicCompactContent.Margin;
         }
 
         if (CompactHoverInfo != null)
@@ -1793,6 +1803,7 @@ public partial class MainWindow : Window
         }
         else
         {
+            if (TryHandleNotificationTap()) return;
             ExpandNotch();
         }
     }
@@ -1802,10 +1813,12 @@ public partial class MainWindow : Window
         _hoverCollapseTimer.Interval = TimeSpan.FromMilliseconds(_settings.HoverCollapseDelay);
         AnimateNotchHover(true);
         QueueHoverExpand();
+        OnNotchHoverForClaudePeek(entered: true);
     }
 
     private void NotchWrapper_MouseLeave(object sender, MouseEventArgs e)
     {
+        OnNotchHoverForClaudePeek(entered: false);
 
         _hoverThumbnailDelayTimer.Stop();
         if (_isMusicCompactMode && _isCompactThumbnailHovered && !_isGestureActive)
@@ -2389,6 +2402,7 @@ public partial class MainWindow : Window
         while (current != null && current != this)
         {
             if (ReferenceEquals(current, NotchWrapper) ||
+                ReferenceEquals(current, ActivityBubble) ||
                 ReferenceEquals(current, NavIconsPanel) ||
                 ReferenceEquals(current, AudioContent.AudioOverlay) ||
                 ReferenceEquals(current, CompactHoverInfo) ||

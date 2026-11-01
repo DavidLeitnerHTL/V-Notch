@@ -15,7 +15,7 @@ public partial class MainWindow
 {
 
     #region Notch Expand/Collapse
-    private enum LastExpandedView { Primary, Secondary, Timer, Audio, Camera }
+    private enum LastExpandedView { Primary, Secondary, Timer, Audio, Camera, Claude, Pi }
     private LastExpandedView _lastExpandedViewBeforeCollapse = LastExpandedView.Primary;
 
     private const double ExpandedContentHorizontalInset = 16;
@@ -376,6 +376,7 @@ public partial class MainWindow
             BluetoothDisconnectNotification.Visibility = Visibility.Collapsed;
             _isBluetoothNotificationVisible = false;
         }
+        CancelClaudeNotificationImmediate();
         _compactPillArbiter.ForceClear();
 
         if (_isCompactThumbnailHovered)
@@ -814,6 +815,8 @@ public partial class MainWindow
         NotchBorder.IsHitTestVisible = true;
 
         _isCameraView = effectiveTarget == VNotch.Models.NotchView.Camera;
+        _isClaudeView = effectiveTarget == VNotch.Models.NotchView.Claude;
+        _isPiView = effectiveTarget == VNotch.Models.NotchView.Pi;
 
         if (effectiveTarget == VNotch.Models.NotchView.Timer)
         {
@@ -853,6 +856,24 @@ public partial class MainWindow
         else if (effectiveTarget == VNotch.Models.NotchView.Camera)
         {
             ResizeHostWindowHeight(CameraViewHeight);
+        }
+        else if (effectiveTarget == VNotch.Models.NotchView.Claude)
+        {
+            _isTimerView = false;
+            _isSecondaryView = false;
+            _isAudioView = false;
+            VNotch.Presenters.NotchContentTransitionPresenter.ClearTransformAndEffects(ClaudeContent);
+            ResizeHostWindowHeight(_claudeViewHeight);
+            // Sessions may have come or gone while it opened.
+            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, SettleClaudeNotchToFit);
+        }
+        else if (effectiveTarget == VNotch.Models.NotchView.Pi)
+        {
+            _isTimerView = false;
+            _isSecondaryView = false;
+            _isAudioView = false;
+            VNotch.Presenters.NotchContentTransitionPresenter.ClearTransformAndEffects(PiContent);
+            ResizeHostWindowHeight(PiViewHeight);
         }
         else
         {
@@ -951,6 +972,8 @@ public partial class MainWindow
             _transitionCoordinator.CancelTransition(transitionId.Value, "GreetingActive");
             return;
         }
+        // The orb goes back in before the notch grows over it.
+        RetractBubbleForExpand();
         int generation = (int)transitionId;
         _viewTransitionGeneration = generation;
         _isAnimating = true;
@@ -1073,6 +1096,30 @@ public partial class MainWindow
             targetWidth = CameraViewWidth;
             targetHeight = CameraViewHeight;
             CameraContent.Width = targetWidth - CameraContent.Margin.Left - CameraContent.Margin.Right;
+            if (targetHeight > currentHeight)
+                ResizeHostWindowHeight(targetHeight);
+            UpdateNavIconsActiveState();
+        }
+        else if (effectiveTarget == VNotch.Models.NotchView.Claude)
+        {
+            VNotch.Presenters.NotchContentTransitionPresenter.ClearTransformAndEffects(ClaudeContent);
+            targetWidth = ClaudeViewWidth;
+            targetHeight = _claudeViewHeight = MeasureClaudeViewHeight();
+            // Laid out at its final size; the shell's clip reveals it while expanding.
+            ClaudeContent.Width = targetWidth - ClaudeContent.Margin.Left - ClaudeContent.Margin.Right;
+            ClaudeContent.Height = targetHeight - ClaudeContent.Margin.Top - ClaudeContent.Margin.Bottom;
+            if (targetHeight > currentHeight)
+                ResizeHostWindowHeight(targetHeight);
+            UpdateNavIconsActiveState();
+        }
+        else if (effectiveTarget == VNotch.Models.NotchView.Pi)
+        {
+            VNotch.Presenters.NotchContentTransitionPresenter.ClearTransformAndEffects(PiContent);
+            targetWidth = PiViewWidth;
+            targetHeight = PiViewHeight;
+            // Laid out at its final size; the shell's clip reveals it while expanding.
+            PiContent.Width = targetWidth - PiContent.Margin.Left - PiContent.Margin.Right;
+            PiContent.Height = targetHeight - PiContent.Margin.Top - PiContent.Margin.Bottom;
             if (targetHeight > currentHeight)
                 ResizeHostWindowHeight(targetHeight);
             UpdateNavIconsActiveState();
@@ -1219,6 +1266,10 @@ public partial class MainWindow
             AudioContent?.RevealRows(TimeSpan.FromMilliseconds(45));
         else if (effectiveTarget == VNotch.Models.NotchView.Camera)
             PlayCameraContentReveal(TimeSpan.FromMilliseconds(35));
+        else if (effectiveTarget == VNotch.Models.NotchView.Claude)
+            ClaudeCenter.RevealRows(TimeSpan.FromMilliseconds(35));
+        else if (effectiveTarget == VNotch.Models.NotchView.Pi)
+            PiCenter.RevealRows(TimeSpan.FromMilliseconds(35));
 
         if (effectiveTarget == VNotch.Models.NotchView.Media)
         {
@@ -1581,6 +1632,8 @@ public partial class MainWindow
     private LastExpandedView DetermineCurrentExpandedView()
     {
         if (_isCameraView) return LastExpandedView.Camera;
+        if (_isClaudeView) return LastExpandedView.Claude;
+        if (_isPiView) return LastExpandedView.Pi;
         if (_isAudioView) return LastExpandedView.Audio;
         if (_isTimerView) return LastExpandedView.Timer;
         if (_isSecondaryView) return LastExpandedView.Secondary;
@@ -1589,6 +1642,9 @@ public partial class MainWindow
 
     private VNotch.Models.NotchView DetermineTargetExpandedView()
     {
+        // Tapping a Claude alert, or the closed notch while Claude works, opens what it is about.
+        if (_isClaudeNotificationVisible && _isClaudePill) return VNotch.Models.NotchView.Claude;
+        if (_claudeLiveSession != null && ClaudeLive.IsVisible) return VNotch.Models.NotchView.Claude;
 
         if (_settings.ReopenLastViewOnExpand)
         {
@@ -1598,6 +1654,8 @@ public partial class MainWindow
                 LastExpandedView.Secondary => VNotch.Models.NotchView.Secondary,
                 LastExpandedView.Audio => VNotch.Models.NotchView.AudioMixer,
                 LastExpandedView.Camera when !_settings.HideCamera => VNotch.Models.NotchView.Camera,
+                LastExpandedView.Claude => VNotch.Models.NotchView.Claude,
+                LastExpandedView.Pi => VNotch.Models.NotchView.Pi,
                 _ => VNotch.Models.NotchView.Media
             };
         }
@@ -1780,6 +1838,7 @@ public partial class MainWindow
             BluetoothDisconnectNotification.Visibility = Visibility.Collapsed;
             _isBluetoothNotificationVisible = false;
         }
+        CancelClaudeNotificationImmediate();
         _compactPillArbiter.ForceClear();
 
         NavIconsPanel.BeginAnimation(OpacityProperty, null);
@@ -1895,6 +1954,8 @@ public partial class MainWindow
 
         FinalizeCompactModeAfterCollapse(contentToShow, suppressCompactThumbnailMotion, deferCompactThumbnailReveal);
         FinalizeCompactThumbnailAndVisualizerAfterCollapse(suppressCompactThumbnailMotion, deferCompactThumbnailReveal);
+        // Closed again: the orb beside it can bud back out.
+        UpdateActivityBubble();
 
         if (_settings.StayBehindWindows && _isDesktopEdgePromoted && !IsDesktopNotchInteractionActive())
         {
@@ -1913,6 +1974,8 @@ public partial class MainWindow
         }
         VNotch.Presenters.NotchContentTransitionPresenter.ResetElementVisualState(SecondaryContent);
         VNotch.Presenters.NotchContentTransitionPresenter.ResetElementVisualState(CameraContent);
+        VNotch.Presenters.NotchContentTransitionPresenter.ResetElementVisualState(ClaudeContent);
+        VNotch.Presenters.NotchContentTransitionPresenter.ResetElementVisualState(PiContent);
 
         ResetMediaContentReveal();
         ResetClockViewUnfoldIn();
@@ -1930,6 +1993,8 @@ public partial class MainWindow
         _isSecondaryView = false;
         _isAudioView = false;
         _isCameraView = false;
+        _isClaudeView = false;
+        _isPiView = false;
     }
 
     private void PrepareStateBeforeCollapse()
@@ -2032,6 +2097,8 @@ public partial class MainWindow
                 VNotch.Models.NotchView.Secondary => LastExpandedView.Secondary,
                 VNotch.Models.NotchView.AudioMixer => LastExpandedView.Audio,
                 VNotch.Models.NotchView.Camera => LastExpandedView.Camera,
+                VNotch.Models.NotchView.Claude => LastExpandedView.Claude,
+                VNotch.Models.NotchView.Pi => LastExpandedView.Pi,
                 _ => LastExpandedView.Primary
             };
         }
@@ -2136,6 +2203,8 @@ public partial class MainWindow
                 LastExpandedView.Secondary => VNotch.Models.NotchView.Secondary,
                 LastExpandedView.Audio => VNotch.Models.NotchView.AudioMixer,
                 LastExpandedView.Camera => VNotch.Models.NotchView.Camera,
+                LastExpandedView.Claude => VNotch.Models.NotchView.Claude,
+                LastExpandedView.Pi => VNotch.Models.NotchView.Pi,
                 _ => VNotch.Models.NotchView.Media
             },
             TargetView: VNotch.Models.NotchView.Compact,
@@ -2189,6 +2258,8 @@ public partial class MainWindow
         // Apply after the presenter so its general fade cannot replace the exit motion.
         AnimateAuxiliaryViewCollapse(SecondaryContent, generation);
         AnimateAuxiliaryViewCollapse(CameraContent, generation);
+        AnimateAuxiliaryViewCollapse(ClaudeContent, generation);
+        AnimateAuxiliaryViewCollapse(PiContent, generation);
         AnimateAuxiliaryViewCollapse(TimerContent, generation);
         AnimateAuxiliaryViewCollapse(AudioContent, generation);
 

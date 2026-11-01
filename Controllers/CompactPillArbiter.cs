@@ -10,7 +10,9 @@ public enum CompactPillSlot
     Volume = 2,
     Bluetooth = 3,
     Charging = 4,
-    Greeting = 5
+    Greeting = 5,
+    // Never shown while the greeting runs (see MainWindow.ControlCenter), so its rank does not matter there.
+    Claude = 6
 }
 
 public sealed partial class CompactPillArbiter

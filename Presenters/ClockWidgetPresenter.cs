@@ -230,19 +230,14 @@ public sealed class ClockWidgetPresenter : IDisposable
             return;
         }
 
-        if (Math.Abs(dx) < WidgetTapThreshold && Math.Abs(dy) < WidgetTapThreshold)
+        // A tap on the clock does nothing: the clock page it used to open is gone, and
+        // that tab hosts the control center now.
+        if (Math.Abs(dx) < WidgetTapThreshold && Math.Abs(dy) < WidgetTapThreshold && !IsClockWidgetMode)
         {
-            if (IsClockWidgetMode && _host.IsExpanded && !_host.IsSecondaryView && !_host.IsTimerView)
-            {
-                _host.SwitchToTimerView();
-            }
-            else
-            {
-                if (IsWeatherWidgetMode && (!_host.Settings.EnableWeather || _host.Settings.EnableLocalOnlyMode || !_host.Settings.AllowOnlineWeather))
-                    _host.OpenWeatherSettings();
-                else if (!IsWeatherWidgetMode || _refs.WeatherWidgetContent is not VNotch.Controls.WeatherWidget weatherWidget || !weatherWidget.RetryIfUnavailable())
-                    _host.CollapseNotch();
-            }
+            if (IsWeatherWidgetMode && (!_host.Settings.EnableWeather || _host.Settings.EnableLocalOnlyMode || !_host.Settings.AllowOnlineWeather))
+                _host.OpenWeatherSettings();
+            else if (!IsWeatherWidgetMode || _refs.WeatherWidgetContent is not VNotch.Controls.WeatherWidget weatherWidget || !weatherWidget.RetryIfUnavailable())
+                _host.CollapseNotch();
         }
     }
 
@@ -344,8 +339,8 @@ public sealed class ClockWidgetPresenter : IDisposable
 
     #region Clock View (analog clock + month calendar)
 
-    private const double _clockViewWidth = 600;
-    private const double _clockViewHeight = 376;
+    private const double _clockViewWidth = 720;
+    private const double _clockViewHeight = 378;
 
     private static double ClockViewContentWidth => _clockViewWidth - 40.0;
     private static double ClockViewContentHeight => _clockViewHeight - 48.0;

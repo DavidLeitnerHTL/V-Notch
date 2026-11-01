@@ -689,7 +689,9 @@ public partial class MainWindow
 
     private void UpdateMusicCompactMode(MediaInfo info)
     {
-        bool shouldBeCompact = MediaDisplayController.ShouldBeCompactMode(info);
+        // Music and the other live things share the notch and the orb beside it.
+        ArrangeLiveActivities(info, applyCompact: false);
+        bool shouldBeCompact = WantsMusicCompact(info);
 
         _collapsedWidth = GetCollapsedWidth();
 
@@ -732,7 +734,7 @@ public partial class MainWindow
             {
                 _musicCompactExitDebounceTimer.Stop();
                 var current = _currentMediaInfo;
-                if (_isMusicCompactMode && !MediaDisplayController.ShouldBeCompactMode(current))
+                if (_isMusicCompactMode && !WantsMusicCompact(current))
                 {
                     ApplyMusicCompactMode(shouldBeCompact: false, current);
                 }
@@ -776,7 +778,7 @@ public partial class MainWindow
 
         if (!_isExpanded)
         {
-            if (_isBluetoothNotificationVisible || _isChargingNotificationVisible || _isGreetingActive || _isAnimating)
+            if (_isBluetoothNotificationVisible || _isChargingNotificationVisible || _isClaudeNotificationVisible || _isGreetingActive || _isAnimating)
             {
                 return;
             }

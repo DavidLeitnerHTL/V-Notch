@@ -2251,12 +2251,41 @@ public sealed partial class MediaDetectionService : IMediaDetectionService, IAsy
             var sessions = _sessionManager?.GetSessions();
             if (sessions == null) return false;
 
-            return sessions.Any(s => AreSameSession(s, session));
+            return sessions.Any(s => AreSameSession(s, session)) || IsSoleSessionOfItsApp(session, sessions);
         }
         catch (Exception ex)
         {
             RuntimeLog.Error("MEDIA-SESSION-PRESENT", ex.ToString());
             return true;
+        }
+    }
+
+    /// <summary>
+    /// Asked from another COM apartment (UI thread vs. thread pool), the same session comes back as another
+    /// proxy with another identity, and a paused Spotify looked closed every few seconds: rescan, "new" track,
+    /// thumbnail decoded again. An app's only session that still answers is that session.
+    /// </summary>
+    private static bool IsSoleSessionOfItsApp(
+        GlobalSystemMediaTransportControlsSession session,
+        IReadOnlyList<GlobalSystemMediaTransportControlsSession> sessions)
+    {
+        try
+        {
+            string app = session.SourceAppUserModelId ?? "";
+            if (app.Length == 0 || IsBrowserSourceApp(app)) return false;
+            int sameApp = 0;
+            foreach (var other in sessions)
+            {
+                if (string.Equals(other.SourceAppUserModelId, app, StringComparison.OrdinalIgnoreCase)) sameApp++;
+            }
+            if (sameApp != 1) return false;
+            // A player that replaced its session leaves the old one disconnected: that one does not answer.
+            _ = session.GetPlaybackInfo();
+            return true;
+        }
+        catch (Exception ex) when (ex is COMException or ObjectDisposedException or InvalidOperationException)
+        {
+            return false;
         }
     }
 
@@ -2325,6 +2354,8 @@ public sealed partial class MediaDetectionService : IMediaDetectionService, IAsy
         {
             var (session, spotifyGroundTruth) = await ResolveActiveSessionAsync(forceRefresh);
             if (session == null) return false;
+            // Pinned and fallback paths can still land on an ignored app (e.g. the Riot Client): it never counts as media.
+            if (IsIgnoredSourceApp(session.SourceAppUserModelId ?? "")) return false;
 
             SwitchActiveDisplaySessionIfNeeded(session);
 

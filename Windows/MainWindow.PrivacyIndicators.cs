@@ -42,7 +42,7 @@ public partial class MainWindow
         IsCompactPillForPrivacyIndicator,
         _isAudioView,
         _isVolumeIndicatorActive,
-        _isBluetoothNotificationVisible,
+        _isBluetoothNotificationVisible || _isClaudeNotificationVisible,
         _isClipboardPeekActive);
 
     private void SyncPrivacyDotVisibilityForCurrentView()

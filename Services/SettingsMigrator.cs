@@ -37,7 +37,7 @@ public static partial class SettingsMigrator
         int consentVersion,
         out byte outRevoke);
 
-    public const int CurrentVersion = 14;
+    public const int CurrentVersion = 16;
 
     private static readonly IReadOnlyDictionary<int, Func<JsonObject, JsonObject>> _migrations =
         new Dictionary<int, Func<JsonObject, JsonObject>>
@@ -56,6 +56,8 @@ public static partial class SettingsMigrator
             [11] = MigrateV11,
             [12] = MigrateV12,
             [13] = MigrateV13,
+            [14] = MigrateV14,
+            [15] = MigrateV15,
         };
 
     private static void EnsureProperty(JsonObject root, string propertyName, JsonNode? defaultValue)
@@ -179,6 +181,33 @@ public static partial class SettingsMigrator
         root[nameof(NotchSettings.AllowOnlineCanvas)] = false;
         root[nameof(NotchSettings.SpotifyCanvasConsentVersion)] = 0;
         return root;
+    }
+
+    private static JsonObject MigrateV14(JsonObject root)
+    {
+        // The Claude tab is new: show it next to the controls tab in saved tab lists.
+        AddNavTab(root, nameof(NotchSettings.NavTabOrder), "Claude", after: "Timer");
+        AddNavTab(root, nameof(NotchSettings.VisibleNavTabs), "Claude", after: "Timer");
+        return root;
+    }
+
+    private static JsonObject MigrateV15(JsonObject root)
+    {
+        // The Pi dashboard tab is new: it goes next to the Claude tab.
+        AddNavTab(root, nameof(NotchSettings.NavTabOrder), "Pi", after: "Claude");
+        AddNavTab(root, nameof(NotchSettings.VisibleNavTabs), "Pi", after: "Claude");
+        return root;
+    }
+
+    private static void AddNavTab(JsonObject root, string propertyName, string newTab, string after)
+    {
+        if (root[propertyName] is not JsonValue value || !value.TryGetValue(out string? list)) return;
+        var tabs = new List<string>(list.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        foreach (var tab in tabs)
+            if (string.Equals(tab, newTab, StringComparison.OrdinalIgnoreCase)) return;
+        int anchor = tabs.FindIndex(tab => string.Equals(tab, after, StringComparison.OrdinalIgnoreCase));
+        tabs.Insert(anchor >= 0 ? anchor + 1 : tabs.Count, newTab);
+        root[propertyName] = string.Join(",", tabs);
     }
 
     public static (NotchSettings settings, bool migrated) Migrate(string rawJson)

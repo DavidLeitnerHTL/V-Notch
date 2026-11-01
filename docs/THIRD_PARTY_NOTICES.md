@@ -82,6 +82,36 @@ LanguageDetection.Ai 1.1.0 (Kasper Rune Sogaard, Pēteris Ņikiforovs, Nakatani 
 
 The translation runtime depends on the installed Microsoft Visual C++ v14 x64 runtime (including OpenMP) and, for GPU acceleration, the GPU driver's Vulkan loader. Those system runtimes are not copied from a developer machine or redistributed by this feature. Install Microsoft's redistributable using its official installer; see [Microsoft's supported runtime downloads](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170). The app reports a missing runtime without installing anything automatically.
 
+### ademerci/Holm - MIT
+
+Copyright (c) 2026 ademerci. The Bluetooth device list and the connect/disconnect calls in Services/ControlCenter/BluetoothControl.cs are adapted from WinNotch/BluetoothControl.cs and WinNotch/BluetoothBattery.cs of this project. License reference commit: 9a394f2cf42eeea9137ba9d26dbb514323cbc829.
+
+Complete upstream license: <https://raw.githubusercontent.com/ademerci/Holm/9a394f2cf42eeea9137ba9d26dbb514323cbc829/LICENSE>
+
+~~~text
+MIT License
+
+Copyright (c) 2026 ademerci
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+~~~
+
 ### Markdig 0.41.3 — BSD-2-Clause
 
 Markdown parsing. Copyright (c) 2018-2019, Alexandre Mutel.

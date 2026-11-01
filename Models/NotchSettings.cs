@@ -214,8 +214,18 @@ public partial class NotchSettings
     public string Language { get; set; } = "en";
 
     public string ExpandedWidget { get; set; } = "clock";
-    public string NavTabOrder { get; set; } = "Media,Secondary,Timer,AudioMixer,Camera";
-    public string VisibleNavTabs { get; set; } = "Media,Secondary,Timer,AudioMixer,Camera";
+    public string NavTabOrder { get; set; } = "Media,Secondary,Timer,Claude,Pi,AudioMixer,Camera";
+    public string VisibleNavTabs { get; set; } = "Media,Secondary,Timer,Claude,Pi,AudioMixer,Camera";
+    // Windows notifications mirrored as a pill in the closed notch; apps listed here ("|"-separated app ids) stay out.
+    public bool ShowAppNotifications { get; set; } = true;
+    public string MutedNotificationApps { get; set; } = "";
+    // The user's Raspberry Pi dashboard (e.g. http://100.x.y.z:4000 over Tailscale); empty hides its data.
+    public string PiDashboardUrl { get; set; } = "";
+    // Where the Pi tab's school rows lead: an assignment to its Moodle page, lessons and exams to Untis.
+    public string SchoolMoodleUrl { get; set; } = "https://edufs.edu.htl-leonding.ac.at/moodle";
+    public string SchoolUntisUrl { get; set; } = "https://htl-leonding.webuntis.com/today";
+    // A short Windows sound when a Claude Code turn ends or a session waits for the user; never over fullscreen.
+    public bool PlayClaudeSounds { get; set; } = true;
     public string ClockPageStyle { get; set; } = "analog";
 
     public string ProcessPriority { get; set; } = "Normal";

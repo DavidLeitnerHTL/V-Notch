@@ -20,7 +20,7 @@ public partial class MainWindow
         foreach (var element in new UIElement[] { MusicViz, CompactThumbnailBorder,
             MusicCompactContent, CollapsedContent,
             ClipboardCheckIcon, ClipboardCopiedText, VolumeIndicatorContainer,
-            BluetoothNotification, BluetoothDisconnectNotification, ChargingNotification })
+            BluetoothNotification, BluetoothDisconnectNotification, ChargingNotification, ClaudeNotification })
             element.IsVisibleChanged += (_, _) => EnforceCompactPresentationOwner();
     }
 
@@ -38,7 +38,7 @@ public partial class MainWindow
         try
         {
             var owner = _compactPillArbiter.ActiveSlot;
-            if (owner is CompactPillSlot.Bluetooth or CompactPillSlot.Charging or CompactPillSlot.Greeting)
+            if (owner is CompactPillSlot.Bluetooth or CompactPillSlot.Charging or CompactPillSlot.Greeting or CompactPillSlot.Claude)
             {
                 HideCompactSurface(MusicCompactContent);
                 HideCompactSurface(CollapsedContent);
@@ -62,6 +62,7 @@ public partial class MainWindow
                 HideCompactSurface(BluetoothDisconnectNotification);
             }
             if (owner != CompactPillSlot.Charging) HideCompactSurface(ChargingNotification);
+            if (owner != CompactPillSlot.Claude) HideCompactSurface(ClaudeNotification);
         }
         finally { _enforcingCompactPresentation = false; }
     }
@@ -125,6 +126,9 @@ public partial class MainWindow
                 CancelChargingGlanceImmediate();
                 break;
             case CompactPillSlot.Greeting:
+                break;
+            case CompactPillSlot.Claude:
+                CancelClaudeNotificationImmediate();
                 break;
         }
     }

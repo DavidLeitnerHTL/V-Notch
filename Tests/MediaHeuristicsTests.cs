@@ -58,6 +58,14 @@ public class MediaHeuristicsTests
         Assert.Equal(expected, MediaHeuristics.IsIgnoredSourceApp(appId!));
     }
 
+    [Theory]
+    [InlineData("com.riotgames.RiotGames.RiotClient")]
+    [InlineData("RiotClientServices.exe")]
+    public void IsIgnoredSourceApp_IgnoresTheRiotClient(string appId)
+    {
+        Assert.True(MediaHeuristics.IsIgnoredSourceApp(appId));
+    }
+
     #endregion
 
     #region IsTrackCompatibleWithWindowTitle

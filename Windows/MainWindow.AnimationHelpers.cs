@@ -724,12 +724,16 @@ public partial class MainWindow
         bool showBatterySection = show && _settings.ShowBatteryIndicator;
         VNotch.Models.NotchView fallbackView = VNotch.Models.NotchView.Media;
         if (_isCameraView) fallbackView = VNotch.Models.NotchView.Camera;
+        else if (_isClaudeView) fallbackView = VNotch.Models.NotchView.Claude;
+        else if (_isPiView) fallbackView = VNotch.Models.NotchView.Pi;
         else if (_isAudioView) fallbackView = VNotch.Models.NotchView.AudioMixer;
         else if (_isTimerView) fallbackView = VNotch.Models.NotchView.Timer;
         else if (_isSecondaryView) fallbackView = VNotch.Models.NotchView.Secondary;
         var activeTargetView = _navigationVisualTarget ?? fallbackView;
         bool showNavIconsBg = activeTargetView is VNotch.Models.NotchView.Secondary
             or VNotch.Models.NotchView.Timer
+            or VNotch.Models.NotchView.Claude
+            or VNotch.Models.NotchView.Pi
             or VNotch.Models.NotchView.AudioMixer;
         double iconTargetY = _settings.EnableDynamicIslandMode ? 5 : 0;
         double settingsTargetY = activeTargetView == VNotch.Models.NotchView.Secondary ? 0 : iconTargetY;

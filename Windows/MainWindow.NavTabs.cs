@@ -456,7 +456,9 @@ public partial class MainWindow
             (_isTimerView && item == TimerIconButton) ||
             (_isSecondaryView && item == ClipboardIconButton) ||
             (_isCameraView && item == CameraIconButton) ||
-            (!_isAudioView && !_isTimerView && !_isSecondaryView && item == HomeIconButton))
+            (_isClaudeView && item == ClaudeIconButton) ||
+            (_isPiView && item == PiIconButton) ||
+            (!_isAudioView && !_isTimerView && !_isSecondaryView && !_isClaudeView && !_isPiView && item == HomeIconButton))
         {
             targetOpacity = 1.0;
         }
@@ -606,7 +608,7 @@ public partial class MainWindow
         }
 
         // Determine configured order
-        var rawTokens = (_settings.NavTabOrder ?? "Media,Secondary,Timer,AudioMixer,Camera")
+        var rawTokens = (_settings.NavTabOrder ?? "Media,Secondary,Timer,Claude,Pi,AudioMixer,Camera")
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var orderTokens = new List<string>(elementsByTag.Count);
         var seenTokens = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -646,7 +648,7 @@ public partial class MainWindow
 
         // Apply visibility from VisibleNavTabs
         var visibleTokens = new HashSet<string>(
-            (_settings.VisibleNavTabs ?? "Media,Secondary,Timer,AudioMixer,Camera")
+            (_settings.VisibleNavTabs ?? "Media,Secondary,Timer,Claude,Pi,AudioMixer,Camera")
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
             StringComparer.OrdinalIgnoreCase);
 
@@ -666,7 +668,9 @@ public partial class MainWindow
         // If the active view's tab was just disabled, return gracefully to Home
         if ((_isAudioView && !visibleTokens.Contains("AudioMixer")) ||
             (_isTimerView && !visibleTokens.Contains("Timer")) ||
-            (_isSecondaryView && !visibleTokens.Contains("Secondary")) || (_isCameraView && !visibleTokens.Contains("Camera")))
+            (_isSecondaryView && !visibleTokens.Contains("Secondary")) || (_isCameraView && !visibleTokens.Contains("Camera")) ||
+            (_isClaudeView && !visibleTokens.Contains("Claude")) ||
+            (_isPiView && !visibleTokens.Contains("Pi")))
         {
             NavigateToNotchView(NotchView.Media);
         }
@@ -677,7 +681,7 @@ public partial class MainWindow
 
     public List<NotchView> GetActiveTabSequence()
     {
-        var sequence = new List<NotchView>(5);
+        var sequence = new List<NotchView>(7);
         if (NavTabsStackPanel == null)
         {
             sequence.Add(NotchView.Media);

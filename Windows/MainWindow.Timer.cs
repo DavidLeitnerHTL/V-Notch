@@ -218,6 +218,7 @@ public partial class MainWindow
 
     private void PlayClockViewUnfoldIn(TimeSpan baseDelay)
     {
+        ControlCenter.RevealRows(baseDelay);
         if (AnimationConfig.ReduceMotion)
         {
             ResetClockViewUnfoldIn();
@@ -469,6 +470,8 @@ public partial class MainWindow
         if (_navDragItem != ClipboardIconButton) AnimateNavIconOpacity(ClipboardIconButton, 0.45, animate: false);
         if (_navDragItem != TimerIconButton) AnimateNavIconOpacity(TimerIconButton, 1.0, animate: false);
         if (_navDragItem != AudioIconButton) AnimateNavIconOpacity(AudioIconButton, 0.45, animate: false);
+        if (_navDragItem != ClaudeIconButton) AnimateNavIconOpacity(ClaudeIconButton, 0.45, animate: false);
+        if (_navDragItem != PiIconButton) AnimateNavIconOpacity(PiIconButton, 0.45, animate: false);
     }
 
     #endregion

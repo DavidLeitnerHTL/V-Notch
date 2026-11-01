@@ -12,8 +12,8 @@ public partial class MainWindow : IClockWidgetHost
 {
     #region Clock View geometry constants (read by MainWindow.Timer.cs)
 
-    private const double _clockViewWidth = 600;
-    private const double _clockViewHeight = 376;
+    private const double _clockViewWidth = 720;
+    private const double _clockViewHeight = 378;
 
     #endregion
 

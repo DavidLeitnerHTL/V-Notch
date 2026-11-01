@@ -7,5 +7,7 @@ public enum NotchView
     Secondary,
     Timer,
     AudioMixer,
-    Camera
+    Camera,
+    Claude,
+    Pi
 }

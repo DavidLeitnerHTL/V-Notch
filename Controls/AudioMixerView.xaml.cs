@@ -770,7 +770,7 @@ public sealed partial class AudioMixerView : UserControl, IDisposable
             AudioScrollViewer.ScrollToTop();
     }
 
-    private void SelectDefaultOutputDevice(string deviceId)
+    internal void SelectDefaultOutputDevice(string deviceId)
     {
         _audioWrites.Post("output-device", () =>
         {

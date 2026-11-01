@@ -33,6 +33,32 @@ public class SettingsMigratorTests
         Assert.Equal(0, settings.SpotifyCanvasConsentVersion);
     }
 
+    [Theory]
+    [InlineData("Media,Secondary,Timer,AudioMixer,Camera", "Media,Secondary,Timer,Claude,Pi,AudioMixer,Camera")]
+    [InlineData("AudioMixer,Media", "AudioMixer,Media,Claude,Pi")]
+    [InlineData("Media,Claude,Timer", "Media,Claude,Pi,Timer")]
+    public void Migrate_Version14_AddsTheClaudeTabNextToTheControls(string saved, string expected)
+    {
+        string json = $$"""{ "SettingsVersion": 14, "NavTabOrder": "{{saved}}", "VisibleNavTabs": "{{saved}}" }""";
+        var (settings, migrated) = SettingsMigrator.Migrate(json);
+        Assert.True(migrated);
+        Assert.Equal(expected, settings.NavTabOrder);
+        Assert.Equal(expected, settings.VisibleNavTabs);
+    }
+
+    [Theory]
+    [InlineData("Media,Secondary,Timer,Claude,AudioMixer,Camera", "Media,Secondary,Timer,Claude,Pi,AudioMixer,Camera")]
+    [InlineData("Media,AudioMixer", "Media,AudioMixer,Pi")]
+    [InlineData("Pi,Media,Claude", "Pi,Media,Claude")]
+    public void Migrate_Version15_AddsThePiTabNextToClaude(string saved, string expected)
+    {
+        string json = $$"""{ "SettingsVersion": 15, "NavTabOrder": "{{saved}}", "VisibleNavTabs": "{{saved}}" }""";
+        var (settings, migrated) = SettingsMigrator.Migrate(json);
+        Assert.True(migrated);
+        Assert.Equal(expected, settings.NavTabOrder);
+        Assert.Equal(expected, settings.VisibleNavTabs);
+    }
+
     [Fact]
     public void AcceptedCanvasSettingsSurviveLocalSaveAndReload()
     {

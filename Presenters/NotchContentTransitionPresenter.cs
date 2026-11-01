@@ -14,6 +14,8 @@ public sealed class NotchContentViewRefs
 {
     public required FrameworkElement ExpandedContent { get; init; }
     public FrameworkElement? CameraContent { get; init; }
+    public FrameworkElement? ClaudeContent { get; init; }
+    public FrameworkElement? PiContent { get; init; }
     public FrameworkElement? TimerContent { get; init; }
     public FrameworkElement? AudioContent { get; init; }
     public FrameworkElement? AudioScrollViewer { get; init; }
@@ -380,6 +382,8 @@ public sealed class NotchContentTransitionPresenter : IDisposable
             NotchView.Timer => _refs.TimerContent,
             NotchView.AudioMixer => _refs.AudioContent ?? _refs.AudioScrollViewer,
             NotchView.Camera => _refs.CameraContent,
+            NotchView.Claude => _refs.ClaudeContent,
+            NotchView.Pi => _refs.PiContent,
             NotchView.Secondary => _refs.SecondaryContent,
             _ => null
         };
@@ -389,6 +393,8 @@ public sealed class NotchContentTransitionPresenter : IDisposable
     {
         var list = new List<FrameworkElement> { _refs.ExpandedContent };
         if (_refs.CameraContent != null) list.Add(_refs.CameraContent);
+        if (_refs.ClaudeContent != null) list.Add(_refs.ClaudeContent);
+        if (_refs.PiContent != null) list.Add(_refs.PiContent);
         if (_refs.TimerContent != null) list.Add(_refs.TimerContent);
         if (_refs.AudioContent != null) list.Add(_refs.AudioContent);
         else if (_refs.AudioScrollViewer != null) list.Add(_refs.AudioScrollViewer);

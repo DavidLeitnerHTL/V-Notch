@@ -16,8 +16,8 @@ public sealed class TabReorderingAndPageWidgetTests
     {
         var settings = new NotchSettings();
 
-        Assert.Equal("Media,Secondary,Timer,AudioMixer,Camera", settings.NavTabOrder);
-        Assert.Equal("Media,Secondary,Timer,AudioMixer,Camera", settings.VisibleNavTabs);
+        Assert.Equal("Media,Secondary,Timer,Claude,Pi,AudioMixer,Camera", settings.NavTabOrder);
+        Assert.Equal("Media,Secondary,Timer,Claude,Pi,AudioMixer,Camera", settings.VisibleNavTabs);
         Assert.False(settings.HideCamera);
         Assert.Empty(settings.ClipboardHotkey);
         Assert.Equal("analog", settings.ClockPageStyle);

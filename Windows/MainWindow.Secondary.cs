@@ -90,6 +90,7 @@ public partial class MainWindow
         {
             e.Handled = true;
             if (_isSecondaryView && ClipboardTrayView.TryDismissOverlay()) return;
+            if (_isClaudeView && ClaudeCenter.TryDismissComposer()) return;
             CollapseNotch();
         }
     }

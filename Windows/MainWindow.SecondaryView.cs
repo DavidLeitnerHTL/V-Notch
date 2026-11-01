@@ -54,6 +54,8 @@ public partial class MainWindow
 
         NotchView currentView = NotchView.Media;
         if (_isCameraView) currentView = NotchView.Camera;
+        else if (_isClaudeView) currentView = NotchView.Claude;
+        else if (_isPiView) currentView = NotchView.Pi;
         else if (_isAudioView)
         {
             currentView = NotchView.AudioMixer;
@@ -118,7 +120,7 @@ public partial class MainWindow
     private void HomeIconButton_Click(object sender, MouseButtonEventArgs e)
     {
         e.Handled = true;
-        if (_isCameraView && !_isAnimating) { SwitchToPrimaryView(); return; }
+        if ((_isCameraView || _isClaudeView || _isPiView) && !_isAnimating) { SwitchToPrimaryView(); return; }
         if (_isAudioView && !_isAnimating)
         {
             SwitchFromAudioToPrimaryView();
@@ -191,6 +193,8 @@ public partial class MainWindow
 
         NotchView fallbackView = NotchView.Media;
         if (_isCameraView) fallbackView = NotchView.Camera;
+        else if (_isClaudeView) fallbackView = NotchView.Claude;
+        else if (_isPiView) fallbackView = NotchView.Pi;
         else if (_isAudioView) fallbackView = NotchView.AudioMixer;
         else if (_isTimerView) fallbackView = NotchView.Timer;
         else if (_isSecondaryView) fallbackView = NotchView.Secondary;
@@ -200,6 +204,9 @@ public partial class MainWindow
         double timerTarget = target == NotchView.Timer ? 1 : 0.45;
         double audioTarget = target == NotchView.AudioMixer ? 1 : 0.45;
         if (_navDragItem != CameraIconButton) AnimateNavIconOpacity(CameraIconButton, target == NotchView.Camera ? 1 : 0.45, animate);
+        // Brighter while a session waits, so its badge reads from the other tabs.
+        if (_navDragItem != ClaudeIconButton) AnimateNavIconOpacity(ClaudeIconButton, target == NotchView.Claude ? 1 : _isClaudeWaiting ? 0.85 : 0.45, animate);
+        if (_navDragItem != PiIconButton) AnimateNavIconOpacity(PiIconButton, target == NotchView.Pi ? 1 : 0.45, animate);
 
         // Only update opacity on items not currently being dragged by the user
         if (_navDragItem != HomeIconButton) AnimateNavIconOpacity(HomeIconButton, homeTarget, animate);

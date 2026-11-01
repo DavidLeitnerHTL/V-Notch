@@ -88,6 +88,11 @@ internal static partial class MediaHeuristics
         if (string.IsNullOrWhiteSpace(sourceAppId))
             return false;
 
+        // The Riot Client registers a media session for its launcher clips: it is no music and must not hold the cover.
+        if (sourceAppId.Contains("riotgames", StringComparison.OrdinalIgnoreCase) ||
+            sourceAppId.Contains("RiotClient", StringComparison.OrdinalIgnoreCase))
+            return true;
+
         fixed (char* pA = sourceAppId)
         {
             _ = vn_media_heuristics_is_ignored_source_app(pA, sourceAppId.Length, out byte ign);

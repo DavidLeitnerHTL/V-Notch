@@ -445,6 +445,9 @@ public sealed partial class AudioMixerService : IDisposable
     /// <summary>Active render endpoints without needing a mixer instance (settings pickers).</summary>
     public static List<AudioDeviceInfo> EnumerateOutputDevices() => ListDevices(RenderFlow, "AUDIOMIXER-DEVICES");
 
+    /// <summary>Active capture endpoints without a mixer instance (the controls tab's microphone row).</summary>
+    public static List<AudioDeviceInfo> EnumerateInputDevices() => ListDevices(CaptureFlow, "AUDIOMIXER-INDEVICES");
+
     public List<AudioDeviceInfo> GetOutputDevices()
     {
         lock (_enumLock) return ListDevices(RenderFlow, "AUDIOMIXER-DEVICES");
