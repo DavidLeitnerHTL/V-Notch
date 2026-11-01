@@ -335,8 +335,10 @@ internal static partial class BluetoothControl
 
     // Core Audio's map of a sound device: the endpoint (what the Sound settings list) is wired to the
     // driver's filter, and that filter answers the Bluetooth audio driver's properties.
-    [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")]
-    private class MMDeviceEnumerator { }
+    // Created by class id, not with a [ComImport] class: Windows hands out one enumerator, and a typed
+    // "new" fails with InvalidCastException once another part of the app (MicrophoneControl) wrapped it first.
+    private static readonly Type EnumeratorType =
+        Type.GetTypeFromCLSID(new Guid("BCDE0395-E52F-467C-8E3D-C4579291692E"), throwOnError: true)!;
 
     [ComImport, Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     private interface IMMDeviceEnumerator
@@ -440,7 +442,7 @@ internal static partial class BluetoothControl
     /// </summary>
     private static void ForEachFilter(Action<string, Guid, IPart> visit)
     {
-        var enumerator = (IMMDeviceEnumerator)new MMDeviceEnumerator();
+        var enumerator = (IMMDeviceEnumerator)Activator.CreateInstance(EnumeratorType)!;
         IMMDeviceCollection? devices = null;
         try
         {
@@ -477,7 +479,7 @@ internal static partial class BluetoothControl
         finally
         {
             Release(devices);
-            Marshal.ReleaseComObject(enumerator);
+            // The enumerator stays: the same one serves MicrophoneControl.
         }
     }
 

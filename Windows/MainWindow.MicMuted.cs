@@ -56,10 +56,26 @@ public partial class MainWindow
     internal static bool IsCallRecorder(string processName) =>
         processName.Length > 0 && !AlwaysRecordingApps.IsMatch(processName);
 
+    private DateTime _micPollErrorLoggedUtc = DateTime.MinValue;
+
     private void PollMicMute()
     {
-        bool muted = MicrophoneControl.IsMuted() == true;
-        bool inCall = muted && MicrophoneControl.ActiveRecorders().Select(ProcessName).Any(IsCallRecorder);
+        bool muted, inCall;
+        try
+        {
+            muted = MicrophoneControl.IsMuted() == true;
+            inCall = muted && MicrophoneControl.ActiveRecorders().Select(ProcessName).Any(IsCallRecorder);
+        }
+        catch (Exception ex)
+        {
+            // This runs every second on the UI thread: an audio API hiccup must never take the notch down.
+            if (DateTime.UtcNow - _micPollErrorLoggedUtc > TimeSpan.FromMinutes(1))
+            {
+                _micPollErrorLoggedUtc = DateTime.UtcNow;
+                RuntimeLog.Warn("MIC-MUTED", $"Mic check failed: {ex.GetType().Name}: {ex.Message}");
+            }
+            return;
+        }
         if (muted == _micMutedWindows && inCall == _micInCall) return;
         _micMutedWindows = muted;
         _micInCall = inCall;

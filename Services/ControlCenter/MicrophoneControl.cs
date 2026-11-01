@@ -15,10 +15,15 @@ internal static class MicrophoneControl
     private const int ClsCtxAll = 0x17;
     private static readonly Guid EndpointVolumeId = new("5CDF2C82-841E-4546-9722-0CF74078229A");
 
-    [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")]
-    private class MMDeviceEnumerator
-    {
-    }
+    private static readonly Type EnumeratorType =
+        Type.GetTypeFromCLSID(new Guid("BCDE0395-E52F-467C-8E3D-C4579291692E"), throwOnError: true)!;
+
+    /// <summary>
+    /// The device enumerator. Not "new MMDeviceEnumerator()": Windows hands out one enumerator, and when another
+    /// part of the app (BluetoothControl) wrapped it first, that new expression would get the other wrapper
+    /// type back and throw InvalidCastException. Casting to the interface works whatever the wrapper.
+    /// </summary>
+    private static object CreateEnumerator() => Activator.CreateInstance(EnumeratorType)!;
 
     [ComImport, Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     private interface IMMDeviceEnumerator
@@ -87,7 +92,7 @@ internal static class MicrophoneControl
         IMMDeviceCollection? devices = null;
         try
         {
-            enumerator = new MMDeviceEnumerator();
+            enumerator = CreateEnumerator();
             if (((IMMDeviceEnumerator)enumerator).EnumAudioEndpoints(DataFlowCapture, DeviceStateActive, out IntPtr collection) != 0 || collection == IntPtr.Zero)
                 return processes;
             devices = (IMMDeviceCollection)Marshal.GetObjectForIUnknown(collection);
@@ -134,7 +139,7 @@ internal static class MicrophoneControl
         finally
         {
             if (devices != null) Marshal.ReleaseComObject(devices);
-            if (enumerator != null) Marshal.ReleaseComObject(enumerator);
+            // The enumerator is not released: Windows hands the same one to BluetoothControl too.
         }
         return processes;
     }
@@ -193,7 +198,7 @@ internal static class MicrophoneControl
         IMMDevice? device = null;
         try
         {
-            enumerator = new MMDeviceEnumerator();
+            enumerator = CreateEnumerator();
             // No microphone plugged in: Windows answers "not found" here.
             if (((IMMDeviceEnumerator)enumerator).GetDefaultAudioEndpoint(DataFlowCapture, RoleConsole, out device) != 0 || device == null)
                 return null;
@@ -208,7 +213,7 @@ internal static class MicrophoneControl
         finally
         {
             if (device != null) Marshal.ReleaseComObject(device);
-            if (enumerator != null) Marshal.ReleaseComObject(enumerator);
+            // The enumerator is not released: Windows hands the same one to BluetoothControl too.
         }
     }
 }
