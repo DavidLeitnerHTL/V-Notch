@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
 namespace VNotch.Services.ControlCenter;
@@ -30,6 +31,112 @@ internal static class MicrophoneControl
     private interface IMMDevice
     {
         [PreserveSig] int Activate(ref Guid id, int context, IntPtr parameters, [MarshalAs(UnmanagedType.IUnknown)] out object endpoint);
+    }
+
+    [ComImport, Guid("0BD7A1BE-7A1A-44DB-8397-CC5392387B5E"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IMMDeviceCollection
+    {
+        [PreserveSig] int GetCount(out int count);
+        [PreserveSig] int Item(int index, out IMMDevice device);
+    }
+
+    [ComImport, Guid("77AA99A0-1BD6-484F-8BC7-2C654C9A9B6F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IAudioSessionManager2
+    {
+        [PreserveSig] int GetAudioSessionControl(IntPtr sessionGuid, int flags, out IntPtr control);
+        [PreserveSig] int GetSimpleAudioVolume(IntPtr sessionGuid, int flags, out IntPtr volume);
+        [PreserveSig] int GetSessionEnumerator(out IAudioSessionEnumerator sessions);
+    }
+
+    [ComImport, Guid("E2F5BB11-0570-40CA-ACDD-3AA01277DEE8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IAudioSessionEnumerator
+    {
+        [PreserveSig] int GetCount(out int count);
+        [PreserveSig] int GetSession(int index, out IAudioSessionControl2 session);
+    }
+
+    [ComImport, Guid("bfb7ff88-7239-4fc9-8fa2-07c950be9c6d"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IAudioSessionControl2
+    {
+        [PreserveSig] int GetState(out int state);
+        [PreserveSig] int GetDisplayName(out IntPtr name);
+        [PreserveSig] int SetDisplayName(IntPtr name, ref Guid context);
+        [PreserveSig] int GetIconPath(out IntPtr path);
+        [PreserveSig] int SetIconPath(IntPtr path, ref Guid context);
+        [PreserveSig] int GetGroupingParam(out Guid group);
+        [PreserveSig] int SetGroupingParam(ref Guid group, ref Guid context);
+        [PreserveSig] int RegisterAudioSessionNotification(IntPtr events);
+        [PreserveSig] int UnregisterAudioSessionNotification(IntPtr events);
+        [PreserveSig] int GetSessionIdentifier(out IntPtr id);
+        [PreserveSig] int GetSessionInstanceIdentifier(out IntPtr id);
+        [PreserveSig] int GetProcessId(out uint processId);
+    }
+
+    private const int DeviceStateActive = 1;
+    private const int AudioSessionStateActive = 1;
+    private static readonly Guid SessionManagerId = new("77AA99A0-1BD6-484F-8BC7-2C654C9A9B6F");
+
+    /// <summary>
+    /// The processes recording right now: an active capture session on any microphone, whether sound comes through
+    /// or not (a call keeps recording while the mic is muted; the signal just goes silent).
+    /// </summary>
+    public static List<int> ActiveRecorders()
+    {
+        var processes = new List<int>();
+        object? enumerator = null;
+        IMMDeviceCollection? devices = null;
+        try
+        {
+            enumerator = new MMDeviceEnumerator();
+            if (((IMMDeviceEnumerator)enumerator).EnumAudioEndpoints(DataFlowCapture, DeviceStateActive, out IntPtr collection) != 0 || collection == IntPtr.Zero)
+                return processes;
+            devices = (IMMDeviceCollection)Marshal.GetObjectForIUnknown(collection);
+            Marshal.Release(collection);
+            devices.GetCount(out int count);
+            for (int i = 0; i < count; i++)
+            {
+                if (devices.Item(i, out IMMDevice device) != 0) continue;
+                object? manager = null;
+                IAudioSessionEnumerator? sessions = null;
+                try
+                {
+                    var id = SessionManagerId;
+                    if (device.Activate(ref id, ClsCtxAll, IntPtr.Zero, out manager) != 0) continue;
+                    if (((IAudioSessionManager2)manager).GetSessionEnumerator(out sessions) != 0) continue;
+                    sessions.GetCount(out int sessionCount);
+                    for (int s = 0; s < sessionCount; s++)
+                    {
+                        if (sessions.GetSession(s, out IAudioSessionControl2 session) != 0) continue;
+                        try
+                        {
+                            if (session.GetState(out int state) == 0 && state == AudioSessionStateActive &&
+                                session.GetProcessId(out uint pid) == 0 && pid != 0 && !processes.Contains((int)pid))
+                                processes.Add((int)pid);
+                        }
+                        finally
+                        {
+                            Marshal.ReleaseComObject(session);
+                        }
+                    }
+                }
+                finally
+                {
+                    if (sessions != null) Marshal.ReleaseComObject(sessions);
+                    if (manager != null) Marshal.ReleaseComObject(manager);
+                    Marshal.ReleaseComObject(device);
+                }
+            }
+        }
+        catch (COMException ex)
+        {
+            RuntimeLog.Warn("CONTROL-CENTER", $"Recording sessions not readable: {ex.Message}");
+        }
+        finally
+        {
+            if (devices != null) Marshal.ReleaseComObject(devices);
+            if (enumerator != null) Marshal.ReleaseComObject(enumerator);
+        }
+        return processes;
     }
 
     [ComImport, Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]

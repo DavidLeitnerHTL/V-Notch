@@ -224,6 +224,9 @@ public partial class NotchSettings
     // Where the Pi tab's school rows lead: an assignment to its Moodle page, lessons and exams to Untis.
     public string SchoolMoodleUrl { get; set; } = "https://edufs.edu.htl-leonding.ac.at/moodle";
     public string SchoolUntisUrl { get; set; } = "https://htl-leonding.webuntis.com/today";
+    // Discord mute/deafen for the muted-mic warning: the id of the user's own Discord application ("Public
+    // Client" on, redirect http://127.0.0.1/callback). Empty leaves Discord out.
+    public string DiscordClientId { get; set; } = "";
     // A short Windows sound when a Claude Code turn ends or a session waits for the user; never over fullscreen.
     public bool PlayClaudeSounds { get; set; } = true;
     public string ClockPageStyle { get; set; } = "analog";

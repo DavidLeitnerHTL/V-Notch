@@ -38,15 +38,20 @@ public partial class MainWindow
         !_isAnimating &&
         !_isGreetingActive;
 
-    private bool IsPrivacyDotSuppressed => ShouldSuppressPrivacyDot(
+    /// <summary>Something else holds the dot's spot (an open notch, a pill, the audio view…).</summary>
+    private bool IsPrivacySpotTaken => ShouldSuppressPrivacyDot(
         IsCompactPillForPrivacyIndicator,
         _isAudioView,
         _isVolumeIndicatorActive,
         _isBluetoothNotificationVisible || _isClaudeNotificationVisible,
         _isClipboardPeekActive);
 
+    // A muted mic in a call takes the dot's place.
+    private bool IsPrivacyDotSuppressed => IsPrivacySpotTaken || _micMutedShown;
+
     private void SyncPrivacyDotVisibilityForCurrentView()
     {
+        ApplyMicMutedPresentation();
         if (!_privacyIndicatorsVisible) return;
 
         if (IsPrivacyDotSuppressed)
@@ -181,6 +186,7 @@ public partial class MainWindow
 
     private void SuppressPrivacyDot()
     {
+        ApplyMicMutedPresentation();
         if (!_privacyIndicatorsVisible) return;
 
         StopBreathingAnimation(PrivacyDot);
@@ -191,6 +197,7 @@ public partial class MainWindow
 
     private void RestorePrivacyDotVisibility()
     {
+        ApplyMicMutedPresentation();
         if (!_privacyIndicatorsVisible) return;
         if (IsPrivacyDotSuppressed) return;
 

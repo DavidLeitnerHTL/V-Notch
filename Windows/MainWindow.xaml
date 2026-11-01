@@ -27,6 +27,9 @@
 
     <Window.Resources>
 
+        <!-- A microphone struck through (24×24, drawn as strokes). -->
+        <StreamGeometry x:Key="MicMutedGeometry" po:Freeze="True">M12,3 A3,3 0 0 0 9,6 V11 A3,3 0 0 0 15,11 V6 A3,3 0 0 0 12,3 Z M6,11 A6,6 0 0 0 18,11 M12,17 V21 M8.5,21 H15.5 M4,4 L20,20</StreamGeometry>
+
         <ExponentialEase x:Key="CameraExitEase" EasingMode="EaseOut" Exponent="6" po:Freeze="True"/>
         <Storyboard x:Key="CameraPreviewExit" Duration="0:0:0.42">
             <DoubleAnimation Storyboard.TargetName="CameraPreviewImage" Storyboard.TargetProperty="Opacity"
@@ -1390,6 +1393,22 @@
                             </Border.RenderTransform>
                         </Border>
                     </StackPanel>
+
+                    <!-- In a call but muted (the mic itself, Windows, or Discord): a struck-out mic where the dot sits. -->
+                    <Viewbox x:Name="MicMutedGlyph"
+                             Width="11" Height="11"
+                             HorizontalAlignment="Right"
+                             VerticalAlignment="Top"
+                             Margin="0,9.2,25,0"
+                             Visibility="Collapsed"
+                             IsHitTestVisible="False"
+                             RenderTransformOrigin="0.5,0.5">
+                        <Viewbox.RenderTransform>
+                            <ScaleTransform x:Name="MicMutedGlyphScale" ScaleX="1" ScaleY="1"/>
+                        </Viewbox.RenderTransform>
+                        <Path Data="{StaticResource MicMutedGeometry}" Stroke="#FF453A" StrokeThickness="2.2"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                    </Viewbox>
 
                     <Grid x:Name="BluetoothNotification"
                           Opacity="0"
@@ -3537,6 +3556,24 @@
                   RenderOptions.EdgeMode="Unspecified"/>
         </Grid>
     </Grid>
+    <!-- A game in fullscreen hides the notch; a muted mic in a call still shows, as a small tab at the top edge.
+         Not clickable, nothing moves while it shows. -->
+    <Border x:Name="MicMutedTab"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            Width="38" Height="20"
+            CornerRadius="0,0,10,10"
+            Background="Black"
+            Visibility="Collapsed"
+            IsHitTestVisible="False">
+        <Border.RenderTransform>
+            <TranslateTransform x:Name="MicMutedTabSlide" Y="0"/>
+        </Border.RenderTransform>
+        <Viewbox Width="11" Height="11" Margin="0,0,0,1">
+            <Path Data="{StaticResource MicMutedGeometry}" Stroke="#FF453A" StrokeThickness="2.2"
+                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+        </Viewbox>
+    </Border>
 </Grid>
     </AdornerDecorator>
 </Window>

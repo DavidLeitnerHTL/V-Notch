@@ -1005,6 +1005,8 @@ public partial class MainWindow : Window
 
         int gen = ++_fullscreenSlideGeneration;
         _fullscreenSlideVisible = shouldBeVisible;
+        // A muted mic in a call stays visible as a tab while a fullscreen app hides the notch.
+        ApplyMicMutedPresentation();
         _isFullscreenSlideAnimating = true;
 
         double slideDistance = NotchBorder.ActualHeight > 0 ? NotchBorder.ActualHeight + 10 : _collapsedHeight + 10;
