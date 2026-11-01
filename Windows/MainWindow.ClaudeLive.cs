@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -21,7 +22,9 @@ public partial class MainWindow
     private const int ClaudeLiveFps = 30;
 
     private ClaudeSession? _claudeLiveSession;
-    private (ClaudeSessionStatus Status, bool Big)? _claudeLiveMotion;
+    private List<ClaudeSession> _claudeLiveSessions = new();
+    private ClaudeSessionStatus? _bigStarMotion;
+    private ClaudeSessionStatus? _orbStarMotion;
     private DispatcherTimer? _claudeLiveClock;
 
     private static Brush FrozenBrush(byte r, byte g, byte b)
@@ -31,32 +34,34 @@ public partial class MainWindow
         return brush;
     }
 
+    /// <summary>
+    /// The live sessions, most pressing first: those waiting for you (longest waiting first), then those at work
+    /// (longest working first). The first is the one the notch shows.
+    /// </summary>
+    internal static List<ClaudeSession> LiveSessions(IEnumerable<ClaudeSession> sessions) => sessions
+        .Where(s => s.Status is ClaudeSessionStatus.Waiting or ClaudeSessionStatus.Working)
+        .OrderBy(s => s.Status == ClaudeSessionStatus.Waiting ? 0 : 1)
+        .ThenBy(s => s.TurnStartedUtc ?? DateTime.MaxValue)
+        .ThenBy(s => s.Id, StringComparer.Ordinal)
+        .ToList();
+
     /// <summary>The session the closed notch shows: one that waits for you, else the one working longest.</summary>
-    internal static ClaudeSession? PickLiveSession(List<ClaudeSession> sessions)
-    {
-        ClaudeSession? working = null;
-        foreach (var session in sessions)
-        {
-            if (session.Status == ClaudeSessionStatus.Waiting) return session;
-            if (session.Status != ClaudeSessionStatus.Working) continue;
-            if (working == null || (session.TurnStartedUtc ?? DateTime.MaxValue) < (working.TurnStartedUtc ?? DateTime.MaxValue))
-                working = session;
-        }
-        return working;
-    }
+    internal static ClaudeSession? PickLiveSession(List<ClaudeSession> sessions) => LiveSessions(sessions).FirstOrDefault();
+
+    internal static Brush ClaudeStarBrush(ClaudeSession session) =>
+        session.Status == ClaudeSessionStatus.Waiting ? ClaudeLiveWaitingBrush : ClaudeLiveWorkingBrush;
 
     private void UpdateClaudeLive()
     {
         if (_claudeTracker == null || _cleanedUp) return;
-        var session = PickLiveSession(_claudeTracker.GetSessions());
+        _claudeLiveSessions = LiveSessions(_claudeTracker.GetSessions());
+        var session = _claudeLiveSessions.FirstOrDefault();
         _claudeLiveSession = session;
 
         if (session != null)
         {
             bool waiting = session.Status == ClaudeSessionStatus.Waiting;
-            Brush brush = waiting ? ClaudeLiveWaitingBrush : ClaudeLiveWorkingBrush;
-            ClaudeLiveStar.Fill = brush;
-            ClaudeLiveBadgeStar.Fill = brush;
+            ClaudeLiveStar.Fill = ClaudeStarBrush(session);
             ClaudeLiveStatus.Foreground = waiting ? ClaudeLiveWaitingBrush : ClaudeLiveStatusShimmer;
             ShowClaudeLiveStatus(Loc.Get(ClaudeLiveStatusKey(session)));
             UpdateClaudeLiveText();
@@ -144,18 +149,18 @@ public partial class MainWindow
     private void ClaudeLive_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e) => ApplyClaudeLiveMotion();
 
     /// <summary>
-    /// Turns the star while Claude works and pulses it while it waits, but only while one of the stars is on
-    /// screen: hidden behind a fullscreen app or an open notch, nothing ticks.
+    /// Turns a star while its session works and pulses it while it waits, but only while that star is on screen:
+    /// hidden behind a fullscreen app or an open notch, nothing ticks. The big star in the notch and the small
+    /// one in the orb can both show (several sessions) and move on their own.
     /// </summary>
     private void ApplyClaudeLiveMotion()
     {
-        // Only the star on screen moves: the big one in the notch, or the small one in the orb beside it.
-        bool big = ClaudeLive.IsVisible;
+        bool big = ClaudeLive.IsVisible && _claudeLiveSession != null;
         bool inBubble = _bubbleShown && _bubbleActivity == LiveActivity.Claude && ActivityBubble.IsVisible;
-        bool onScreen = big || inBubble;
-        (ClaudeSessionStatus Status, bool Big)? motion = onScreen && _claudeLiveSession != null ? (_claudeLiveSession.Status, big) : null;
+        ClaudeSession? orbSession = inBubble && _bubbleClaudeSessions.Count > 0 ? _bubbleClaudeSessions[0] : null;
 
-        if ((big || (inBubble && _bubbleOpen)) && _claudeLiveSession?.Status is ClaudeSessionStatus.Working or ClaudeSessionStatus.Waiting)
+        // The clock only runs while a time is on screen.
+        if (big || (orbSession != null && _bubbleOpen))
         {
             _claudeLiveClock ??= CreateClaudeLiveClock();
             _claudeLiveClock.Start();
@@ -165,28 +170,31 @@ public partial class MainWindow
             _claudeLiveClock?.Stop();
         }
 
-        if (motion == _claudeLiveMotion) return;
-        _claudeLiveMotion = motion;
-        foreach (var rotate in new[] { ClaudeLiveStarRotate, ClaudeLiveBadgeRotate })
-            rotate.BeginAnimation(RotateTransform.AngleProperty, null);
-        ClaudeLiveStatusShine.BeginAnimation(TranslateTransform.XProperty, null);
-        foreach (var scale in new[] { ClaudeLiveStarScale, ClaudeLiveBadgeScale })
+        ClaudeSessionStatus? bigMotion = big ? _claudeLiveSession!.Status : null;
+        if (bigMotion != _bigStarMotion)
         {
-            scale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-            scale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+            _bigStarMotion = bigMotion;
+            AnimateBigStar(bigMotion);
         }
-        if (motion is not { } m || AnimationConfig.ReduceMotion) return;
-
-        if (m.Status == ClaudeSessionStatus.Working)
+        // In the open list the rows carry the stars; the orb's own is faded out and rests.
+        ClaudeSessionStatus? orbMotion = orbSession != null && !_bubbleListMode ? orbSession.Status : null;
+        if (orbMotion != _orbStarMotion)
         {
-            var spin = new DoubleAnimation(0, 360, new Duration(TimeSpan.FromSeconds(2.4))) { RepeatBehavior = RepeatBehavior.Forever };
-            Timeline.SetDesiredFrameRate(spin, ClaudeLiveFps);
-            if (!m.Big)
-            {
-                ClaudeLiveBadgeRotate.BeginAnimation(RotateTransform.AngleProperty, spin);
-                return;
-            }
-            ClaudeLiveStarRotate.BeginAnimation(RotateTransform.AngleProperty, spin);
+            _orbStarMotion = orbMotion;
+            AnimateOrbStar(orbMotion);
+        }
+    }
+
+    private void AnimateBigStar(ClaudeSessionStatus? status)
+    {
+        ClaudeLiveStarRotate.BeginAnimation(RotateTransform.AngleProperty, null);
+        ClaudeLiveStatusShine.BeginAnimation(TranslateTransform.XProperty, null);
+        Scale(ClaudeLiveStarScale, null);
+        if (status == null || AnimationConfig.ReduceMotion) return;
+
+        if (status == ClaudeSessionStatus.Working)
+        {
+            ClaudeLiveStarRotate.BeginAnimation(RotateTransform.AngleProperty, ClaudeLiveSpin());
             // At cover size a bare spin reads as a loading wheel; a slow breath makes it feel alive.
             Scale(ClaudeLiveStarScale, ClaudeLivePulse(0.86, 1200));
             // A light sweeps over the status word, then rests a moment before the next pass.
@@ -198,18 +206,33 @@ public partial class MainWindow
             Timeline.SetDesiredFrameRate(sweep, ClaudeLiveFps);
             ClaudeLiveStatusShine.BeginAnimation(TranslateTransform.XProperty, sweep);
         }
-        else if (m.Status == ClaudeSessionStatus.Waiting)
+        else if (status == ClaudeSessionStatus.Waiting)
         {
             // The big star stays inside the notch: 22 px may only grow a little.
-            if (m.Big) Scale(ClaudeLiveStarScale, ClaudeLivePulse(1.12, 650));
-            else Scale(ClaudeLiveBadgeScale, ClaudeLivePulse(1.3, 650));
+            Scale(ClaudeLiveStarScale, ClaudeLivePulse(1.12, 650));
         }
+    }
 
-        static void Scale(ScaleTransform scale, DoubleAnimation pulse)
-        {
-            scale.BeginAnimation(ScaleTransform.ScaleXProperty, pulse);
-            scale.BeginAnimation(ScaleTransform.ScaleYProperty, pulse);
-        }
+    private void AnimateOrbStar(ClaudeSessionStatus? status)
+    {
+        ClaudeLiveBadgeRotate.BeginAnimation(RotateTransform.AngleProperty, null);
+        Scale(ClaudeLiveBadgeScale, null);
+        if (status == null || AnimationConfig.ReduceMotion) return;
+        if (status == ClaudeSessionStatus.Working) ClaudeLiveBadgeRotate.BeginAnimation(RotateTransform.AngleProperty, ClaudeLiveSpin());
+        else if (status == ClaudeSessionStatus.Waiting) Scale(ClaudeLiveBadgeScale, ClaudeLivePulse(1.3, 650));
+    }
+
+    private static DoubleAnimation ClaudeLiveSpin()
+    {
+        var spin = new DoubleAnimation(0, 360, new Duration(TimeSpan.FromSeconds(2.4))) { RepeatBehavior = RepeatBehavior.Forever };
+        Timeline.SetDesiredFrameRate(spin, ClaudeLiveFps);
+        return spin;
+    }
+
+    private static void Scale(ScaleTransform scale, DoubleAnimation? pulse)
+    {
+        scale.BeginAnimation(ScaleTransform.ScaleXProperty, pulse);
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty, pulse);
     }
 
     private static DoubleAnimation ClaudeLivePulse(double to, int milliseconds)

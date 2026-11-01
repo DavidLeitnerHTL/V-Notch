@@ -1,4 +1,5 @@
-using System;
+﻿using System;
+using System.Linq;
 using VNotch.Services;
 using VNotch.Services.ClaudeCode;
 using Xunit;
@@ -30,6 +31,38 @@ public class LiveActivitiesTests
         ClaudeSessionStatus? status = claude == null ? null : Enum.Parse<ClaudeSessionStatus>(claude);
         var (actualMain, actualBubble) = LiveActivities.Arrange(music, status, countdown);
         Assert.Equal((main, bubble), (actualMain.ToString(), actualBubble.ToString()));
+    }
+
+    [Theory]
+    // Several Claude sessions: with Claude in the notch and nothing else live, the others take the orb.
+    [InlineData(false, "Working", false, "Claude", "Claude")]
+    [InlineData(false, "Waiting", false, "Claude", "Claude")]
+    // Something else ranks higher for the orb: it keeps it (the other sessions wait behind).
+    [InlineData(true, "Waiting", false, "Claude", "Music")]
+    [InlineData(false, "Working", true, "Claude", "Countdown")]
+    // Music in the notch: the orb holds all the sessions anyway.
+    [InlineData(true, "Working", false, "Music", "Claude")]
+    public void OtherClaudeSessionsTakeAFreeOrb(bool music, string claude, bool countdown, string main, string bubble)
+    {
+        var (actualMain, actualBubble) = LiveActivities.Arrange(music, Enum.Parse<ClaudeSessionStatus>(claude), countdown, moreClaude: true);
+        Assert.Equal((main, bubble), (actualMain.ToString(), actualBubble.ToString()));
+    }
+
+    [Fact]
+    public void LiveSessionsPutWhoWaitsFirstThenWhoWorksLongest()
+    {
+        var now = DateTime.UtcNow;
+        ClaudeSession S(string id, ClaudeSessionStatus status, int minutesAgo) =>
+            new() { Id = id, Status = status, TurnStartedUtc = now.AddMinutes(-minutesAgo) };
+        var ordered = MainWindow.LiveSessions(new[]
+        {
+            S("short", ClaudeSessionStatus.Working, 1),
+            S("idle", ClaudeSessionStatus.Idle, 30),
+            S("waits", ClaudeSessionStatus.Waiting, 2),
+            S("long", ClaudeSessionStatus.Working, 9),
+            S("done", ClaudeSessionStatus.Done, 5)
+        });
+        Assert.Equal(new[] { "waits", "long", "short" }, ordered.Select(s => s.Id));
     }
 
     [Theory]

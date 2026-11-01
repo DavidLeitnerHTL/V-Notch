@@ -18,7 +18,9 @@ internal enum LiveActivity
 /// </summary>
 internal static class LiveActivities
 {
-    public static (LiveActivity Main, LiveActivity Bubble) Arrange(bool music, ClaudeSessionStatus? claude, bool countdown)
+    /// <param name="moreClaude">More than one Claude Code session is live: with Claude in the notch and nothing
+    /// else in the orb, the other sessions take the orb.</param>
+    public static (LiveActivity Main, LiveActivity Bubble) Arrange(bool music, ClaudeSessionStatus? claude, bool countdown, bool moreClaude = false)
     {
         // Highest first.
         var ranked = new LiveActivity[3];
@@ -42,6 +44,7 @@ internal static class LiveActivities
             bubble = ranked[i];
             break;
         }
+        if (bubble == LiveActivity.None && main == LiveActivity.Claude && moreClaude) bubble = LiveActivity.Claude;
         return (main, bubble);
     }
 }

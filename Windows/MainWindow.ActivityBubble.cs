@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
@@ -36,6 +39,9 @@ public partial class MainWindow
     private int _bubbleToken;
     private DispatcherTimer? _bubbleCloseTimer;
     private bool _bubbleMusicSpinning;
+    // The Claude sessions the orb stands for: all of them with music in the notch, the rest with Claude there.
+    private List<ClaudeSession> _bubbleClaudeSessions = new();
+    private bool _bubbleListMode;
 
     private bool IsCountdownLive => CountdownWidget?.Controller.IsRunning == true;
 
@@ -50,8 +56,11 @@ public partial class MainWindow
     {
         if (_cleanedUp) return;
         bool music = MediaDisplayController.ShouldBeCompactMode(info);
-        var (main, bubble) = LiveActivities.Arrange(music, _claudeLiveSession?.Status, IsCountdownLive);
+        var live = _claudeLiveSessions;
+        var (main, bubble) = LiveActivities.Arrange(music, _claudeLiveSession?.Status, IsCountdownLive, moreClaude: live.Count > 1);
         _mainActivity = main;
+        _bubbleClaudeSessions = bubble != LiveActivity.Claude ? new()
+            : main == LiveActivity.Claude ? live.Skip(1).ToList() : live.ToList();
         ClaudeLive.Visibility = main == LiveActivity.Claude ? Visibility.Visible : Visibility.Collapsed;
 
         bool holds = main == LiveActivity.Claude && music;
@@ -139,8 +148,8 @@ public partial class MainWindow
         Math.Max(BubbleSize, Math.Min(BubbleOpenWidth, NotchContainer.ActualWidth - BubbleAnchor.X - 6));
 
     private void ActivityBubble_SizeChanged(object sender, SizeChangedEventArgs e) =>
-        // Always a perfect pill, whatever size the spring has it at.
-        ActivityBubble.CornerRadius = new CornerRadius(e.NewSize.Height / 2);
+        // A perfect pill whatever size the spring has it at; the taller list keeps the pill's corners.
+        ActivityBubble.CornerRadius = new CornerRadius(Math.Min(e.NewSize.Height / 2, BubbleOpenHeight / 2));
 
     #endregion
 
@@ -180,13 +189,15 @@ public partial class MainWindow
         Brush subtitleBrush = BubbleMuted;
         switch (_bubbleActivity)
         {
-            case LiveActivity.Claude when _claudeLiveSession is { } session:
+            case LiveActivity.Claude when _bubbleClaudeSessions.Count > 0 && _bubbleClaudeSessions[0] is var session:
                 title = session.Name;
                 subtitle = session.Status == ClaudeSessionStatus.Working && session.Activity is { Length: > 0 } activity
                     ? activity
                     : Loc.Get(ClaudeLiveStatusKey(session));
                 if (session.Status == ClaudeSessionStatus.Waiting) subtitleBrush = ClaudeLiveWaitingBrush;
                 trailing = ControlCenterView.FormatElapsed(DateTime.UtcNow - (session.TurnStartedUtc ?? DateTime.UtcNow));
+                // The orb's star takes the colour of the session it leads with (yellow: one waits for you).
+                ClaudeLiveBadgeStar.Fill = ClaudeStarBrush(session);
                 break;
             case LiveActivity.Music when _currentMediaInfo is { } media:
                 title = media.CurrentTrack;
@@ -203,6 +214,8 @@ public partial class MainWindow
         BubbleSubtitle.Foreground = subtitleBrush;
         BubbleSubtitle.Visibility = subtitle.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         BubbleTrailing.Text = trailing;
+        UpdateBubbleClaudeCount();
+        if (_bubbleListMode) UpdateBubbleList(animate: false);
         ApplyBubbleMusicSpin();
     }
 
@@ -287,7 +300,7 @@ public partial class MainWindow
         int token = ++_bubbleToken;
         _bubbleCloseTimer?.Stop();
         if (ActivityBubble.Visibility != Visibility.Visible) return;
-        if (_bubbleOpen) HideBubbleDetail(fast: true);
+        if (_bubbleOpen && !_bubbleListMode) HideBubbleDetail(fast: true);
         _bubbleOpen = false;
 
         if (AnimationConfig.ReduceMotion || !ActivityBubble.IsVisible)
@@ -377,6 +390,11 @@ public partial class MainWindow
     private void OpenBubble()
     {
         if (_bubbleOpen || !_bubbleShown) return;
+        if (_bubbleActivity == LiveActivity.Claude && _bubbleClaudeSessions.Count > 1)
+        {
+            OpenBubbleList();
+            return;
+        }
         _bubbleOpen = true;
         UpdateBubbleContent();
         ApplyClaudeLiveMotion();
@@ -416,6 +434,11 @@ public partial class MainWindow
     private void CloseBubble()
     {
         if (!_bubbleOpen) return;
+        if (_bubbleListMode)
+        {
+            CloseBubbleList();
+            return;
+        }
         _bubbleOpen = false;
         _bubbleCloseTimer?.Stop();
         HideBubbleDetail(fast: false);
@@ -457,6 +480,11 @@ public partial class MainWindow
     private void ResetBubbleShape()
     {
         _bubbleOpen = false;
+        _bubbleListMode = false;
+        BubbleList.BeginAnimation(OpacityProperty, null);
+        BubbleList.Children.Clear();
+        BubbleList.Visibility = Visibility.Collapsed;
+        _bubbleListRows.Clear();
         ActivityBubble.BeginAnimation(WidthProperty, null);
         ActivityBubble.BeginAnimation(HeightProperty, null);
         ActivityBubble.Width = ActivityBubble.Height = BubbleSize;
@@ -529,6 +557,219 @@ public partial class MainWindow
 
     #endregion
 
+    #region Several Claude sessions
+
+    private const double BubbleRowHeight = 32;
+    private const int BubbleMaxRows = 5;
+    private readonly List<(string Id, System.Windows.Shapes.Path Star, TextBlock Name, TextBlock Status, TextBlock Time)> _bubbleListRows = new();
+    private int _bubbleShownCount;
+
+    /// <summary>On the closed orb, how many sessions it stands for (from two on); pops when the number changes.</summary>
+    private void UpdateBubbleClaudeCount()
+    {
+        int count = _bubbleActivity == LiveActivity.Claude ? _bubbleClaudeSessions.Count : 0;
+        bool show = count > 1 && !_bubbleListMode;
+        BubbleCountBadge.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        if (!show)
+        {
+            _bubbleShownCount = 0;
+            return;
+        }
+        BubbleCountText.Text = count > 9 ? "9+" : count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (count == _bubbleShownCount) return;
+        _bubbleShownCount = count;
+        if (AnimationConfig.ReduceMotion || !ActivityBubble.IsVisible) return;
+        var pop = Keys(TimeSpan.FromMilliseconds(360), (0, 0.3), (0.45, 1.25), (1, 1));
+        BubbleCountBadgeScale.BeginAnimation(ScaleTransform.ScaleXProperty, pop);
+        BubbleCountBadgeScale.BeginAnimation(ScaleTransform.ScaleYProperty, pop);
+    }
+
+    private double BubbleListHeight(int rows) =>
+        BubbleList.Margin.Top + BubbleList.Margin.Bottom + Math.Min(rows, BubbleMaxRows) * BubbleRowHeight;
+
+    /// <summary>
+    /// The orb opens into a list, one row per session: it grows on a soft spring while its own star fades,
+    /// and the rows slide in one after another.
+    /// </summary>
+    private void OpenBubbleList()
+    {
+        _bubbleOpen = true;
+        _bubbleListMode = true;
+        BubbleCountBadge.Visibility = Visibility.Collapsed;
+        UpdateBubbleList(animate: true);
+        ApplyClaudeLiveMotion();
+
+        var spring = new BackEase { Amplitude = 0.28, EasingMode = EasingMode.EaseOut };
+        var grow = new DoubleAnimation(BubbleOpenTargetWidth(), new Duration(TimeSpan.FromMilliseconds(520))) { EasingFunction = spring };
+        var tall = new DoubleAnimation(BubbleListHeight(_bubbleClaudeSessions.Count), new Duration(TimeSpan.FromMilliseconds(500))) { EasingFunction = spring };
+        var starOut = new DoubleAnimation(0, new Duration(TimeSpan.FromMilliseconds(140)));
+        Fps(grow);
+        Fps(tall);
+        Fps(starOut);
+        ActivityBubble.BeginAnimation(WidthProperty, grow);
+        ActivityBubble.BeginAnimation(HeightProperty, tall);
+        BubbleIcon.BeginAnimation(OpacityProperty, starOut);
+        ScheduleBubbleClose(ActivityBubble.IsMouseOver ? null : BubbleUntouched);
+    }
+
+    /// <summary>The rows fade first, then the list draws back into the orb and its star returns.</summary>
+    private void CloseBubbleList()
+    {
+        _bubbleOpen = false;
+        _bubbleCloseTimer?.Stop();
+        int token = _bubbleToken;
+        var fade = new DoubleAnimation(0, new Duration(TimeSpan.FromMilliseconds(110)));
+        Fps(fade);
+        fade.Completed += (_, _) =>
+        {
+            if (token != _bubbleToken || _bubbleOpen) return;
+            BubbleList.Visibility = Visibility.Collapsed;
+            BubbleList.Children.Clear();
+            _bubbleListRows.Clear();
+        };
+        BubbleList.BeginAnimation(OpacityProperty, fade);
+
+        var ease = new ExponentialEase { Exponent = 5, EasingMode = EasingMode.EaseOut };
+        var duration = new Duration(TimeSpan.FromMilliseconds(440));
+        var begin = TimeSpan.FromMilliseconds(70);
+        var narrow = new DoubleAnimation(BubbleSize, duration) { EasingFunction = ease, BeginTime = begin };
+        var starIn = new DoubleAnimation(1, new Duration(TimeSpan.FromMilliseconds(240))) { BeginTime = TimeSpan.FromMilliseconds(220) };
+        Fps(narrow);
+        Fps(starIn);
+        ActivityBubble.BeginAnimation(WidthProperty, narrow);
+        ActivityBubble.BeginAnimation(HeightProperty, narrow);
+        BubbleIcon.BeginAnimation(OpacityProperty, starIn);
+        _bubbleListMode = false;
+        UpdateBubbleClaudeCount();
+        ApplyClaudeLiveMotion();
+    }
+
+    /// <summary>One row per session; rebuilt when the set changes, otherwise only the words and times move.</summary>
+    private void UpdateBubbleList(bool animate)
+    {
+        var sessions = _bubbleClaudeSessions.Take(BubbleMaxRows).ToList();
+        bool sameSet = sessions.Count == _bubbleListRows.Count &&
+                       sessions.Select(s => s.Id).SequenceEqual(_bubbleListRows.Select(r => r.Id));
+        if (!sameSet)
+        {
+            BubbleList.Children.Clear();
+            _bubbleListRows.Clear();
+            for (int i = 0; i < sessions.Count; i++)
+            {
+                var row = BuildBubbleRow(sessions[i]);
+                BubbleList.Children.Add(row);
+                if (animate && !AnimationConfig.ReduceMotion) SlideRowIn(row, i);
+            }
+            if (_bubbleOpen && !animate)
+            {
+                var tall = new DoubleAnimation(BubbleListHeight(sessions.Count), new Duration(TimeSpan.FromMilliseconds(300)))
+                {
+                    EasingFunction = new ExponentialEase { Exponent = 5, EasingMode = EasingMode.EaseOut }
+                };
+                Fps(tall);
+                ActivityBubble.BeginAnimation(HeightProperty, tall);
+            }
+        }
+        for (int i = 0; i < sessions.Count; i++)
+        {
+            var session = sessions[i];
+            var row = _bubbleListRows[i];
+            row.Star.Fill = ClaudeStarBrush(session);
+            row.Name.Text = session.Name;
+            row.Status.Text = session.Status == ClaudeSessionStatus.Working && session.Activity is { Length: > 0 } activity
+                ? activity
+                : Loc.Get(ClaudeLiveStatusKey(session));
+            row.Status.Foreground = session.Status == ClaudeSessionStatus.Waiting ? ClaudeLiveWaitingBrush : BubbleMuted;
+            row.Time.Text = ControlCenterView.FormatElapsed(DateTime.UtcNow - (session.TurnStartedUtc ?? DateTime.UtcNow));
+        }
+        BubbleList.BeginAnimation(OpacityProperty, null);
+        BubbleList.Opacity = 1;
+        BubbleList.Visibility = Visibility.Visible;
+    }
+
+    private FrameworkElement BuildBubbleRow(ClaudeSession session)
+    {
+        var star = new System.Windows.Shapes.Path { Data = ClaudeGlyph.Data, Stretch = Stretch.Uniform, Width = 14, Height = 14, VerticalAlignment = VerticalAlignment.Center };
+        var name = new TextBlock
+        {
+            Foreground = UiPalette.PrimaryBrush, FontSize = 12, FontWeight = FontWeights.SemiBold,
+            FontFamily = (FontFamily)FindResource("MainSystemFont"), TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        var status = new TextBlock
+        {
+            FontSize = 10.5, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 0),
+            FontFamily = (FontFamily)FindResource("MainSystemFont"), TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        var time = new TextBlock
+        {
+            Foreground = new SolidColorBrush(Color.FromArgb(0xB3, 0xFF, 0xFF, 0xFF)), FontSize = 11, FontWeight = FontWeights.SemiBold,
+            FontFamily = (FontFamily)FindResource("MainSystemFont"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 4, 0)
+        };
+        var words = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(9, 0, 0, 0) };
+        words.Children.Add(name);
+        words.Children.Add(status);
+
+        var grid = new Grid { Height = BubbleRowHeight, Background = Brushes.Transparent, Cursor = Cursors.Hand };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var starBox = new Border { Width = 22, Child = star };
+        grid.Children.Add(starBox);
+        Grid.SetColumn(words, 1);
+        grid.Children.Add(words);
+        Grid.SetColumn(time, 2);
+        grid.Children.Add(time);
+
+        // A light wash under the pointer, a press, then straight to that session's terminal.
+        var row = new Border { CornerRadius = new CornerRadius(10), Child = grid, RenderTransformOrigin = new Point(0.5, 0.5) };
+        var press = new ScaleTransform(1, 1);
+        var slide = new TranslateTransform();
+        row.RenderTransform = new TransformGroup { Children = { press, slide } };
+        row.MouseEnter += (_, _) => row.Background = new SolidColorBrush(Color.FromArgb(0x1C, 0xFF, 0xFF, 0xFF));
+        row.MouseLeave += (_, _) => row.Background = null;
+        row.MouseLeftButtonDown += (_, e) =>
+        {
+            e.Handled = true;
+            var down = new DoubleAnimation(0.96, new Duration(TimeSpan.FromMilliseconds(80)));
+            press.BeginAnimation(ScaleTransform.ScaleXProperty, down);
+            press.BeginAnimation(ScaleTransform.ScaleYProperty, down);
+        };
+        string id = session.Id;
+        row.MouseLeftButtonUp += (_, e) =>
+        {
+            e.Handled = true;
+            press.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+            press.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+            var target = _bubbleClaudeSessions.FirstOrDefault(s => s.Id == id);
+            CloseBubble();
+            if (target == null || !ClaudeSessionWindow.TryActivate(target.Id, target.Title))
+                _transitionCoordinator.RequestView(NotchView.Claude, "ActivityBubbleList");
+        };
+        _bubbleListRows.Add((id, star, name, status, time));
+        return row;
+    }
+
+    /// <summary>Each row slides in from the left out of nothing, a beat after the one above.</summary>
+    private static void SlideRowIn(FrameworkElement row, int index)
+    {
+        var begin = TimeSpan.FromMilliseconds(120 + index * 55);
+        var fade = new DoubleAnimation(0, 1, new Duration(TimeSpan.FromMilliseconds(260))) { BeginTime = begin, FillBehavior = FillBehavior.Stop };
+        var slide = new DoubleAnimation(-10, 0, new Duration(TimeSpan.FromMilliseconds(420)))
+        {
+            BeginTime = begin,
+            EasingFunction = new ExponentialEase { Exponent = 6, EasingMode = EasingMode.EaseOut }
+        };
+        Fps(fade);
+        Fps(slide);
+        row.Opacity = 0;
+        fade.Completed += (_, _) => row.Opacity = 1;
+        row.BeginAnimation(OpacityProperty, fade);
+        if (row.RenderTransform is TransformGroup { Children: [_, TranslateTransform translate] })
+            translate.BeginAnimation(TranslateTransform.XProperty, slide);
+    }
+
+    #endregion
+
     #region Input
 
     private void ActivityBubble_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -547,11 +788,14 @@ public partial class MainWindow
             OpenBubble();
             return;
         }
+        // In the list a row takes the tap; beside the rows it just closes.
+        bool list = _bubbleListMode;
         CloseBubble();
+        if (list) return;
         switch (_bubbleActivity)
         {
             case LiveActivity.Claude:
-                if (_claudeLiveSession is not { } session || !ClaudeSessionWindow.TryActivate(session.Id, session.Title))
+                if (_bubbleClaudeSessions.FirstOrDefault() is not { } session || !ClaudeSessionWindow.TryActivate(session.Id, session.Title))
                     _transitionCoordinator.RequestView(NotchView.Claude, "ActivityBubble");
                 break;
             case LiveActivity.Music:

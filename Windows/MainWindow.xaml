@@ -580,6 +580,33 @@
                                    VerticalAlignment="Center"
                                    Margin="10,0,0,0"/>
                     </Grid>
+                    <!-- Several Claude sessions: how many, on the closed orb. -->
+                    <Border x:Name="BubbleCountBadge"
+                            Width="13" Height="13"
+                            CornerRadius="6.5"
+                            Background="#F2F2F7"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Margin="19,4,0,0"
+                            Visibility="Collapsed"
+                            IsHitTestVisible="False"
+                            RenderTransformOrigin="0.5,0.5">
+                        <Border.RenderTransform>
+                            <ScaleTransform x:Name="BubbleCountBadgeScale" ScaleX="1" ScaleY="1"/>
+                        </Border.RenderTransform>
+                        <TextBlock x:Name="BubbleCountText"
+                                   Foreground="Black"
+                                   FontSize="8.5" FontWeight="Bold"
+                                   FontFamily="{StaticResource MainSystemFont}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Margin="0,-1,0,0"/>
+                    </Border>
+                    <!-- Opened with several sessions: one row each, tap one to go to its terminal. -->
+                    <StackPanel x:Name="BubbleList"
+                                Margin="8,7,8,7"
+                                VerticalAlignment="Top"
+                                Visibility="Collapsed"/>
                 </Grid>
             </Border>
 
