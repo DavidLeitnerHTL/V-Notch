@@ -88,8 +88,6 @@ public partial class MainWindow
         _isAnimating = true;
         SuppressPrivacyDot();
         SuspendSpotifyCanvasLifecycle();
-        _lastViewSwitchUtc = DateTime.UtcNow;
-        _isScrollSessionLocked = true;
 
         if (fromSecondary)
         {
@@ -204,8 +202,6 @@ public partial class MainWindow
         StopAudioPoll();
         AudioContent.ReleaseSessionCache();
         _isAnimating = true;
-        _lastViewSwitchUtc = DateTime.UtcNow;
-        _isScrollSessionLocked = true;
 
         UpdateNavIconsActiveState();
         NavIconsBackground.BeginAnimation(OpacityProperty, null);
@@ -258,8 +254,6 @@ public partial class MainWindow
         AudioContent.ReleaseSessionCache();
         _isTimerView = true;
         _isAnimating = true;
-        _lastViewSwitchUtc = DateTime.UtcNow;
-        _isScrollSessionLocked = true;
 
         UpdateTimerNavIconsState();
 
@@ -418,7 +412,6 @@ public partial class MainWindow
                 if (activeGen != _viewTransitionGeneration) return;
                 // activeGen checked above.
                 _isAnimating = false;
-                _isScrollSessionLocked = false;
                 NotchBorder.IsHitTestVisible = true;
                 incoming.Opacity = 1;
                 incoming.BeginAnimation(OpacityProperty, null);
@@ -468,7 +461,6 @@ public partial class MainWindow
                 if (activeGen != _viewTransitionGeneration) return;
                 // activeGen checked above.
                 _isAnimating = false;
-                _isScrollSessionLocked = false;
                 NotchBorder.IsHitTestVisible = true;
                 incoming.Opacity = 1;
                 incoming.BeginAnimation(OpacityProperty, null);

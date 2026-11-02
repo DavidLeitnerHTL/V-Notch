@@ -40,7 +40,6 @@ public sealed class MainWindowCountdownCompletionTests
         Assert.True(window.SettingsButton.IsHitTestVisible);
         Assert.Null(window.TimerContent.RenderTransform);
         Assert.True(window.NotchBorder.IsHitTestVisible);
-        Assert.False(Get<bool>(window, "_isScrollSessionLocked"));
         Assert.True(timer.Remaining > TimeSpan.Zero);
         Assert.False(Get<bool>(window, "_isCountdownCompleteVisible"));
         timer.Pause();

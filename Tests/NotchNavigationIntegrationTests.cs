@@ -43,7 +43,7 @@ public sealed class NotchNavigationIntegrationTests
             await StartAsync(window, ct);
             var coordinator = Field<NotchTransitionCoordinator>(window, "_transitionCoordinator");
             Assert.False(window.SettingsButton.IsHitTestVisible);
-            var views = new[] { NotchView.Media, NotchView.Secondary, NotchView.Timer, NotchView.Claude, NotchView.Pi, NotchView.AudioMixer, NotchView.Camera };
+            var views = new[] { NotchView.Media, NotchView.Secondary, NotchView.Timer, NotchView.Claude, NotchView.Pi, NotchView.Weather, NotchView.AudioMixer, NotchView.Camera };
             bool capturedHeader = false;
             async Task Navigate(NotchView view)
             {
@@ -136,6 +136,7 @@ public sealed class NotchNavigationIntegrationTests
                         NotchView.Camera => window.CameraContent,
                         NotchView.Claude => window.ClaudeContent,
                         NotchView.Pi => window.PiContent,
+                        NotchView.Weather => window.WeatherContent,
                         _ => window.AudioContent
                     };
                     Assert.Equal(Visibility.Visible, content.Visibility);

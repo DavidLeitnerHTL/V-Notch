@@ -42,69 +42,9 @@ public partial class MainWindow
         if (!_isExpanded || _isAnimating) return;
         if (e.Handled) return;
 
+        // The wheel no longer flips between tabs (too easy to trigger while scrolling a list);
+        // lists inside a tab still scroll, and tabs change with the nav icons.
         e.Handled = true;
-
-        ResetScrollSessionTimer();
-        if (_isScrollSessionLocked) return;
-
-        if ((DateTime.UtcNow - _lastViewSwitchUtc) < ViewSwitchCooldown) return;
-
-        var activeTabs = GetActiveTabSequence();
-        if (activeTabs.Count <= 1) return;
-
-        NotchView currentView = NotchView.Media;
-        if (_isCameraView) currentView = NotchView.Camera;
-        else if (_isClaudeView) currentView = NotchView.Claude;
-        else if (_isPiView) currentView = NotchView.Pi;
-        else if (_isAudioView)
-        {
-            currentView = NotchView.AudioMixer;
-        }
-        else if (_isTimerView)
-        {
-            currentView = NotchView.Timer;
-        }
-        else if (_isSecondaryView)
-        {
-            currentView = NotchView.Secondary;
-        }
-
-        int currentIndex = activeTabs.IndexOf(currentView);
-        if (currentIndex < 0) currentIndex = 0;
-
-        int targetIndex = currentIndex;
-        if (e.Delta < 0 && currentIndex < activeTabs.Count - 1)
-        {
-            targetIndex = currentIndex + 1;
-        }
-        else if (e.Delta > 0 && currentIndex > 0)
-        {
-            targetIndex = currentIndex - 1;
-        }
-
-        if (targetIndex != currentIndex)
-        {
-            _isScrollSessionLocked = true;
-            NavigateToNotchView(activeTabs[targetIndex]);
-        }
-    }
-
-    private void ResetScrollSessionTimer()
-    {
-        if (_scrollSessionResetTimer == null)
-        {
-            _scrollSessionResetTimer = new UiScheduledTimer
-            {
-                Interval = TimeSpan.FromMilliseconds(400)
-            };
-            _scrollSessionResetTimer.Tick += (s, e) =>
-            {
-                _scrollSessionResetTimer.Stop();
-                _isScrollSessionLocked = false;
-            };
-        }
-        _scrollSessionResetTimer.Stop();
-        _scrollSessionResetTimer.Start();
     }
 
     private void SecondaryContent_Click(object sender, MouseButtonEventArgs e)
@@ -120,7 +60,7 @@ public partial class MainWindow
     private void HomeIconButton_Click(object sender, MouseButtonEventArgs e)
     {
         e.Handled = true;
-        if ((_isCameraView || _isClaudeView || _isPiView) && !_isAnimating) { SwitchToPrimaryView(); return; }
+        if ((_isCameraView || _isClaudeView || _isPiView || _isWeatherView) && !_isAnimating) { SwitchToPrimaryView(); return; }
         if (_isAudioView && !_isAnimating)
         {
             SwitchFromAudioToPrimaryView();
@@ -195,6 +135,7 @@ public partial class MainWindow
         if (_isCameraView) fallbackView = NotchView.Camera;
         else if (_isClaudeView) fallbackView = NotchView.Claude;
         else if (_isPiView) fallbackView = NotchView.Pi;
+        else if (_isWeatherView) fallbackView = NotchView.Weather;
         else if (_isAudioView) fallbackView = NotchView.AudioMixer;
         else if (_isTimerView) fallbackView = NotchView.Timer;
         else if (_isSecondaryView) fallbackView = NotchView.Secondary;
@@ -207,6 +148,7 @@ public partial class MainWindow
         // Brighter while a session waits, so its badge reads from the other tabs.
         if (_navDragItem != ClaudeIconButton) AnimateNavIconOpacity(ClaudeIconButton, target == NotchView.Claude ? 1 : _isClaudeWaiting ? 0.85 : 0.45, animate);
         if (_navDragItem != PiIconButton) AnimateNavIconOpacity(PiIconButton, target == NotchView.Pi ? 1 : 0.45, animate);
+        if (_navDragItem != WeatherIconButton) AnimateNavIconOpacity(WeatherIconButton, target == NotchView.Weather ? 1 : 0.45, animate);
 
         // Only update opacity on items not currently being dragged by the user
         if (_navDragItem != HomeIconButton) AnimateNavIconOpacity(HomeIconButton, homeTarget, animate);

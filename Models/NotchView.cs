@@ -9,5 +9,6 @@ public enum NotchView
     AudioMixer,
     Camera,
     Claude,
-    Pi
+    Pi,
+    Weather
 }

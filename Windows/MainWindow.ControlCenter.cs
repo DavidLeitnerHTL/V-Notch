@@ -64,6 +64,7 @@ public partial class MainWindow
         // Asking Windows about notification access is a cross-apartment call that pumps messages: after startup.
         Dispatcher.BeginInvoke(DispatcherPriority.Background, InitializeAppNotifications);
         InitializePi();
+        InitializeWeather();
         InitializeMicMuted();
     }
 
@@ -74,6 +75,7 @@ public partial class MainWindow
         _claudeAttentionRetry?.Stop();
         DisposeAppNotifications();
         DisposePi();
+        DisposeWeather();
         DisposeMicMuted();
         ControlCenter.OutputDeviceSelected -= AudioContent.SelectDefaultOutputDevice;
         ClaudeCenter.AttentionRequested -= OpenClaudeTabForAttention;

@@ -37,7 +37,7 @@ public static partial class SettingsMigrator
         int consentVersion,
         out byte outRevoke);
 
-    public const int CurrentVersion = 16;
+    public const int CurrentVersion = 17;
 
     private static readonly IReadOnlyDictionary<int, Func<JsonObject, JsonObject>> _migrations =
         new Dictionary<int, Func<JsonObject, JsonObject>>
@@ -58,6 +58,7 @@ public static partial class SettingsMigrator
             [13] = MigrateV13,
             [14] = MigrateV14,
             [15] = MigrateV15,
+            [16] = MigrateV16,
         };
 
     private static void EnsureProperty(JsonObject root, string propertyName, JsonNode? defaultValue)
@@ -196,6 +197,14 @@ public static partial class SettingsMigrator
         // The Pi dashboard tab is new: it goes next to the Claude tab.
         AddNavTab(root, nameof(NotchSettings.NavTabOrder), "Pi", after: "Claude");
         AddNavTab(root, nameof(NotchSettings.VisibleNavTabs), "Pi", after: "Claude");
+        return root;
+    }
+
+    private static JsonObject MigrateV16(JsonObject root)
+    {
+        // The weather tab is new: it goes next to the Pi tab.
+        AddNavTab(root, nameof(NotchSettings.NavTabOrder), "Weather", after: "Pi");
+        AddNavTab(root, nameof(NotchSettings.VisibleNavTabs), "Weather", after: "Pi");
         return root;
     }
 

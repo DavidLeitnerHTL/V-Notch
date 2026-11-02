@@ -68,8 +68,6 @@ public partial class MainWindow
         _isAudioView = false;
         _isAnimating = true;
         SuspendSpotifyCanvasLifecycle();
-        _lastViewSwitchUtc = DateTime.UtcNow;
-        _isScrollSessionLocked = true;
 
         HideMediaBackgroundOverlay();
         if (LyricsBlurBackground != null && LyricsBlurBackground.Visibility == Visibility.Visible)
@@ -167,7 +165,6 @@ public partial class MainWindow
         {
             if (generation != _viewTransitionGeneration) return;
             _isAnimating = false;
-            _isScrollSessionLocked = false;
             NotchBorder.IsHitTestVisible = true;
             if (!_isTimerView) return;
             TimerContent.Opacity = 1;
@@ -355,8 +352,6 @@ public partial class MainWindow
         CountdownWidget.CancelEditing();
         _isTimerView = false;
         _isAnimating = true;
-        _lastViewSwitchUtc = DateTime.UtcNow;
-        _isScrollSessionLocked = true;
 
         UpdateNavIconsActiveState();
         NavIconsBackground.BeginAnimation(OpacityProperty, null);
@@ -444,7 +439,6 @@ public partial class MainWindow
         {
             if (generation != _viewTransitionGeneration) return;
             _isAnimating = false;
-            _isScrollSessionLocked = false;
             NotchBorder.IsHitTestVisible = true;
             ExpandedContent.Opacity = 1;
             ExpandedContent.BeginAnimation(OpacityProperty, null);
@@ -472,6 +466,7 @@ public partial class MainWindow
         if (_navDragItem != AudioIconButton) AnimateNavIconOpacity(AudioIconButton, 0.45, animate: false);
         if (_navDragItem != ClaudeIconButton) AnimateNavIconOpacity(ClaudeIconButton, 0.45, animate: false);
         if (_navDragItem != PiIconButton) AnimateNavIconOpacity(PiIconButton, 0.45, animate: false);
+        if (_navDragItem != WeatherIconButton) AnimateNavIconOpacity(WeatherIconButton, 0.45, animate: false);
     }
 
     #endregion
@@ -590,7 +585,6 @@ public partial class MainWindow
         _isSecondaryView = false;
         _isAudioView = false;
         _isAnimating = true;
-        _isScrollSessionLocked = true;
         NotchBorder.IsHitTestVisible = false;
 
         // Invalidate and cancel in-flight content presenter sessions so any old callbacks are ignored
@@ -622,7 +616,6 @@ public partial class MainWindow
         {
             if (transitionId.HasValue && generation != _viewTransitionGeneration) return;
             _isAnimating = false;
-            _isScrollSessionLocked = false;
             NotchBorder.IsHitTestVisible = true;
             NotchBorder.BeginAnimation(WidthProperty, null);
             NotchBorder.BeginAnimation(HeightProperty, null);
@@ -1059,8 +1052,6 @@ public partial class MainWindow
         _isTimerView = true;
         _isSecondaryView = false;
         _isAudioView = false;
-        _lastViewSwitchUtc = DateTime.UtcNow;
-        _isScrollSessionLocked = true;
         NotchBorder.IsHitTestVisible = false;
 
         AnimateCountdownCompleteHover(false);
@@ -1145,7 +1136,6 @@ public partial class MainWindow
         timerFadeIn.Completed += (s, e) =>
         {
             _isAnimating = false;
-            _isScrollSessionLocked = false;
             NotchBorder.IsHitTestVisible = true;
             TimerContent.BeginAnimation(OpacityProperty, null);
             if (!_isTimerView) return;
@@ -1226,7 +1216,6 @@ public partial class MainWindow
             _transitionCoordinator.CompleteTransition(transitionId);
             _transitionCoordinator.ForceState(VNotch.Models.NotchView.Compact, VNotch.Controllers.NotchShapeState.Collapsed, "CountdownDismissCompleted");
             _isAnimating = false;
-            _isScrollSessionLocked = false;
             NotchBorder.IsHitTestVisible = true;
 
             if (_isTimerView) return;
