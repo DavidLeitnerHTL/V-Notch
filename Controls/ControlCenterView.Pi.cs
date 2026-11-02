@@ -134,6 +134,7 @@ public partial class ControlCenterView
         if (_piHome != null) foreach (var e in _piHome) sb.Append(e.Id).Append(e.Display).Append(';');
         sb.Append('|').Append(_piSchoolAtUtc.Ticks).Append('|').Append(DateTime.Now.ToString("HHmm", CultureInfo.InvariantCulture)).Append('|');
         if (_piTodos != null) foreach (var t in _piTodos) sb.Append(t.Id).Append(t.Done).Append(';');
+        sb.Append('|').Append(PiTaskKey());
         return sb.ToString();
     }
 
@@ -333,8 +334,9 @@ public partial class ControlCenterView
             var left = deadline.Due - now;
             var row = NewRow("\uE916", deadline.Name);
             Brush urgency = left < TimeSpan.FromDays(1) ? DueToday : left < TimeSpan.FromDays(3) ? DueSoon : Muted;
-            AddStatus(row, DueText(deadline.Due, left), urgency);
-            AddAction(row, InfoChip("\uE7BE", ShortCourse(deadline.Course)));
+            AddStatus(row, $"{ShortCourse(deadline.Course)} · {DueText(deadline.Due, left)}", urgency);
+            // Open the project, fetch the task's files, hand maths photos in: like the dashboard's panel.
+            if (deadline.Cmid > 0) AddAction(row, PiTaskActions(deadline, row));
             // Straight to the assignment's page, where it is handed in.
             int cmid = deadline.Cmid;
             if (cmid > 0) OpenOnClick(row, () => SchoolLinks.Assignment(_moodleUrl(), cmid), SignInToSchoolAsync);

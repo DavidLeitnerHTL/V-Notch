@@ -1216,5 +1216,18 @@
   "legion.locked": "Bloqueado",
   "legion.setupHint": "Cambiar el modo de energía requiere permisos de administrador una vez.",
   "legion.setup": "Configurar (pide administrador una vez)",
-  "legion.settingUp": "Configurando…"
+  "legion.settingUp": "Configurando…",
+  "pi.task.files": "Enunciado",
+  "pi.task.project": "Abrir proyecto {0}",
+  "pi.task.submit": "Entregar",
+  "pi.task.submitPages": "Entregar {0} páginas",
+  "pi.task.cancel": "Descartar",
+  "pi.task.loading": "Cargando…",
+  "pi.task.uploading": "Entregando…",
+  "pi.task.submitted": "Entregado",
+  "pi.task.failed": "No ha funcionado",
+  "pi.task.noPhotos": "No hay fotos legibles",
+  "pi.task.poseMissing": "pi-pose no está configurado en este PC",
+  "pi.task.pickTitle": "Fotos para entregar",
+  "pi.task.dropHint": "Elige fotos o suéltalas en esta fila"
 }

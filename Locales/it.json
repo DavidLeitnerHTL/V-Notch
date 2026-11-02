@@ -1216,5 +1216,18 @@
   "legion.locked": "Bloccato",
   "legion.setupHint": "Cambiare modalità richiede una volta i diritti di amministratore.",
   "legion.setup": "Configura (chiede l’amministratore una volta)",
-  "legion.settingUp": "Configurazione…"
+  "legion.settingUp": "Configurazione…",
+  "pi.task.files": "Testo del compito",
+  "pi.task.project": "Apri progetto {0}",
+  "pi.task.submit": "Consegna",
+  "pi.task.submitPages": "Consegna {0} pagine",
+  "pi.task.cancel": "Scarta",
+  "pi.task.loading": "Caricamento…",
+  "pi.task.uploading": "Consegna in corso…",
+  "pi.task.submitted": "Consegnato",
+  "pi.task.failed": "Non ha funzionato",
+  "pi.task.noPhotos": "Nessuna foto leggibile",
+  "pi.task.poseMissing": "pi-pose non è configurato su questo PC",
+  "pi.task.pickTitle": "Foto da consegnare",
+  "pi.task.dropHint": "Scegli le foto o trascinale su questa riga"
 }

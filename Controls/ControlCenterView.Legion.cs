@@ -277,11 +277,11 @@ public partial class ControlCenterView
             card.Child = new StackPanel { Children = { glyph, label, state } };
             System.Windows.Automation.AutomationProperties.SetName(card, Loc.Get(name));
             int index = i;
-            Pressable(card, () => _legionParts?.Selected == index ? Brushes.Transparent : CardBg, CardHover);
+            Pressable(card, () => _legionParts?.Selected == index ? Brushes.Transparent : CardBg, CardHover, gentle: true);
             card.MouseLeftButtonDown += async (_, e) =>
             {
                 e.Handled = true;
-                if (_legionParts?.Selected == index) { Bounce(glyph, 1.3); return; }
+                if (_legionParts?.Selected == index) { Bounce(glyph, 1.22); return; }
                 _legionBusy = true; // no poll may paint the old mode over the tap
                 try
                 {
@@ -360,8 +360,8 @@ public partial class ControlCenterView
             parts.Pill.BeginAnimation(OpacityProperty, WeatherMotion.To(parts.Pill.Opacity, 1, 360, WeatherMotion.Out, first ? 180 : 0));
             if (!AnimationConfig.ReduceMotion)
             {
-                parts.PillScale.BeginAnimation(ScaleTransform.ScaleXProperty, WeatherMotion.To(0.7, 1, 700, ReleaseSpring, first ? 180 : 0));
-                parts.PillScale.BeginAnimation(ScaleTransform.ScaleYProperty, WeatherMotion.To(0.7, 1, 700, ReleaseSpring, first ? 180 : 0));
+                parts.PillScale.BeginAnimation(ScaleTransform.ScaleXProperty, WeatherMotion.To(0.78, 1, 640, SoftSpring, first ? 180 : 0));
+                parts.PillScale.BeginAnimation(ScaleTransform.ScaleYProperty, WeatherMotion.To(0.78, 1, 640, SoftSpring, first ? 180 : 0));
             }
         }
         else
@@ -370,21 +370,21 @@ public partial class ControlCenterView
             double from = parts.PillShift.X, to = PillX(parts, index);
             int distance = Math.Abs(index - previous);
             // The same small overshoot (about a tenth of a tile) however far it flies, so it never leaves the row.
-            var fly = WeatherMotion.To(from, to, 520 + distance * 60, FreezeEase(new BackEase { Amplitude = 0.5 / distance, EasingMode = EasingMode.EaseOut }));
+            var fly = WeatherMotion.To(from, to, 520 + distance * 60, FreezeEase(new BackEase { Amplitude = 0.4 / distance, EasingMode = EasingMode.EaseOut }));
             parts.PillShift.BeginAnimation(TranslateTransform.XProperty, fly);
             var stretch = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromMilliseconds(620) };
-            stretch.KeyFrames.Add(new EasingDoubleKeyFrame(1 + 0.12 * distance, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(140)), PressEase));
-            stretch.KeyFrames.Add(new EasingDoubleKeyFrame(1, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(620)), ReleaseSpring));
+            stretch.KeyFrames.Add(new EasingDoubleKeyFrame(1 + 0.09 * distance, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(140)), PressEase));
+            stretch.KeyFrames.Add(new EasingDoubleKeyFrame(1, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(620)), SoftSpring));
             var squash = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromMilliseconds(620) };
-            squash.KeyFrames.Add(new EasingDoubleKeyFrame(1 - 0.06 * distance, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(140)), PressEase));
-            squash.KeyFrames.Add(new EasingDoubleKeyFrame(1, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(620)), ReleaseSpring));
+            squash.KeyFrames.Add(new EasingDoubleKeyFrame(1 - 0.045 * distance, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(140)), PressEase));
+            squash.KeyFrames.Add(new EasingDoubleKeyFrame(1, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(620)), SoftSpring));
             Timeline.SetDesiredFrameRate(stretch, AnimationConfig.TargetFps);
             Timeline.SetDesiredFrameRate(squash, AnimationConfig.TargetFps);
             parts.PillScale.BeginAnimation(ScaleTransform.ScaleXProperty, stretch);
             parts.PillScale.BeginAnimation(ScaleTransform.ScaleYProperty, squash);
             parts.Pill.BeginAnimation(OpacityProperty, WeatherMotion.To(parts.Pill.Opacity, 1, 200, WeatherMotion.Out));
-            Bounce(activeGlyph, 1.55);
-            if (previous >= 0) Bounce(parts.Modes[previous].Glyph, 0.8);
+            Bounce(activeGlyph, 1.4);
+            if (previous >= 0) Bounce(parts.Modes[previous].Glyph, 0.85);
         }
 
         // The lit mode breathes softly while the page is open.
@@ -490,7 +490,7 @@ public partial class ControlCenterView
         card.Child = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Children = { glyph, name, state } };
         System.Windows.Automation.AutomationProperties.SetName(card, label);
         var tile = new KeyTile { Card = card, Glyph = glyph, Ink = ink, State = state };
-        Pressable(card, () => tile.On == true ? _legionWash : CardBg, CardHover);
+        Pressable(card, () => tile.On == true ? _legionWash : CardBg, CardHover, gentle: true);
         card.MouseLeftButtonDown += async (_, e) =>
         {
             e.Handled = true;
@@ -518,7 +518,7 @@ public partial class ControlCenterView
         SetOrTint((SolidColorBrush)tile.Card.Background, on ? _legionWash.Color : ((SolidColorBrush)CardBg).Color, ms);
         SetOrTint(tile.Ink, on ? _legionAccent.Color : ((SolidColorBrush)Muted).Color, ms);
         tile.State.Text = Loc.Get(on ? "control.on" : "legion.locked");
-        if (changed) Bounce(tile.Glyph, on ? 1.45 : 0.75);
+        if (changed) Bounce(tile.Glyph, on ? 1.32 : 0.84);
     }
 
     private void UpdateLegion(LegionState state)

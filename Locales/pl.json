@@ -1216,5 +1216,18 @@
   "legion.locked": "Zablokowany",
   "legion.setupHint": "Przełączanie trybów wymaga jednorazowo uprawnień administratora.",
   "legion.setup": "Skonfiguruj (raz zapyta o administratora)",
-  "legion.settingUp": "Konfigurowanie…"
+  "legion.settingUp": "Konfigurowanie…",
+  "pi.task.files": "Treść zadania",
+  "pi.task.project": "Otwórz projekt {0}",
+  "pi.task.submit": "Oddaj",
+  "pi.task.submitPages": "Oddaj {0} stron",
+  "pi.task.cancel": "Odrzuć",
+  "pi.task.loading": "Ładowanie…",
+  "pi.task.uploading": "Oddawanie…",
+  "pi.task.submitted": "Oddano",
+  "pi.task.failed": "Nie udało się",
+  "pi.task.noPhotos": "Brak czytelnych zdjęć",
+  "pi.task.poseMissing": "pi-pose nie jest skonfigurowany na tym PC",
+  "pi.task.pickTitle": "Zdjęcia do oddania",
+  "pi.task.dropHint": "Wybierz zdjęcia lub upuść je na ten wiersz"
 }

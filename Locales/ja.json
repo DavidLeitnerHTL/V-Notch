@@ -1216,5 +1216,18 @@
   "legion.locked": "ロック中",
   "legion.setupHint": "電源モードの切り替えには一度だけ管理者権限が必要です。",
   "legion.setup": "セットアップ（管理者権限を一度だけ確認）",
-  "legion.settingUp": "セットアップ中…"
+  "legion.settingUp": "セットアップ中…",
+  "pi.task.files": "課題ファイル",
+  "pi.task.project": "プロジェクト {0} を開く",
+  "pi.task.submit": "提出",
+  "pi.task.submitPages": "{0} ページを提出",
+  "pi.task.cancel": "破棄",
+  "pi.task.loading": "読み込み中…",
+  "pi.task.uploading": "提出中…",
+  "pi.task.submitted": "提出済み",
+  "pi.task.failed": "うまくいきませんでした",
+  "pi.task.noPhotos": "読み取れる写真がありません",
+  "pi.task.poseMissing": "この PC に pi-pose が設定されていません",
+  "pi.task.pickTitle": "提出する写真",
+  "pi.task.dropHint": "写真を選ぶか、この行にドロップ"
 }

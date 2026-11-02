@@ -1216,5 +1216,18 @@
   "legion.locked": "Terkunci",
   "legion.setupHint": "Mengganti mode daya butuh hak administrator sekali.",
   "legion.setup": "Siapkan (minta admin sekali)",
-  "legion.settingUp": "Menyiapkan…"
+  "legion.settingUp": "Menyiapkan…",
+  "pi.task.files": "Berkas tugas",
+  "pi.task.project": "Buka proyek {0}",
+  "pi.task.submit": "Kumpulkan",
+  "pi.task.submitPages": "Kumpulkan {0} halaman",
+  "pi.task.cancel": "Buang",
+  "pi.task.loading": "Memuat…",
+  "pi.task.uploading": "Mengumpulkan…",
+  "pi.task.submitted": "Terkumpul",
+  "pi.task.failed": "Tidak berhasil",
+  "pi.task.noPhotos": "Tidak ada foto yang terbaca",
+  "pi.task.poseMissing": "pi-pose belum disiapkan di PC ini",
+  "pi.task.pickTitle": "Foto untuk dikumpulkan",
+  "pi.task.dropHint": "Pilih foto atau seret ke baris ini"
 }

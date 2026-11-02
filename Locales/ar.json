@@ -1216,5 +1216,18 @@
   "legion.locked": "مقفل",
   "legion.setupHint": "يحتاج تبديل أوضاع الطاقة إلى صلاحيات المسؤول مرة واحدة.",
   "legion.setup": "إعداد (يطلب صلاحيات المسؤول مرة واحدة)",
-  "legion.settingUp": "جارٍ الإعداد…"
+  "legion.settingUp": "جارٍ الإعداد…",
+  "pi.task.files": "ملفات المهمة",
+  "pi.task.project": "افتح المشروع {0}",
+  "pi.task.submit": "تسليم",
+  "pi.task.submitPages": "سلّم {0} صفحات",
+  "pi.task.cancel": "تجاهل",
+  "pi.task.loading": "جارٍ التحميل…",
+  "pi.task.uploading": "جارٍ التسليم…",
+  "pi.task.submitted": "تم التسليم",
+  "pi.task.failed": "لم ينجح ذلك",
+  "pi.task.noPhotos": "لا توجد صور قابلة للقراءة",
+  "pi.task.poseMissing": "pi-pose غير مُعد على هذا الحاسوب",
+  "pi.task.pickTitle": "صور للتسليم",
+  "pi.task.dropHint": "اختر الصور أو اسحبها إلى هذا السطر"
 }

@@ -57,6 +57,8 @@ public partial class ControlCenterView
 
     private static readonly IEasingFunction PressEase = FreezeEase(new CubicEase { EasingMode = EasingMode.EaseOut });
     private static readonly IEasingFunction ReleaseSpring = FreezeEase(new ElasticEase { Oscillations = 1, Springiness = 7, EasingMode = EasingMode.EaseOut });
+    // A spring that still swings back once, just less far (the Legion page).
+    private static readonly IEasingFunction SoftSpring = FreezeEase(new ElasticEase { Oscillations = 1, Springiness = 9, EasingMode = EasingMode.EaseOut });
     private static readonly IEasingFunction KnobSpring = FreezeEase(new BackEase { Amplitude = 0.55, EasingMode = EasingMode.EaseOut });
 
     private static IEasingFunction FreezeEase(EasingFunctionBase ease)
@@ -69,7 +71,7 @@ public partial class ControlCenterView
     /// Makes a card feel physical: its background fades to <paramref name="hover"/> under the pointer, a press
     /// squishes it a little (wider than tall, like a soft key) and letting go springs it back.
     /// </summary>
-    private static void Pressable(Border card, Func<Brush> rest, Brush hover)
+    private static void Pressable(Border card, Func<Brush> rest, Brush hover, bool gentle = false)
     {
         var scale = card.RenderTransform as ScaleTransform ?? new ScaleTransform(1, 1);
         card.RenderTransform = scale;
@@ -82,15 +84,16 @@ public partial class ControlCenterView
         card.MouseLeave += (_, _) =>
         {
             WeatherMotion.Tint(fill, ((SolidColorBrush)rest()).Color, 220);
-            Release(scale);
+            Release(scale, gentle);
         };
         card.PreviewMouseLeftButtonDown += (_, _) =>
         {
             if (AnimationConfig.ReduceMotion) return;
-            scale.BeginAnimation(ScaleTransform.ScaleXProperty, WeatherMotion.To(scale.ScaleX, 0.965, 110, PressEase));
-            scale.BeginAnimation(ScaleTransform.ScaleYProperty, WeatherMotion.To(scale.ScaleY, 0.93, 110, PressEase));
+            // Gentle (Legion): a lighter press and a softer spring back.
+            scale.BeginAnimation(ScaleTransform.ScaleXProperty, WeatherMotion.To(scale.ScaleX, gentle ? 0.975 : 0.965, 110, PressEase));
+            scale.BeginAnimation(ScaleTransform.ScaleYProperty, WeatherMotion.To(scale.ScaleY, gentle ? 0.945 : 0.93, 110, PressEase));
         };
-        card.PreviewMouseLeftButtonUp += (_, _) => Release(scale);
+        card.PreviewMouseLeftButtonUp += (_, _) => Release(scale, gentle);
     }
 
     /// <summary>A button sinks a little while pressed and springs back on release.</summary>
@@ -109,11 +112,12 @@ public partial class ControlCenterView
         button.MouseLeave += (_, _) => Release(scale);
     }
 
-    private static void Release(ScaleTransform scale)
+    private static void Release(ScaleTransform scale, bool gentle = false)
     {
         if (AnimationConfig.ReduceMotion) return;
-        scale.BeginAnimation(ScaleTransform.ScaleXProperty, WeatherMotion.To(scale.ScaleX, 1, 520, ReleaseSpring));
-        scale.BeginAnimation(ScaleTransform.ScaleYProperty, WeatherMotion.To(scale.ScaleY, 1, 520, ReleaseSpring));
+        var ease = gentle ? SoftSpring : ReleaseSpring;
+        scale.BeginAnimation(ScaleTransform.ScaleXProperty, WeatherMotion.To(scale.ScaleX, 1, 520, ease));
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty, WeatherMotion.To(scale.ScaleY, 1, 520, ease));
     }
 
     // A lit tile keeps its tint under the pointer, just a touch brighter.

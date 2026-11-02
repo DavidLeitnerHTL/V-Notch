@@ -1216,5 +1216,18 @@
   "legion.locked": "Заблокировано",
   "legion.setupHint": "Для смены режимов один раз нужны права администратора.",
   "legion.setup": "Настроить (один раз запросит администратора)",
-  "legion.settingUp": "Настройка…"
+  "legion.settingUp": "Настройка…",
+  "pi.task.files": "Файлы задания",
+  "pi.task.project": "Открыть проект {0}",
+  "pi.task.submit": "Сдать",
+  "pi.task.submitPages": "Сдать страниц: {0}",
+  "pi.task.cancel": "Отменить",
+  "pi.task.loading": "Загрузка…",
+  "pi.task.uploading": "Сдаётся…",
+  "pi.task.submitted": "Сдано",
+  "pi.task.failed": "Не получилось",
+  "pi.task.noPhotos": "Нет читаемых фото",
+  "pi.task.poseMissing": "pi-pose не настроен на этом ПК",
+  "pi.task.pickTitle": "Фото для сдачи",
+  "pi.task.dropHint": "Выберите фото или перетащите их на эту строку"
 }

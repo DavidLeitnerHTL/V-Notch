@@ -1216,5 +1216,18 @@
   "legion.locked": "Đã khóa",
   "legion.setupHint": "Đổi chế độ nguồn cần quyền quản trị một lần.",
   "legion.setup": "Thiết lập (hỏi quyền quản trị một lần)",
-  "legion.settingUp": "Đang thiết lập…"
+  "legion.settingUp": "Đang thiết lập…",
+  "pi.task.files": "Tệp đề bài",
+  "pi.task.project": "Mở dự án {0}",
+  "pi.task.submit": "Nộp bài",
+  "pi.task.submitPages": "Nộp {0} trang",
+  "pi.task.cancel": "Bỏ",
+  "pi.task.loading": "Đang tải…",
+  "pi.task.uploading": "Đang nộp…",
+  "pi.task.submitted": "Đã nộp",
+  "pi.task.failed": "Không thành công",
+  "pi.task.noPhotos": "Không có ảnh đọc được",
+  "pi.task.poseMissing": "Máy này chưa cài pi-pose",
+  "pi.task.pickTitle": "Ảnh để nộp",
+  "pi.task.dropHint": "Chọn ảnh hoặc thả vào dòng này"
 }

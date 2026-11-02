@@ -1216,5 +1216,18 @@
   "legion.locked": "Verrouillé",
   "legion.setupHint": "Changer de mode nécessite une fois les droits d’administrateur.",
   "legion.setup": "Configurer (demande l’administrateur une fois)",
-  "legion.settingUp": "Configuration…"
+  "legion.settingUp": "Configuration…",
+  "pi.task.files": "Énoncé",
+  "pi.task.project": "Ouvrir le projet {0}",
+  "pi.task.submit": "Rendre",
+  "pi.task.submitPages": "Rendre {0} pages",
+  "pi.task.cancel": "Abandonner",
+  "pi.task.loading": "Chargement…",
+  "pi.task.uploading": "Remise en cours…",
+  "pi.task.submitted": "Rendu",
+  "pi.task.failed": "Ça n’a pas marché",
+  "pi.task.noPhotos": "Aucune photo lisible",
+  "pi.task.poseMissing": "pi-pose n’est pas installé sur ce PC",
+  "pi.task.pickTitle": "Photos à rendre",
+  "pi.task.dropHint": "Choisissez des photos ou déposez-les sur cette ligne"
 }

@@ -1216,5 +1216,18 @@
   "legion.locked": "Vergrendeld",
   "legion.setupHint": "Wisselen van energiemodus vraagt eenmalig beheerdersrechten.",
   "legion.setup": "Instellen (vraagt eenmalig om beheerder)",
-  "legion.settingUp": "Bezig met instellen…"
+  "legion.settingUp": "Bezig met instellen…",
+  "pi.task.files": "Opdracht",
+  "pi.task.project": "Project {0} openen",
+  "pi.task.submit": "Inleveren",
+  "pi.task.submitPages": "{0} pagina’s inleveren",
+  "pi.task.cancel": "Weggooien",
+  "pi.task.loading": "Laden…",
+  "pi.task.uploading": "Inleveren…",
+  "pi.task.submitted": "Ingeleverd",
+  "pi.task.failed": "Dat lukte niet",
+  "pi.task.noPhotos": "Geen leesbare foto’s",
+  "pi.task.poseMissing": "pi-pose is op deze pc niet ingesteld",
+  "pi.task.pickTitle": "Foto’s om in te leveren",
+  "pi.task.dropHint": "Kies foto’s of sleep ze naar deze regel"
 }

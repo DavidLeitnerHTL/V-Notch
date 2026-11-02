@@ -1216,5 +1216,18 @@
   "legion.locked": "लॉक",
   "legion.setupHint": "पावर मोड बदलने के लिए एक बार व्यवस्थापक अधिकार चाहिए।",
   "legion.setup": "सेट अप करें (एक बार व्यवस्थापक पूछेगा)",
-  "legion.settingUp": "सेट अप हो रहा है…"
+  "legion.settingUp": "सेट अप हो रहा है…",
+  "pi.task.files": "कार्य की फ़ाइलें",
+  "pi.task.project": "प्रोजेक्ट {0} खोलें",
+  "pi.task.submit": "जमा करें",
+  "pi.task.submitPages": "{0} पेज जमा करें",
+  "pi.task.cancel": "हटाएँ",
+  "pi.task.loading": "लोड हो रहा है…",
+  "pi.task.uploading": "जमा हो रहा है…",
+  "pi.task.submitted": "जमा हो गया",
+  "pi.task.failed": "यह नहीं हो पाया",
+  "pi.task.noPhotos": "कोई पढ़ने योग्य फ़ोटो नहीं",
+  "pi.task.poseMissing": "इस पीसी पर pi-pose सेट नहीं है",
+  "pi.task.pickTitle": "जमा करने के लिए फ़ोटो",
+  "pi.task.dropHint": "फ़ोटो चुनें या इस पंक्ति पर छोड़ें"
 }

@@ -1216,5 +1216,18 @@
   "legion.locked": "Kilitli",
   "legion.setupHint": "Güç modunu değiştirmek bir kez yönetici izni gerektirir.",
   "legion.setup": "Kur (bir kez yönetici ister)",
-  "legion.settingUp": "Kuruluyor…"
+  "legion.settingUp": "Kuruluyor…",
+  "pi.task.files": "Ödev dosyaları",
+  "pi.task.project": "Proje {0} aç",
+  "pi.task.submit": "Teslim et",
+  "pi.task.submitPages": "{0} sayfayı teslim et",
+  "pi.task.cancel": "Vazgeç",
+  "pi.task.loading": "Yükleniyor…",
+  "pi.task.uploading": "Teslim ediliyor…",
+  "pi.task.submitted": "Teslim edildi",
+  "pi.task.failed": "Olmadı",
+  "pi.task.noPhotos": "Okunabilir fotoğraf yok",
+  "pi.task.poseMissing": "pi-pose bu bilgisayarda kurulu değil",
+  "pi.task.pickTitle": "Teslim edilecek fotoğraflar",
+  "pi.task.dropHint": "Fotoğraf seçin veya bu satıra bırakın"
 }
