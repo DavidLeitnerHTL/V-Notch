@@ -75,6 +75,7 @@ public partial class MainWindow
         }
         _bubbleWanted = bubble;
         UpdateActivityBubble();
+        UpdateIdleShape();
     }
 
     /// <summary>The orb shows its activity while the notch rests closed with its own content on screen.</summary>

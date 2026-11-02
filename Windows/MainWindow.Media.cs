@@ -723,6 +723,7 @@ public partial class MainWindow
         }
 
         ApplyMusicCompactMode(shouldBeCompact, info);
+        UpdateIdleShape();
     }
 
     private void SchedulePendingMusicCompactExit()
@@ -737,6 +738,7 @@ public partial class MainWindow
                 if (_isMusicCompactMode && !WantsMusicCompact(current))
                 {
                     ApplyMusicCompactMode(shouldBeCompact: false, current);
+                    UpdateIdleShape();
                 }
             };
         }

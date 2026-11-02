@@ -229,6 +229,8 @@ public partial class NotchSettings
     public string DiscordClientId { get; set; } = "";
     // A short Windows sound when a Claude Code turn ends or a session waits for the user; never over fullscreen.
     public bool PlayClaudeSounds { get; set; } = true;
+    // With nothing live the closed notch rests slim and shows the time and the weather.
+    public bool SlimIdleNotch { get; set; } = true;
     public string ClockPageStyle { get; set; } = "analog";
 
     public string ProcessPriority { get; set; } = "Normal";

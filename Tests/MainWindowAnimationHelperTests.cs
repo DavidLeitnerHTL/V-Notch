@@ -211,7 +211,9 @@ public sealed class MainWindowAnimationHelperTests
 
     private static GreetingAcceptanceTests.MainWindowFixture CreateFixture()
     {
+        // These check the transitions' own geometry: the slim idle notch would move the resting width under them.
         var fixture = new GreetingAcceptanceTests.MainWindowFixture("en", greeting: false,
+            configureSettings: settings => settings.SlimIdleNotch = false,
             configureServices: services => services.AddSingleton<IMediaDetectionService>(new FakeMediaDetectionService()));
         fixture.Window.NotchBorder.Width = 300;
         fixture.Window.NotchBorder.Height = 40;

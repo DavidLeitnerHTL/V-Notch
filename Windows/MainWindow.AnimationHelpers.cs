@@ -577,7 +577,8 @@ public partial class MainWindow
             ? _settings.DynamicIslandWidth
             : _settings.Width;
 
-        return width;
+        // With nothing live the notch rests slim, showing the time and the weather.
+        return IsIdleShape ? Math.Min(width, IdleCompactWidth) : width;
     }
 
     private double GetCollapsedHeight()

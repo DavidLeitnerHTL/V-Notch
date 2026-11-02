@@ -1424,6 +1424,40 @@
                                        VerticalAlignment="Center"
                                        Margin="30,0,2,0"/>
                         </Grid>
+                        <!-- Nothing live: the slim resting notch shows the time and the weather. -->
+                        <Grid x:Name="IdleGlance"
+                              Margin="13,0,12,0"
+                              Visibility="Collapsed"
+                              Opacity="0"
+                              IsHitTestVisible="False">
+                            <Grid.RenderTransform>
+                                <TranslateTransform x:Name="IdleGlanceShift" Y="0"/>
+                            </Grid.RenderTransform>
+                            <TextBlock x:Name="IdleClock"
+                                       FontSize="12.5"
+                                       FontWeight="SemiBold"
+                                       FontFamily="{StaticResource MainSystemFont}"
+                                       Foreground="White"
+                                       HorizontalAlignment="Left"
+                                       VerticalAlignment="Center"/>
+                            <StackPanel x:Name="IdleWeather"
+                                        Orientation="Horizontal"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        Visibility="Collapsed">
+                                <ContentControl x:Name="IdleWeatherIcon"
+                                                Width="15" Height="15"
+                                                Margin="0,0,5,0"
+                                                VerticalAlignment="Center"
+                                                Focusable="False"/>
+                                <TextBlock x:Name="IdleWeatherTemp"
+                                           FontSize="12.5"
+                                           FontWeight="SemiBold"
+                                           FontFamily="{StaticResource MainSystemFont}"
+                                           Foreground="#D9FFFFFF"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
                     </Grid>
 
                     <StackPanel x:Name="PrivacyIndicatorPanel"
