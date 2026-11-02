@@ -105,6 +105,7 @@ internal sealed class ClaudeSessionTracker
     private static readonly TimeSpan StaleWorking = TimeSpan.FromMinutes(30);
     private static readonly TimeSpan ForgetSession = TimeSpan.FromHours(3);
     private static readonly TimeSpan TitleRetry = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan PromptClockSlack = TimeSpan.FromSeconds(5);
 
     private const string QuestionTool = "AskUserQuestion";
     // A plan is read in the notch and approved there, or sent back to keep planning.
@@ -115,12 +116,15 @@ internal sealed class ClaudeSessionTracker
     private readonly List<ClaudePermissionRequest> _pending = new();
     private readonly Func<DateTime> _now;
     private readonly Func<string, string?> _readTitle;
+    private readonly Func<string, DateTime?> _readTurnStart;
     private int _requestCounter;
 
-    public ClaudeSessionTracker(Func<DateTime>? utcNow = null, Func<string, string?>? readTitle = null)
+    public ClaudeSessionTracker(Func<DateTime>? utcNow = null, Func<string, string?>? readTitle = null,
+        Func<string, DateTime?>? readTurnStart = null)
     {
         _now = utcNow ?? (() => DateTime.UtcNow);
         _readTitle = readTitle ?? ClaudeTranscript.ReadTitle;
+        _readTurnStart = readTurnStart ?? ClaudeTranscript.ReadTurnStart;
     }
 
     /// <summary>Raised on any thread when sessions or requests change.</summary>
@@ -163,6 +167,8 @@ internal sealed class ClaudeSessionTracker
         ClaudePermissionRequest? held = null;
         ClaudeSession? finished = null;
         string? titleSource = null;
+        string? turnSource = null;
+        DateTime? turnFloor = null;
         var released = new List<ClaudePermissionRequest>();
         bool usageMoved = hookEvent is "SessionStart" or "Stop";
 
@@ -200,19 +206,20 @@ internal sealed class ClaudeSessionTracker
                         TakePending(sessionId, released, match: null);
                         break;
                     case "PreToolUse":
-                        StartTurnIfNeeded(s, now);
+                        if (StartTurnIfNeeded(s, now, out turnFloor)) turnSource = s.TranscriptPath;
                         s.Status = ClaudeSessionStatus.Working;
                         s.Activity = Describe(tool, payload["tool_input"]);
                         s.Tool = tool;
                         break;
                     case "PostToolUse":
                     case "PostToolUseFailure":
-                        StartTurnIfNeeded(s, now);
+                        if (StartTurnIfNeeded(s, now, out turnFloor)) turnSource = s.TranscriptPath;
                         s.Status = ClaudeSessionStatus.Working;
                         s.Activity = s.Tool = null;
                         TakePending(sessionId, released, match: (tool, payload["tool_input"]));
                         break;
                     case "PermissionRequest":
+                        if (StartTurnIfNeeded(s, now, out turnFloor)) turnSource = s.TranscriptPath;
                         s.Status = ClaudeSessionStatus.Waiting;
                         s.Activity = Describe(tool, payload["tool_input"]);
                         s.Tool = tool;
@@ -254,6 +261,19 @@ internal sealed class ClaudeSessionTracker
                         finished = s.Clone();
                         break;
                 }
+            }
+        }
+
+        // The notch joined a turn already running (it started later, or missed the prompt): the timer counts
+        // from when the prompt was sent, as the transcript has it. A prompt from before the last turn we saw
+        // end is not this turn's.
+        if (turnSource != null && _readTurnStart(turnSource) is { } promptUtc &&
+            promptUtc <= now + PromptClockSlack && (turnFloor == null || promptUtc > turnFloor))
+        {
+            lock (_gate)
+            {
+                if (_sessions.TryGetValue(sessionId, out var joined) && joined.TurnStartedUtc == now)
+                    joined.TurnStartedUtc = promptUtc < now ? promptUtc : now;
             }
         }
 
@@ -550,13 +570,17 @@ internal sealed class ClaudeSessionTracker
         return s;
     }
 
-    private static void StartTurnIfNeeded(ClaudeSession s, DateTime now)
+    /// <summary>
+    /// Starts the timer when a turn shows up without its prompt. True when it did; <paramref name="lastFinish"/>
+    /// is when the previous turn ended, if the notch saw that.
+    /// </summary>
+    private static bool StartTurnIfNeeded(ClaudeSession s, DateTime now, out DateTime? lastFinish)
     {
-        if (s.Status is not (ClaudeSessionStatus.Working or ClaudeSessionStatus.Waiting) || s.TurnStartedUtc == null)
-        {
-            s.TurnStartedUtc = now;
-            s.FinishedUtc = null;
-        }
+        lastFinish = s.FinishedUtc;
+        if (s.Status is ClaudeSessionStatus.Working or ClaudeSessionStatus.Waiting && s.TurnStartedUtc != null) return false;
+        s.TurnStartedUtc = now;
+        s.FinishedUtc = null;
+        return true;
     }
 
     /// <summary>

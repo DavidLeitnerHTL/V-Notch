@@ -22,6 +22,69 @@ public class ClaudeSessionTrackerTests
     }
 
     [Fact]
+    public async Task JoiningARunningTurn_CountsFromThePromptInTheTranscript()
+    {
+        var now = new DateTime(2026, 11, 2, 16, 40, 0, DateTimeKind.Utc);
+        var prompt = now.AddMinutes(-57);
+        var tracker = new ClaudeSessionTracker(() => now, _ => null, path => path == "t.jsonl" ? prompt : null);
+
+        // The notch started mid-turn: the first thing it hears is a tool call.
+        var tool = Hook("PreToolUse", tool: "Bash", command: "dotnet test");
+        tool["transcript_path"] = "t.jsonl";
+        await tracker.HandleHookAsync(tool);
+        Assert.Equal(prompt, Assert.Single(tracker.GetSessions()).TurnStartedUtc);
+
+        // Later calls in the same turn leave it there.
+        now = now.AddMinutes(1);
+        await tracker.HandleHookAsync(tool);
+        Assert.Equal(prompt, Assert.Single(tracker.GetSessions()).TurnStartedUtc);
+    }
+
+    [Fact]
+    public async Task TurnWithoutPrompt_AfterOneTheNotchSawEnd_DoesNotReachBackToTheOldPrompt()
+    {
+        var now = new DateTime(2026, 11, 2, 16, 0, 0, DateTimeKind.Utc);
+        var oldPrompt = now.AddMinutes(-1);
+        var tracker = new ClaudeSessionTracker(() => now, _ => null, _ => oldPrompt);
+        var prompt = Hook("UserPromptSubmit");
+        prompt["transcript_path"] = "t.jsonl";
+        await tracker.HandleHookAsync(prompt);
+        now = now.AddMinutes(5);
+        await tracker.HandleHookAsync(Hook("Stop"));
+
+        // A background task wakes the session up: no prompt hook, and the transcript's last prompt is the old one.
+        now = now.AddMinutes(10);
+        await tracker.HandleHookAsync(Hook("PreToolUse", tool: "Read"));
+        Assert.Equal(now, Assert.Single(tracker.GetSessions()).TurnStartedUtc);
+    }
+
+    [Fact]
+    public void PermissionRequest_StartsTheTimerWhenItOpensTheTurn()
+    {
+        var now = new DateTime(2026, 11, 2, 16, 0, 0, DateTimeKind.Utc);
+        var tracker = new ClaudeSessionTracker(() => now, _ => null, _ => null);
+        _ = tracker.HandleHookAsync(Hook("PermissionRequest", tool: "Bash", command: "npm test"));
+        Assert.Equal(now, Assert.Single(tracker.GetSessions()).TurnStartedUtc);
+    }
+
+    [Fact]
+    public void Transcript_TurnStartIsTheLastPromptNotAToolResult()
+    {
+        string tail = string.Join("\n",
+            "{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":\"first\"},\"timestamp\":\"2026-11-02T14:51:19.715Z\"}",
+            "{\"type\":\"assistant\",\"message\":{\"content\":[]},\"timestamp\":\"2026-11-02T14:52:00.000Z\"}",
+            "{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"fix the timer\"}]},\"timestamp\":\"2026-11-02T15:43:22.346Z\"}",
+            "{\"type\":\"user\",\"isMeta\":true,\"message\":{\"content\":\"caveat\"},\"timestamp\":\"2026-11-02T15:43:30.000Z\"}",
+            "{\"type\":\"user\",\"isSidechain\":true,\"message\":{\"content\":\"agent prompt\"},\"timestamp\":\"2026-11-02T15:44:00.000Z\"}",
+            "{\"type\":\"user\",\"message\":{\"content\":[{\"type\":\"tool_result\",\"content\":\"ok\"}]},\"timestamp\":\"2026-11-02T15:45:00.000Z\"}",
+            "{\"type\":\"user\",\"message\":{\"content\":[{\"tool_use_id\":\"x\"");
+        var start = ClaudeTranscript.FindTurnStart(tail);
+        Assert.Equal(new DateTime(2026, 11, 2, 15, 43, 22, 346, DateTimeKind.Utc), start);
+        Assert.Equal(DateTimeKind.Utc, start!.Value.Kind);
+        Assert.Null(ClaudeTranscript.FindTurnStart("{\"type\":\"summary\"}"));
+    }
+
+    [Fact]
     public async Task PermissionRequest_IsHeldUntilTheNotchDecides()
     {
         var tracker = new ClaudeSessionTracker();

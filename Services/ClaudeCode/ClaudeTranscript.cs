@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Text.Json;
@@ -31,6 +32,76 @@ internal static class ClaudeTranscript
             return null;
         }
     }
+
+    /// <summary>
+    /// When the session's last prompt was sent (UTC), for a notch that joins a turn already running; null when
+    /// the transcript has none. A long turn writes a lot after its prompt, so this looks further back step by step.
+    /// </summary>
+    public static DateTime? ReadTurnStart(string transcriptPath)
+    {
+        if (!transcriptPath.EndsWith(".jsonl", StringComparison.OrdinalIgnoreCase)) return null;
+        try
+        {
+            using var stream = new FileStream(transcriptPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            long length = stream.Length;
+            for (long window = TailBytes; ; window *= 4)
+            {
+                long start = Math.Max(0, length - window);
+                var buffer = new byte[length - start];
+                stream.Seek(start, SeekOrigin.Begin);
+                stream.ReadExactly(buffer);
+                if (FindTurnStart(Encoding.UTF8.GetString(buffer)) is { } found) return found;
+                if (start == 0 || window >= MaxTurnScanBytes) return null;
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    private const long MaxTurnScanBytes = 64L * 1024 * 1024;
+
+    /// <summary>The time of the last prompt the user sent in these transcript lines (tool results and side chains do not count).</summary>
+    internal static DateTime? FindTurnStart(string tail)
+    {
+        const string marker = "\"type\":\"user\"";
+        int end = tail.Length;
+        while (end > 0)
+        {
+            int at = tail.LastIndexOf(marker, end - 1, StringComparison.Ordinal);
+            if (at < 0) return null;
+            int lineStart = tail.LastIndexOf('\n', at) + 1;
+            int lineEnd = tail.IndexOf('\n', at);
+            string line = lineEnd < 0 ? tail[lineStart..] : tail[lineStart..lineEnd];
+            end = lineStart;
+            // Most user lines are tool results; skip them before parsing what can be a large output.
+            if (line.Contains("\"type\":\"tool_result\"", StringComparison.Ordinal)) continue;
+            if (Parse(line) is { } entry && IsPrompt(entry) && Text(entry, "timestamp") is { } stamp &&
+                DateTime.TryParse(stamp, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var utc))
+                return utc;
+        }
+        return null;
+    }
+
+    private static bool IsPrompt(JsonObject entry)
+    {
+        if (Text(entry, "type") != "user" || Flag(entry, "isMeta") || Flag(entry, "isSidechain")) return false;
+        var content = (entry["message"] as JsonObject)?["content"];
+        if (content is JsonValue value) return value.TryGetValue(out string? text) && text.Trim().Length > 0;
+        if (content is not JsonArray parts) return false;
+        bool said = false;
+        foreach (var part in parts)
+        {
+            string? kind = part is JsonObject p ? Text(p, "type") : null;
+            if (kind == "tool_result") return false;
+            if (kind is "text" or "image") said = true;
+        }
+        return said;
+    }
+
+    private static bool Flag(JsonObject entry, string key) =>
+        entry[key] is JsonValue value && value.TryGetValue(out bool flag) && flag;
 
     internal static string? FindTitle(string tail) =>
         LastValue(tail, "custom-title", "customTitle") ?? LastValue(tail, "ai-title", "aiTitle");
