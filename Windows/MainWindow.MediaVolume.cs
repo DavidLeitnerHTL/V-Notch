@@ -173,7 +173,7 @@ public partial class MainWindow
         });
     }
 
-    private void SetMediaVolumeFromUser(float volume)
+    private void SetMediaVolumeFromUser(float volume, bool glide = false)
     {
         _mediaVolumeVersion++;
         _mediaVolume = Math.Clamp(volume, 0f, 1f);
@@ -182,7 +182,7 @@ public partial class MainWindow
         if (_mediaVolume > 0.001f) _mediaVolumeMuted = false;
         // The compact-notch wheel keeps its own baseline; make it re-read after this change.
         _volumeSynced = false;
-        RenderMediaVolume(animate: false);
+        RenderMediaVolume(animate: glide);
 
         float level = _mediaVolume;
         int version = _mediaVolumeVersion;
@@ -211,13 +211,20 @@ public partial class MainWindow
         scale.ScaleY = target;
         if (animate && !AnimationConfig.ReduceMotion && Math.Abs(current - target) > 0.0001)
         {
-            var animation = MakeAnim(current, target, _dur150, _easeAppleOut);
+            var animation = MakeAnim(current, target, MediaVolumeGlide, _easeAppleOut);
             animation.FillBehavior = FillBehavior.Stop;
             scale.BeginAnimation(ScaleTransform.ScaleYProperty, animation, HandoffBehavior.SnapshotAndReplace);
         }
 
         MediaVolumeFill.Opacity = _mediaVolumeMuted ? 0.35 : 1.0;
-        MediaVolumeIcon.Text = MediaVolumeGlyph(_mediaVolume, _mediaVolumeMuted);
+        string glyph = MediaVolumeGlyph(_mediaVolume, _mediaVolumeMuted);
+        if (MediaVolumeIcon.Text != glyph)
+        {
+            // The speaker hops when it gains or loses a wave or mutes: up for louder, a dip for quieter.
+            int before = MediaVolumeLevel(MediaVolumeIcon.Text), after = MediaVolumeLevel(glyph);
+            MediaVolumeIcon.Text = glyph;
+            if (before >= 0) HopMediaVolumeIcon(after > before ? 1.3 : 0.75);
+        }
         MediaVolumeColumn.Opacity = _mediaVolumeAvailable ? 1.0 : 0.35;
         MediaVolumeBar.SetCurrentValue(VNotch.Controls.AccessibleVolumePanel.ValueProperty, target);
     }
@@ -240,7 +247,12 @@ public partial class MainWindow
             RequestMediaVolumeRead();
             return;
         }
-        SetMediaVolumeFromUser(_mediaVolume + (e.Delta / 120f) * VolumeScrollStep);
+        if ((e.Delta > 0 && _mediaVolume >= 0.999f) || (e.Delta < 0 && _mediaVolume <= 0.001f))
+        {
+            BumpMediaVolume(up: e.Delta > 0);
+            return;
+        }
+        SetMediaVolumeFromUser(_mediaVolume + (e.Delta / 120f) * VolumeScrollStep, glide: true);
     }
 
     private void MediaVolumeBar_MouseDown(object sender, MouseButtonEventArgs e)
@@ -268,6 +280,7 @@ public partial class MainWindow
     {
         if (!_isDraggingMediaVolume) return;
         _isDraggingMediaVolume = false;
+        SnapBackMediaVolume();
         if (!MediaVolumeBar.IsMouseOver) AnimateMediaVolumeTrackWidth(1.0);
     }
 
@@ -275,6 +288,7 @@ public partial class MainWindow
     {
         if (!_isDraggingMediaVolume) return;
         _isDraggingMediaVolume = false;
+        SnapBackMediaVolume();
         if (MediaVolumeBar.IsMouseCaptured) MediaVolumeBar.ReleaseMouseCapture();
         if (!MediaVolumeBar.IsMouseOver) AnimateMediaVolumeTrackWidth(1.0);
     }
@@ -285,6 +299,8 @@ public partial class MainWindow
         if (height <= 0) return;
         double y = e.GetPosition(MediaVolumeTrack).Y;
         SetMediaVolumeFromUser((float)Math.Clamp(1.0 - y / height, 0.0, 1.0));
+        double past = y < 0 ? -y : y > height ? y - height : 0;
+        StretchMediaVolume(RubberBand(past, height) / height, up: y < 0);
     }
 
     private void MediaVolumeBar_ValueRequested(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -336,10 +352,101 @@ public partial class MainWindow
             scale.ScaleX = scaleX;
             return;
         }
-        scale.BeginAnimation(ScaleTransform.ScaleXProperty,
-            MakeAnim(scaleX, _dur150, _easeQuadOut, AnimationConfig.TargetFps),
-            HandoffBehavior.SnapshotAndReplace);
+        // Widens with a little overshoot, like a finger landing on it.
+        var widen = new DoubleAnimation(scaleX, TimeSpan.FromMilliseconds(scaleX > 1 ? 380 : 220))
+        {
+            EasingFunction = scaleX > 1 ? MediaVolumeSpringOut : _easeQuadOut
+        };
+        Timeline.SetDesiredFrameRate(widen, AnimationConfig.TargetFps);
+        scale.BeginAnimation(ScaleTransform.ScaleXProperty, widen, HandoffBehavior.SnapshotAndReplace);
     }
+
+    #region Rubber band
+
+    private static readonly Duration MediaVolumeGlide = new(TimeSpan.FromMilliseconds(220));
+    private static readonly IEasingFunction MediaVolumeSpringOut = FreezeVolumeEase(new BackEase { Amplitude = 0.6, EasingMode = EasingMode.EaseOut });
+    private static readonly IEasingFunction MediaVolumeSnapBack = FreezeVolumeEase(new ElasticEase { Oscillations = 2, Springiness = 6, EasingMode = EasingMode.EaseOut });
+
+    private static IEasingFunction FreezeVolumeEase(EasingFunctionBase ease)
+    {
+        ease.Freeze();
+        return ease;
+    }
+
+    // 0 muted .. 3 loud, from the speaker glyph; -1 before the first glyph.
+    private static int MediaVolumeLevel(string glyph) =>
+        glyph == MediaVolumeGlyph(0, true) ? 0 : glyph == MediaVolumeGlyph(0.2f, false) ? 1 : glyph == MediaVolumeGlyph(0.5f, false) ? 2 : glyph == MediaVolumeGlyph(1, false) ? 3 : -1;
+
+    /// <summary>
+    /// How far the bar gives when pulled <paramref name="past"/> its end: the rubber-band curve of iOS
+    /// scroll views, easy at first and stiffer the further it goes, at most a third of the bar.
+    /// </summary>
+    internal static double RubberBand(double past, double length)
+    {
+        if (past <= 0 || length <= 0) return 0;
+        const double Stiffness = 0.55;
+        return (1 - 1 / (past * Stiffness / length + 1)) * length * 0.35;
+    }
+
+    /// <summary>Pulled past an end: the bar stretches that way, anchored at the other end.</summary>
+    private void StretchMediaVolume(double stretch, bool up)
+    {
+        if (AnimationConfig.ReduceMotion) return;
+        var scale = MediaVolumeTrackScale;
+        if (stretch <= 0)
+        {
+            if (Math.Abs(scale.ScaleY - 1) > 0.001) SnapBackMediaVolume();
+            return;
+        }
+        MediaVolumeTrack.RenderTransformOrigin = new Point(0.5, up ? 1 : 0);
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        scale.ScaleY = 1 + stretch;
+    }
+
+    /// <summary>Let go: the bar springs back to its length with a wobble.</summary>
+    private void SnapBackMediaVolume()
+    {
+        var scale = MediaVolumeTrackScale;
+        double from = scale.ScaleY;
+        if (Math.Abs(from - 1) < 0.001 || AnimationConfig.ReduceMotion)
+        {
+            scale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+            scale.ScaleY = 1;
+            return;
+        }
+        var back = new DoubleAnimation(from, 1, TimeSpan.FromMilliseconds(650)) { EasingFunction = MediaVolumeSnapBack };
+        Timeline.SetDesiredFrameRate(back, AnimationConfig.TargetFps);
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty, back, HandoffBehavior.SnapshotAndReplace);
+    }
+
+    /// <summary>The wheel pushes against an end: the bar bumps out that way and wobbles back.</summary>
+    private void BumpMediaVolume(bool up)
+    {
+        if (AnimationConfig.ReduceMotion) return;
+        MediaVolumeTrack.RenderTransformOrigin = new Point(0.5, up ? 1 : 0);
+        var bump = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromMilliseconds(620) };
+        bump.KeyFrames.Add(new EasingDoubleKeyFrame(1.09, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(90)), _easeQuadOut));
+        bump.KeyFrames.Add(new EasingDoubleKeyFrame(1, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(620)), MediaVolumeSnapBack));
+        Timeline.SetDesiredFrameRate(bump, AnimationConfig.TargetFps);
+        MediaVolumeTrackScale.BeginAnimation(ScaleTransform.ScaleYProperty, bump, HandoffBehavior.SnapshotAndReplace);
+        HopMediaVolumeIcon(up ? 1.25 : 0.8);
+    }
+
+    private void HopMediaVolumeIcon(double peak)
+    {
+        if (AnimationConfig.ReduceMotion || !_isExpanded) return;
+        var scale = MediaVolumeIcon.RenderTransform as ScaleTransform ?? new ScaleTransform(1, 1);
+        MediaVolumeIcon.RenderTransform = scale;
+        MediaVolumeIcon.RenderTransformOrigin = new Point(0.5, 0.5);
+        var hop = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromMilliseconds(520) };
+        hop.KeyFrames.Add(new EasingDoubleKeyFrame(peak, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(110)), _easeQuadOut));
+        hop.KeyFrames.Add(new EasingDoubleKeyFrame(1, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(520)), MediaVolumeSnapBack));
+        Timeline.SetDesiredFrameRate(hop, AnimationConfig.TargetFps);
+        scale.BeginAnimation(ScaleTransform.ScaleXProperty, hop);
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty, hop);
+    }
+
+    #endregion
 
     private void MediaVolumeTrack_SizeChanged(object sender, SizeChangedEventArgs e)
     {

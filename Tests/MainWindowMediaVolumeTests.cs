@@ -15,6 +15,18 @@ public sealed class MainWindowMediaVolumeTests
     private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
 
     [Fact]
+    public void PullingPastTheEndGivesLessTheFurtherItGoes()
+    {
+        Assert.Equal(0, MainWindow.RubberBand(0, 100));
+        Assert.Equal(0, MainWindow.RubberBand(-5, 100));
+        double near = MainWindow.RubberBand(10, 100), far = MainWindow.RubberBand(200, 100), farther = MainWindow.RubberBand(400, 100);
+        Assert.True(near > 0 && near < 10, $"near {near}");
+        Assert.True(far > near && farther > far, "keeps giving");
+        Assert.True(farther - far < far - near, "but stiffer the further it goes");
+        Assert.True(MainWindow.RubberBand(1e9, 100) < 35.01, "never more than a third of the bar");
+    }
+
+    [Fact]
     public void MusicTabReadsTheAppVolumeAndTheWheelStepsFromIt() => SharedStaTestRunner.RunAsync(async ct =>
     {
         var media = new FakeMediaDetectionService { ReadSessionVolume = () => (true, .40f, false) };
@@ -101,7 +113,7 @@ public sealed class MainWindowMediaVolumeTests
         {
             Invoke(window, "RequestMediaVolumeRead");
             await started.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
-            Invoke(window, "SetMediaVolumeFromUser", .2f);
+            Invoke(window, "SetMediaVolumeFromUser", .2f, false);
             release.Set();
             await WpfFrameWaiter.UntilAsync(() => !Get<bool>(window, "_mediaVolumeReadPending"), "stale read discarded", ct);
             Assert.Equal(.2f, Get<float>(window, "_mediaVolume"), 4);
