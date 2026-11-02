@@ -379,13 +379,13 @@ public partial class MainWindow
 
     /// <summary>
     /// How far the bar gives when pulled <paramref name="past"/> its end: the rubber-band curve of iOS
-    /// scroll views, easy at first and stiffer the further it goes, at most a third of the bar.
+    /// scroll views, easy at first and stiffer the further it goes, at most half the bar.
     /// </summary>
     internal static double RubberBand(double past, double length)
     {
         if (past <= 0 || length <= 0) return 0;
         const double Stiffness = 0.55;
-        return (1 - 1 / (past * Stiffness / length + 1)) * length * 0.35;
+        return (1 - 1 / (past * Stiffness / length + 1)) * length * 0.5;
     }
 
     /// <summary>Pulled past an end: the bar stretches that way, anchored at the other end.</summary>

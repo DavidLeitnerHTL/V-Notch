@@ -23,7 +23,7 @@ public sealed class MainWindowMediaVolumeTests
         Assert.True(near > 0 && near < 10, $"near {near}");
         Assert.True(far > near && farther > far, "keeps giving");
         Assert.True(farther - far < far - near, "but stiffer the further it goes");
-        Assert.True(MainWindow.RubberBand(1e9, 100) < 35.01, "never more than a third of the bar");
+        Assert.True(MainWindow.RubberBand(1e9, 100) < 50.01, "never more than half the bar");
     }
 
     [Fact]
