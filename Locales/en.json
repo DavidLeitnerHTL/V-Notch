@@ -1193,5 +1193,11 @@
   "control.claude.screenshot": "Attach a screenshot",
   "control.claude.attachedImage": "Picture",
   "control.claude.attachedFiles": "{0} file(s)",
-  "control.claude.attachedLines": "{0} lines from the clipboard"
+  "control.claude.attachedLines": "{0} lines from the clipboard",
+  "media.jam.start": "Start a Spotify Jam (invite link is copied)",
+  "media.jam.starting": "Starting the Jam…",
+  "media.jam.copied": "Jam link copied",
+  "media.jam.expired": "Spotify sign-in expired. Click to sign in again.",
+  "media.jam.rejected": "Spotify refused to start a Jam (hosting needs Premium and an active player).",
+  "media.jam.failed": "Couldn't start the Jam. Click to try again."
 }

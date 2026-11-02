@@ -1193,5 +1193,11 @@
   "control.claude.screenshot": "Screenshot anhängen",
   "control.claude.attachedImage": "Bild",
   "control.claude.attachedFiles": "{0} Datei(en)",
-  "control.claude.attachedLines": "{0} Zeilen aus der Zwischenablage"
+  "control.claude.attachedLines": "{0} Zeilen aus der Zwischenablage",
+  "media.jam.start": "Spotify-Jam starten (Einladungslink wird kopiert)",
+  "media.jam.starting": "Jam wird gestartet…",
+  "media.jam.copied": "Jam-Link kopiert",
+  "media.jam.expired": "Spotify-Anmeldung abgelaufen. Klicken, um dich neu anzumelden.",
+  "media.jam.rejected": "Spotify hat die Jam abgelehnt (Hosten braucht Premium und einen aktiven Player).",
+  "media.jam.failed": "Jam konnte nicht gestartet werden. Klicken für neuen Versuch."
 }

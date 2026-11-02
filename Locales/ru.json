@@ -1193,5 +1193,11 @@
   "control.claude.screenshot": "Прикрепить снимок экрана",
   "control.claude.attachedImage": "Изображение",
   "control.claude.attachedFiles": "Файлов: {0}",
-  "control.claude.attachedLines": "{0} строк из буфера обмена"
+  "control.claude.attachedLines": "{0} строк из буфера обмена",
+  "media.jam.start": "Начать Jam в Spotify (ссылка-приглашение копируется)",
+  "media.jam.starting": "Запуск Jam…",
+  "media.jam.copied": "Ссылка на Jam скопирована",
+  "media.jam.expired": "Вход в Spotify истёк. Нажмите, чтобы войти снова.",
+  "media.jam.rejected": "Spotify отклонил Jam (для проведения нужен Premium и активный плеер).",
+  "media.jam.failed": "Не удалось начать Jam. Нажмите, чтобы повторить."
 }

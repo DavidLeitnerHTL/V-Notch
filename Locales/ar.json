@@ -1193,5 +1193,11 @@
   "control.claude.screenshot": "إرفاق لقطة شاشة",
   "control.claude.attachedImage": "صورة",
   "control.claude.attachedFiles": "{0} ملف",
-  "control.claude.attachedLines": "{0} أسطر من الحافظة"
+  "control.claude.attachedLines": "{0} أسطر من الحافظة",
+  "media.jam.start": "بدء جلسة Jam على Spotify (يُنسخ رابط الدعوة)",
+  "media.jam.starting": "جارٍ بدء Jam…",
+  "media.jam.copied": "تم نسخ رابط Jam",
+  "media.jam.expired": "انتهت صلاحية تسجيل الدخول إلى Spotify. انقر لتسجيل الدخول مجددًا.",
+  "media.jam.rejected": "رفض Spotify جلسة Jam (الاستضافة تتطلب Premium ومشغّلًا نشطًا).",
+  "media.jam.failed": "تعذّر بدء Jam. انقر للمحاولة مرة أخرى."
 }

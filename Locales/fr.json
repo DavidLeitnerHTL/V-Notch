@@ -1193,5 +1193,11 @@
   "control.claude.screenshot": "Joindre une capture",
   "control.claude.attachedImage": "Image",
   "control.claude.attachedFiles": "{0} fichier(s)",
-  "control.claude.attachedLines": "{0} lignes du presse-papiers"
+  "control.claude.attachedLines": "{0} lignes du presse-papiers",
+  "media.jam.start": "Lancer une Jam Spotify (le lien d'invitation est copié)",
+  "media.jam.starting": "Lancement de la Jam…",
+  "media.jam.copied": "Lien de la Jam copié",
+  "media.jam.expired": "La connexion à Spotify a expiré. Cliquez pour vous reconnecter.",
+  "media.jam.rejected": "Spotify a refusé la Jam (il faut Premium et un lecteur actif pour l'organiser).",
+  "media.jam.failed": "Impossible de lancer la Jam. Cliquez pour réessayer."
 }

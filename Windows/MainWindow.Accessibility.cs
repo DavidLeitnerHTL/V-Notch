@@ -38,6 +38,7 @@ public partial class MainWindow
             (MediaPlayback.PrevButton, "media.previous"), (InlinePrevButton, "media.previous"),
             (MediaPlayback.NextButton, "media.next"), (InlineNextButton, "media.next"),
             (VolumeBarContainer, "media.volume"), (VolumeMuteButton, "media.mute"),
+            (MediaVolumeBar, "media.volume"), (MediaVolumeMuteButton, "media.mute"),
             (CountdownWidget.CountdownResetBtn, "timer.reset"), (CountdownWidget.CountdownStartBtn, "timer.start"),
             (CountdownWidget.CountdownPlusBtn, "timer.increase"), (CountdownWidget.CountdownMinusBtn, "timer.decrease"),
             (CountdownRestartBtn, "timer.restart"), (CountdownDismissBtn, "timer.dismiss")

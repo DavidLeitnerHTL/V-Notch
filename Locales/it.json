@@ -1193,5 +1193,11 @@
   "control.claude.screenshot": "Allega screenshot",
   "control.claude.attachedImage": "Immagine",
   "control.claude.attachedFiles": "{0} file",
-  "control.claude.attachedLines": "{0} righe dagli appunti"
+  "control.claude.attachedLines": "{0} righe dagli appunti",
+  "media.jam.start": "Avvia una Jam di Spotify (il link di invito viene copiato)",
+  "media.jam.starting": "Avvio della Jam…",
+  "media.jam.copied": "Link della Jam copiato",
+  "media.jam.expired": "L'accesso a Spotify è scaduto. Fai clic per accedere di nuovo.",
+  "media.jam.rejected": "Spotify ha rifiutato la Jam (per ospitarla servono Premium e un player attivo).",
+  "media.jam.failed": "Impossibile avviare la Jam. Fai clic per riprovare."
 }

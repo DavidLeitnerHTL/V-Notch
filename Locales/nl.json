@@ -1193,5 +1193,11 @@
   "control.claude.screenshot": "Schermafbeelding bijvoegen",
   "control.claude.attachedImage": "Afbeelding",
   "control.claude.attachedFiles": "{0} bestand(en)",
-  "control.claude.attachedLines": "{0} regels van het klembord"
+  "control.claude.attachedLines": "{0} regels van het klembord",
+  "media.jam.start": "Spotify Jam starten (uitnodigingslink wordt gekopieerd)",
+  "media.jam.starting": "Jam wordt gestart…",
+  "media.jam.copied": "Jam-link gekopieerd",
+  "media.jam.expired": "Spotify-aanmelding verlopen. Klik om opnieuw aan te melden.",
+  "media.jam.rejected": "Spotify weigerde de Jam (hosten vereist Premium en een actieve speler).",
+  "media.jam.failed": "Jam kon niet worden gestart. Klik om het opnieuw te proberen."
 }

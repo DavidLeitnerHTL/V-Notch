@@ -1193,5 +1193,11 @@
   "control.claude.screenshot": "スクリーンショットを添付",
   "control.claude.attachedImage": "画像",
   "control.claude.attachedFiles": "{0} 個のファイル",
-  "control.claude.attachedLines": "クリップボードから {0} 行"
+  "control.claude.attachedLines": "クリップボードから {0} 行",
+  "media.jam.start": "Spotify の Jam を開始（招待リンクをコピー）",
+  "media.jam.starting": "Jam を開始しています…",
+  "media.jam.copied": "Jam のリンクをコピーしました",
+  "media.jam.expired": "Spotify のログインが期限切れです。クリックして再ログインしてください。",
+  "media.jam.rejected": "Spotify が Jam を拒否しました（ホストには Premium と再生中のプレーヤーが必要です）。",
+  "media.jam.failed": "Jam を開始できませんでした。クリックして再試行してください。"
 }

@@ -1193,5 +1193,11 @@
   "control.claude.screenshot": "Ekran görüntüsü ekle",
   "control.claude.attachedImage": "Resim",
   "control.claude.attachedFiles": "{0} dosya",
-  "control.claude.attachedLines": "Panodan {0} satır"
+  "control.claude.attachedLines": "Panodan {0} satır",
+  "media.jam.start": "Spotify Jam başlat (davet bağlantısı kopyalanır)",
+  "media.jam.starting": "Jam başlatılıyor…",
+  "media.jam.copied": "Jam bağlantısı kopyalandı",
+  "media.jam.expired": "Spotify oturumunun süresi doldu. Yeniden giriş yapmak için tıklayın.",
+  "media.jam.rejected": "Spotify Jam'i reddetti (ev sahipliği için Premium ve etkin bir oynatıcı gerekir).",
+  "media.jam.failed": "Jam başlatılamadı. Tekrar denemek için tıklayın."
 }

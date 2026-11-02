@@ -1193,5 +1193,11 @@
   "control.claude.screenshot": "स्क्रीनशॉट जोड़ें",
   "control.claude.attachedImage": "चित्र",
   "control.claude.attachedFiles": "{0} फ़ाइल",
-  "control.claude.attachedLines": "क्लिपबोर्ड से {0} पंक्तियाँ"
+  "control.claude.attachedLines": "क्लिपबोर्ड से {0} पंक्तियाँ",
+  "media.jam.start": "Spotify Jam शुरू करें (आमंत्रण लिंक कॉपी होता है)",
+  "media.jam.starting": "Jam शुरू हो रहा है…",
+  "media.jam.copied": "Jam लिंक कॉपी हो गया",
+  "media.jam.expired": "Spotify साइन-इन की अवधि समाप्त हो गई। फिर से साइन इन करने के लिए क्लिक करें।",
+  "media.jam.rejected": "Spotify ने Jam अस्वीकार कर दिया (होस्ट करने के लिए Premium और सक्रिय प्लेयर चाहिए)।",
+  "media.jam.failed": "Jam शुरू नहीं हो सका। फिर से कोशिश करने के लिए क्लिक करें।"
 }

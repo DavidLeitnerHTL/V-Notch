@@ -1193,5 +1193,11 @@
   "control.claude.screenshot": "Adjuntar captura",
   "control.claude.attachedImage": "Imagen",
   "control.claude.attachedFiles": "{0} archivo(s)",
-  "control.claude.attachedLines": "{0} líneas del portapapeles"
+  "control.claude.attachedLines": "{0} líneas del portapapeles",
+  "media.jam.start": "Iniciar una Jam de Spotify (se copia el enlace de invitación)",
+  "media.jam.starting": "Iniciando la Jam…",
+  "media.jam.copied": "Enlace de la Jam copiado",
+  "media.jam.expired": "La sesión de Spotify ha caducado. Haz clic para volver a iniciar sesión.",
+  "media.jam.rejected": "Spotify rechazó la Jam (para organizarla se necesita Premium y un reproductor activo).",
+  "media.jam.failed": "No se pudo iniciar la Jam. Haz clic para reintentar."
 }

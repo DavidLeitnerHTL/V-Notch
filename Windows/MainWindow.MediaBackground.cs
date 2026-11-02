@@ -233,6 +233,7 @@ public partial class MainWindow
         VolumeBarGradientStart.BeginAnimation(GradientStop.ColorProperty, volStartAnim);
         System.Windows.Media.Animation.Timeline.SetDesiredFrameRate(volEndAnim, VNotch.Services.AnimationConfig.TargetFps);
         VolumeBarGradientEnd.BeginAnimation(GradientStop.ColorProperty, volEndAnim);
+        TintMediaVolumeFill(volStartAnim, volEndAnim);
         SetVolumeHudMediaTint(vibrantTargetColor, true);
 
 
@@ -370,6 +371,7 @@ public partial class MainWindow
         };
         System.Windows.Media.Animation.Timeline.SetDesiredFrameRate(defaultVolEndAnim, VNotch.Services.AnimationConfig.TargetFps);
         VolumeBarGradientEnd.BeginAnimation(GradientStop.ColorProperty, defaultVolEndAnim);
+        TintMediaVolumeFill(defaultColorAnim, defaultVolEndAnim);
         SetVolumeHudMediaTint(Colors.White, false);
 
 

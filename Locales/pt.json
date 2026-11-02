@@ -1193,5 +1193,11 @@
   "control.claude.screenshot": "Anexar captura",
   "control.claude.attachedImage": "Imagem",
   "control.claude.attachedFiles": "{0} arquivo(s)",
-  "control.claude.attachedLines": "{0} linhas da área de transferência"
+  "control.claude.attachedLines": "{0} linhas da área de transferência",
+  "media.jam.start": "Iniciar uma Jam do Spotify (o link de convite é copiado)",
+  "media.jam.starting": "Iniciando a Jam…",
+  "media.jam.copied": "Link da Jam copiado",
+  "media.jam.expired": "O login do Spotify expirou. Clique para entrar novamente.",
+  "media.jam.rejected": "O Spotify recusou a Jam (para hospedar é preciso Premium e um player ativo).",
+  "media.jam.failed": "Não foi possível iniciar a Jam. Clique para tentar novamente."
 }

@@ -1193,5 +1193,11 @@
   "control.claude.screenshot": "附加截图",
   "control.claude.attachedImage": "图片",
   "control.claude.attachedFiles": "{0} 个文件",
-  "control.claude.attachedLines": "剪贴板中的 {0} 行"
+  "control.claude.attachedLines": "剪贴板中的 {0} 行",
+  "media.jam.start": "开始 Spotify Jam（复制邀请链接）",
+  "media.jam.starting": "正在开始 Jam…",
+  "media.jam.copied": "已复制 Jam 链接",
+  "media.jam.expired": "Spotify 登录已过期。点击重新登录。",
+  "media.jam.rejected": "Spotify 拒绝了 Jam（主持需要 Premium 和正在播放的播放器）。",
+  "media.jam.failed": "无法开始 Jam。点击重试。"
 }

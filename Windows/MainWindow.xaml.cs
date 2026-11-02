@@ -185,7 +185,6 @@ public partial class MainWindow : Window
     private readonly UiScheduledTimer _lyricsTimer;
     private readonly UiScheduledTimer _volumeSyncTimer;
 
-    private static readonly SolidColorBrush _brushCharging = CreateFrozenBrush(48, 209, 88);
     private static readonly SolidColorBrush _brushLowBattery = CreateFrozenBrush(255, 59, 48);
     private static readonly SolidColorBrush _brushWhite = VNotch.Services.UiPalette.PrimaryBrush;
     private static readonly SolidColorBrush _brushBlack = CreateFrozenBrush(0, 0, 0);
@@ -724,6 +723,8 @@ public partial class MainWindow : Window
         System.Windows.Input.InputManager.Current.PreProcessInput -= BlockGreetingInput;
         _lyricsTimer?.Dispose();
         _volumeSyncTimer?.Dispose();
+        _spotifyRemote?.Dispose();
+        _spotifyRemote = null;
         _lyricsService?.Dispose();
         _youtubeSubtitleService?.Dispose();
         _mediaBackgroundRecoveryTimer?.Dispose();
@@ -798,6 +799,7 @@ public partial class MainWindow : Window
         _isAudioView = snapshot.CurrentView == VNotch.Models.NotchView.AudioMixer;
         _isSecondaryView = snapshot.CurrentView == VNotch.Models.NotchView.Secondary;
         _isTimerView = snapshot.CurrentView == VNotch.Models.NotchView.Timer;
+        SyncMediaVolumeSliderState();
         UpdateGlassMotionState();
         SyncPrivacyDotVisibilityForCurrentView();
         UpdateSpotifyCanvasPresentationContext();

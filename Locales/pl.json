@@ -1193,5 +1193,11 @@
   "control.claude.screenshot": "Dołącz zrzut ekranu",
   "control.claude.attachedImage": "Obraz",
   "control.claude.attachedFiles": "Pliki: {0}",
-  "control.claude.attachedLines": "{0} wierszy ze schowka"
+  "control.claude.attachedLines": "{0} wierszy ze schowka",
+  "media.jam.start": "Rozpocznij Jam w Spotify (link z zaproszeniem zostanie skopiowany)",
+  "media.jam.starting": "Uruchamianie Jamu…",
+  "media.jam.copied": "Skopiowano link do Jamu",
+  "media.jam.expired": "Logowanie do Spotify wygasło. Kliknij, aby zalogować się ponownie.",
+  "media.jam.rejected": "Spotify odrzuciło Jam (prowadzenie wymaga Premium i aktywnego odtwarzacza).",
+  "media.jam.failed": "Nie udało się uruchomić Jamu. Kliknij, aby spróbować ponownie."
 }

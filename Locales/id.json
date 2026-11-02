@@ -1193,5 +1193,11 @@
   "control.claude.screenshot": "Lampirkan tangkapan layar",
   "control.claude.attachedImage": "Gambar",
   "control.claude.attachedFiles": "{0} berkas",
-  "control.claude.attachedLines": "{0} baris dari papan klip"
+  "control.claude.attachedLines": "{0} baris dari papan klip",
+  "media.jam.start": "Mulai Jam Spotify (tautan undangan disalin)",
+  "media.jam.starting": "Memulai Jam…",
+  "media.jam.copied": "Tautan Jam disalin",
+  "media.jam.expired": "Sesi masuk Spotify kedaluwarsa. Klik untuk masuk lagi.",
+  "media.jam.rejected": "Spotify menolak Jam (menjadi host butuh Premium dan pemutar yang aktif).",
+  "media.jam.failed": "Jam tidak dapat dimulai. Klik untuk mencoba lagi."
 }
