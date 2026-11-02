@@ -1199,5 +1199,22 @@
   "media.jam.copied": "已复制 Jam 链接",
   "media.jam.expired": "Spotify 登录已过期。点击重新登录。",
   "media.jam.rejected": "Spotify 拒绝了 Jam（主持需要 Premium 和正在播放的播放器）。",
-  "media.jam.failed": "无法开始 Jam。点击重试。"
+  "media.jam.failed": "无法开始 Jam。点击重试。",
+  "nav.legion": "Legion",
+  "legion.mode": "电源模式",
+  "legion.temps": "CPU {0}° · GPU {1}°",
+  "legion.quiet": "安静",
+  "legion.balanced": "均衡",
+  "legion.performance": "性能",
+  "legion.extreme": "狂暴",
+  "legion.active": "已启用",
+  "legion.tapToSet": "轻点切换",
+  "legion.custom": "自定义模式已开启（在 Lenovo Vantage 中设置）",
+  "legion.keys": "按键",
+  "legion.winKey": "Windows 键",
+  "legion.touchpad": "触控板",
+  "legion.locked": "已锁定",
+  "legion.setupHint": "切换电源模式需要一次管理员权限。",
+  "legion.setup": "设置（只需一次管理员确认）",
+  "legion.settingUp": "正在设置…"
 }

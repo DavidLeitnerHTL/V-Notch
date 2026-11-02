@@ -1199,5 +1199,22 @@
   "media.jam.copied": "Tautan Jam disalin",
   "media.jam.expired": "Sesi masuk Spotify kedaluwarsa. Klik untuk masuk lagi.",
   "media.jam.rejected": "Spotify menolak Jam (menjadi host butuh Premium dan pemutar yang aktif).",
-  "media.jam.failed": "Jam tidak dapat dimulai. Klik untuk mencoba lagi."
+  "media.jam.failed": "Jam tidak dapat dimulai. Klik untuk mencoba lagi.",
+  "nav.legion": "Legion",
+  "legion.mode": "Mode daya",
+  "legion.temps": "CPU {0}° · GPU {1}°",
+  "legion.quiet": "Senyap",
+  "legion.balanced": "Seimbang",
+  "legion.performance": "Performa",
+  "legion.extreme": "Ekstrem",
+  "legion.active": "Aktif",
+  "legion.tapToSet": "Ketuk untuk beralih",
+  "legion.custom": "Mode kustom aktif (diatur di Lenovo Vantage)",
+  "legion.keys": "Tombol",
+  "legion.winKey": "Tombol Windows",
+  "legion.touchpad": "Touchpad",
+  "legion.locked": "Terkunci",
+  "legion.setupHint": "Mengganti mode daya butuh hak administrator sekali.",
+  "legion.setup": "Siapkan (minta admin sekali)",
+  "legion.settingUp": "Menyiapkan…"
 }

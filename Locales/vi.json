@@ -1199,5 +1199,22 @@
   "media.jam.copied": "Đã sao chép liên kết Jam",
   "media.jam.expired": "Phiên đăng nhập Spotify đã hết hạn. Nhấn để đăng nhập lại.",
   "media.jam.rejected": "Spotify đã từ chối Jam (cần Premium và trình phát đang hoạt động để tổ chức).",
-  "media.jam.failed": "Không thể bắt đầu Jam. Nhấn để thử lại."
+  "media.jam.failed": "Không thể bắt đầu Jam. Nhấn để thử lại.",
+  "nav.legion": "Legion",
+  "legion.mode": "Chế độ nguồn",
+  "legion.temps": "CPU {0}° · GPU {1}°",
+  "legion.quiet": "Yên tĩnh",
+  "legion.balanced": "Cân bằng",
+  "legion.performance": "Hiệu năng",
+  "legion.extreme": "Cực đại",
+  "legion.active": "Đang bật",
+  "legion.tapToSet": "Chạm để chuyển",
+  "legion.custom": "Chế độ tùy chỉnh đang bật (cài trong Lenovo Vantage)",
+  "legion.keys": "Phím",
+  "legion.winKey": "Phím Windows",
+  "legion.touchpad": "Bàn di chuột",
+  "legion.locked": "Đã khóa",
+  "legion.setupHint": "Đổi chế độ nguồn cần quyền quản trị một lần.",
+  "legion.setup": "Thiết lập (hỏi quyền quản trị một lần)",
+  "legion.settingUp": "Đang thiết lập…"
 }

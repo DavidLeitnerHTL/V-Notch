@@ -1199,5 +1199,22 @@
   "media.jam.copied": "Jam bağlantısı kopyalandı",
   "media.jam.expired": "Spotify oturumunun süresi doldu. Yeniden giriş yapmak için tıklayın.",
   "media.jam.rejected": "Spotify Jam'i reddetti (ev sahipliği için Premium ve etkin bir oynatıcı gerekir).",
-  "media.jam.failed": "Jam başlatılamadı. Tekrar denemek için tıklayın."
+  "media.jam.failed": "Jam başlatılamadı. Tekrar denemek için tıklayın.",
+  "nav.legion": "Legion",
+  "legion.mode": "Güç modu",
+  "legion.temps": "CPU {0}° · GPU {1}°",
+  "legion.quiet": "Sessiz",
+  "legion.balanced": "Dengeli",
+  "legion.performance": "Performans",
+  "legion.extreme": "Ekstrem",
+  "legion.active": "Etkin",
+  "legion.tapToSet": "Değiştirmek için dokunun",
+  "legion.custom": "Özel mod açık (Lenovo Vantage’da ayarlandı)",
+  "legion.keys": "Tuşlar",
+  "legion.winKey": "Windows tuşu",
+  "legion.touchpad": "Dokunmatik yüzey",
+  "legion.locked": "Kilitli",
+  "legion.setupHint": "Güç modunu değiştirmek bir kez yönetici izni gerektirir.",
+  "legion.setup": "Kur (bir kez yönetici ister)",
+  "legion.settingUp": "Kuruluyor…"
 }

@@ -1199,5 +1199,22 @@
   "media.jam.copied": "Ссылка на Jam скопирована",
   "media.jam.expired": "Вход в Spotify истёк. Нажмите, чтобы войти снова.",
   "media.jam.rejected": "Spotify отклонил Jam (для проведения нужен Premium и активный плеер).",
-  "media.jam.failed": "Не удалось начать Jam. Нажмите, чтобы повторить."
+  "media.jam.failed": "Не удалось начать Jam. Нажмите, чтобы повторить.",
+  "nav.legion": "Legion",
+  "legion.mode": "Режим питания",
+  "legion.temps": "CPU {0}° · GPU {1}°",
+  "legion.quiet": "Тихий",
+  "legion.balanced": "Сбалансированный",
+  "legion.performance": "Производительный",
+  "legion.extreme": "Экстремальный",
+  "legion.active": "Активен",
+  "legion.tapToSet": "Нажмите, чтобы переключить",
+  "legion.custom": "Включён пользовательский режим (настроен в Lenovo Vantage)",
+  "legion.keys": "Клавиши",
+  "legion.winKey": "Клавиша Windows",
+  "legion.touchpad": "Сенсорная панель",
+  "legion.locked": "Заблокировано",
+  "legion.setupHint": "Для смены режимов один раз нужны права администратора.",
+  "legion.setup": "Настроить (один раз запросит администратора)",
+  "legion.settingUp": "Настройка…"
 }

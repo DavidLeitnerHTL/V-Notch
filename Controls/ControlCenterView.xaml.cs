@@ -23,7 +23,9 @@ public enum ControlCenterPage
     /// <summary>Claude Code sessions, approvals, questions and plan limits.</summary>
     Claude,
     /// <summary>The user's Raspberry Pi dashboard: Home Assistant, school, to-dos.</summary>
-    Pi
+    Pi,
+    /// <summary>A Lenovo Legion's power modes, key locks and temperatures.</summary>
+    Legion
 }
 
 /// <summary>
@@ -222,6 +224,10 @@ public partial class ControlCenterView : UserControl, IDisposable
             {
                 OnPiVisibleChanged(true);
             }
+            else if (Page == ControlCenterPage.Legion)
+            {
+                OnLegionVisibleChanged(true);
+            }
             else
             {
                 _refreshTimer.Start();
@@ -243,6 +249,7 @@ public partial class ControlCenterView : UserControl, IDisposable
             CloseMenu();
             if (_composingSessionId != null) StopComposing();
             if (Page == ControlCenterPage.Pi) OnPiVisibleChanged(false);
+            if (Page == ControlCenterPage.Legion) OnLegionVisibleChanged(false);
         }
     }
 
@@ -250,10 +257,11 @@ public partial class ControlCenterView : UserControl, IDisposable
     {
         _networkKey = _bluetoothKey = _audioKey = _notificationKey = _wallpaperKey = _claudeKey = "";
         _statsTiles = null;
-        _piKey = "";
+        _piKey = _legionKey = "";
         if (_snapshot != null) ApplySnapshot(_snapshot);
         BuildClaudeSection();
         BuildPiPage();
+        BuildLegionPage();
     });
 
     private void OnClaudeChanged() => Dispatcher.BeginInvoke(DispatcherPriority.Background, BuildClaudeSection);
@@ -298,6 +306,11 @@ public partial class ControlCenterView : UserControl, IDisposable
         if (Page == ControlCenterPage.Pi)
         {
             RefreshPi();
+            return;
+        }
+        if (Page == ControlCenterPage.Legion)
+        {
+            RefreshLegion();
             return;
         }
         if (_refreshing) return;
@@ -2325,6 +2338,8 @@ public partial class ControlCenterView : UserControl, IDisposable
             case "pi.home":
             case "pi.school":
             case "pi.todos": _piKey = ""; BuildPiPage(); return;
+            case "legion.mode":
+            case "legion.keys": _legionKey = ""; BuildLegionPage(); return;
             case "system": _statsTiles = null; break;
             case "claude": _claudeKey = ""; BuildClaudeSection(); return;
         }

@@ -1199,5 +1199,22 @@
   "media.jam.copied": "Jam link copied",
   "media.jam.expired": "Spotify sign-in expired. Click to sign in again.",
   "media.jam.rejected": "Spotify refused to start a Jam (hosting needs Premium and an active player).",
-  "media.jam.failed": "Couldn't start the Jam. Click to try again."
+  "media.jam.failed": "Couldn't start the Jam. Click to try again.",
+  "nav.legion": "Legion",
+  "legion.mode": "Power mode",
+  "legion.temps": "CPU {0}° · GPU {1}°",
+  "legion.quiet": "Quiet",
+  "legion.balanced": "Balanced",
+  "legion.performance": "Performance",
+  "legion.extreme": "Extreme",
+  "legion.active": "Active",
+  "legion.tapToSet": "Tap to switch",
+  "legion.custom": "Custom mode is on (set up in Lenovo Vantage)",
+  "legion.keys": "Keys",
+  "legion.winKey": "Windows key",
+  "legion.touchpad": "Touchpad",
+  "legion.locked": "Locked",
+  "legion.setupHint": "Switching power modes needs administrator rights once.",
+  "legion.setup": "Set up (asks for admin once)",
+  "legion.settingUp": "Setting up…"
 }

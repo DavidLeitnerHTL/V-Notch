@@ -1199,5 +1199,22 @@
   "media.jam.copied": "Jam のリンクをコピーしました",
   "media.jam.expired": "Spotify のログインが期限切れです。クリックして再ログインしてください。",
   "media.jam.rejected": "Spotify が Jam を拒否しました（ホストには Premium と再生中のプレーヤーが必要です）。",
-  "media.jam.failed": "Jam を開始できませんでした。クリックして再試行してください。"
+  "media.jam.failed": "Jam を開始できませんでした。クリックして再試行してください。",
+  "nav.legion": "Legion",
+  "legion.mode": "電源モード",
+  "legion.temps": "CPU {0}° · GPU {1}°",
+  "legion.quiet": "静音",
+  "legion.balanced": "バランス",
+  "legion.performance": "パフォーマンス",
+  "legion.extreme": "エクストリーム",
+  "legion.active": "有効",
+  "legion.tapToSet": "タップで切り替え",
+  "legion.custom": "カスタムモードがオンです（Lenovo Vantage で設定）",
+  "legion.keys": "キー",
+  "legion.winKey": "Windows キー",
+  "legion.touchpad": "タッチパッド",
+  "legion.locked": "ロック中",
+  "legion.setupHint": "電源モードの切り替えには一度だけ管理者権限が必要です。",
+  "legion.setup": "セットアップ（管理者権限を一度だけ確認）",
+  "legion.settingUp": "セットアップ中…"
 }

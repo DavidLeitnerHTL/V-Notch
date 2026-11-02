@@ -1199,5 +1199,22 @@
   "media.jam.copied": "Jam-link gekopieerd",
   "media.jam.expired": "Spotify-aanmelding verlopen. Klik om opnieuw aan te melden.",
   "media.jam.rejected": "Spotify weigerde de Jam (hosten vereist Premium en een actieve speler).",
-  "media.jam.failed": "Jam kon niet worden gestart. Klik om het opnieuw te proberen."
+  "media.jam.failed": "Jam kon niet worden gestart. Klik om het opnieuw te proberen.",
+  "nav.legion": "Legion",
+  "legion.mode": "Energiemodus",
+  "legion.temps": "CPU {0}° · GPU {1}°",
+  "legion.quiet": "Stil",
+  "legion.balanced": "Gebalanceerd",
+  "legion.performance": "Prestaties",
+  "legion.extreme": "Extreem",
+  "legion.active": "Actief",
+  "legion.tapToSet": "Tik om te wisselen",
+  "legion.custom": "Aangepaste modus staat aan (ingesteld in Lenovo Vantage)",
+  "legion.keys": "Toetsen",
+  "legion.winKey": "Windows-toets",
+  "legion.touchpad": "Touchpad",
+  "legion.locked": "Vergrendeld",
+  "legion.setupHint": "Wisselen van energiemodus vraagt eenmalig beheerdersrechten.",
+  "legion.setup": "Instellen (vraagt eenmalig om beheerder)",
+  "legion.settingUp": "Bezig met instellen…"
 }

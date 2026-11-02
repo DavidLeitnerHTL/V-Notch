@@ -1199,5 +1199,22 @@
   "media.jam.copied": "تم نسخ رابط Jam",
   "media.jam.expired": "انتهت صلاحية تسجيل الدخول إلى Spotify. انقر لتسجيل الدخول مجددًا.",
   "media.jam.rejected": "رفض Spotify جلسة Jam (الاستضافة تتطلب Premium ومشغّلًا نشطًا).",
-  "media.jam.failed": "تعذّر بدء Jam. انقر للمحاولة مرة أخرى."
+  "media.jam.failed": "تعذّر بدء Jam. انقر للمحاولة مرة أخرى.",
+  "nav.legion": "Legion",
+  "legion.mode": "وضع الطاقة",
+  "legion.temps": "المعالج {0}° · الرسومات {1}°",
+  "legion.quiet": "هادئ",
+  "legion.balanced": "متوازن",
+  "legion.performance": "أداء",
+  "legion.extreme": "أقصى",
+  "legion.active": "نشط",
+  "legion.tapToSet": "اضغط للتبديل",
+  "legion.custom": "الوضع المخصص قيد التشغيل (من Lenovo Vantage)",
+  "legion.keys": "المفاتيح",
+  "legion.winKey": "مفتاح Windows",
+  "legion.touchpad": "لوحة اللمس",
+  "legion.locked": "مقفل",
+  "legion.setupHint": "يحتاج تبديل أوضاع الطاقة إلى صلاحيات المسؤول مرة واحدة.",
+  "legion.setup": "إعداد (يطلب صلاحيات المسؤول مرة واحدة)",
+  "legion.settingUp": "جارٍ الإعداد…"
 }

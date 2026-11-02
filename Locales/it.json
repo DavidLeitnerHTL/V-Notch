@@ -1199,5 +1199,22 @@
   "media.jam.copied": "Link della Jam copiato",
   "media.jam.expired": "L'accesso a Spotify è scaduto. Fai clic per accedere di nuovo.",
   "media.jam.rejected": "Spotify ha rifiutato la Jam (per ospitarla servono Premium e un player attivo).",
-  "media.jam.failed": "Impossibile avviare la Jam. Fai clic per riprovare."
+  "media.jam.failed": "Impossibile avviare la Jam. Fai clic per riprovare.",
+  "nav.legion": "Legion",
+  "legion.mode": "Modalità energia",
+  "legion.temps": "CPU {0}° · GPU {1}°",
+  "legion.quiet": "Silenzioso",
+  "legion.balanced": "Bilanciato",
+  "legion.performance": "Prestazioni",
+  "legion.extreme": "Estremo",
+  "legion.active": "Attivo",
+  "legion.tapToSet": "Tocca per cambiare",
+  "legion.custom": "La modalità personalizzata è attiva (impostata in Lenovo Vantage)",
+  "legion.keys": "Tasti",
+  "legion.winKey": "Tasto Windows",
+  "legion.touchpad": "Touchpad",
+  "legion.locked": "Bloccato",
+  "legion.setupHint": "Cambiare modalità richiede una volta i diritti di amministratore.",
+  "legion.setup": "Configura (chiede l’amministratore una volta)",
+  "legion.settingUp": "Configurazione…"
 }
