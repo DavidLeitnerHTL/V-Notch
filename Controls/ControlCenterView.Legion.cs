@@ -59,6 +59,7 @@ public partial class ControlCenterView
         public required DropShadowEffect PillGlow;
         public required ModeTile[] Modes;
         public required FrameworkElement CustomNote;
+        public required Grid SystemGrid;
         public required Gauge Cpu, Gpu;
         public required KeyTile WinKey, Touchpad;
         public int Selected = -2; // -2: nothing shown yet, -1: a mode without a tile (custom)
@@ -149,7 +150,9 @@ public partial class ControlCenterView
     {
         if (_disposed) return;
         bool ready = _legionReachable && _legion != null;
-        string key = $"{_legionReachable}|{ready}|{IsExpanded("legion.mode")}|{IsExpanded("control.system")}";
+        // Opening or closing a section only shows or hides its rows (ToggleLegionSection): a rebuild
+        // would make the pill and the rings arrive all over again.
+        string key = $"{_legionReachable}|{ready}";
         if (key == _legionKey) return;
         _legionKey = key;
         _legionParts = null;
@@ -168,11 +171,9 @@ public partial class ControlCenterView
         var modeGrid = LegionModeGrid(out var pill, out var shift, out var pillScale, out var glow, out var modes);
         var customNote = NewRow("", Loc.Get("legion.custom"), muted: true);
         customNote.Visibility = Visibility.Collapsed;
-        if (IsExpanded("legion.mode"))
-        {
-            _legionModeSection.Children.Add(modeGrid);
-            _legionModeSection.Children.Add(customNote);
-        }
+        modeGrid.Visibility = IsExpanded("legion.mode") ? Visibility.Visible : Visibility.Collapsed;
+        _legionModeSection.Children.Add(modeGrid);
+        _legionModeSection.Children.Add(customNote);
 
         _legionSystemSection.Children.Add(BuildSectionHeader("control.system", Loc.Get("control.system"), "", null, topMargin: 6));
         var systemGrid = TileGrid(4, 4);
@@ -184,17 +185,54 @@ public partial class ControlCenterView
         PlaceTile(systemGrid, gpuCard, 1, 4);
         PlaceTile(systemGrid, winKey.Card, 2, 4);
         PlaceTile(systemGrid, touchpad.Card, 3, 4);
-        if (IsExpanded("control.system")) _legionSystemSection.Children.Add(systemGrid);
+        systemGrid.Visibility = IsExpanded("control.system") ? Visibility.Visible : Visibility.Collapsed;
+        _legionSystemSection.Children.Add(systemGrid);
 
         _legionParts = new LegionParts
         {
             ModeGrid = modeGrid, Pill = pill, PillShift = shift, PillScale = pillScale, PillGlow = glow, Modes = modes,
-            CustomNote = customNote, Cpu = cpu, Gpu = gpu, WinKey = winKey, Touchpad = touchpad
+            CustomNote = customNote, SystemGrid = systemGrid, Cpu = cpu, Gpu = gpu, WinKey = winKey, Touchpad = touchpad
         };
         if (_legion != null) UpdateLegion(_legion);
         // Arriving from "loading" or the setup: the page falls into place.
         if (ready && !_legionWasReady && IsVisible) RevealChildren(_legionSection, TimeSpan.FromMilliseconds(20), 0);
         _legionWasReady = ready;
+    }
+
+    /// <summary>
+    /// A section header was tapped: shows or hides that section's rows in place (the header is replaced, as it
+    /// remembers its own state) so the pill and the rings stay where they are.
+    /// </summary>
+    private void ToggleLegionSection(string section)
+    {
+        if (_legionParts is not { } parts)
+        {
+            _legionKey = "";
+            BuildLegionPage();
+            return;
+        }
+        bool mode = section == "legion.mode";
+        var panel = mode ? _legionModeSection : _legionSystemSection;
+        bool open = IsExpanded(section);
+        // A UIElementCollection slot cannot be overwritten while it holds a visual: take the old header out first.
+        panel.Children.RemoveAt(0);
+        panel.Children.Insert(0, mode
+            ? BuildSectionHeader("legion.mode", Loc.Get("legion.mode"), "", null, topMargin: 0)
+            : BuildSectionHeader("control.system", Loc.Get("control.system"), "", null, topMargin: 6));
+        for (int i = 1; i < panel.Children.Count; i++)
+        {
+            // Undo the fold-away the header played on the way out.
+            var row = (FrameworkElement)panel.Children[i];
+            row.BeginAnimation(OpacityProperty, null);
+            row.Opacity = 1;
+            row.RenderTransform = null;
+        }
+        if (mode)
+        {
+            parts.ModeGrid.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+            parts.CustomNote.Visibility = open && _legion?.Mode == (int)LegionMode.Custom ? Visibility.Visible : Visibility.Collapsed;
+        }
+        else parts.SystemGrid.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
     }
 
     #region Modes
@@ -305,7 +343,7 @@ public partial class ControlCenterView
             tile.State.Text = on ? Loc.Get("legion.active") : "";
             tile.State.Foreground = on ? _legionAccent : Muted;
         }
-        parts.CustomNote.Visibility = rawMode == (int)LegionMode.Custom ? Visibility.Visible : Visibility.Collapsed;
+        parts.CustomNote.Visibility = rawMode == (int)LegionMode.Custom && IsExpanded("legion.mode") ? Visibility.Visible : Visibility.Collapsed;
 
         _legionLoops.StopAll();
         if (index < 0)

@@ -2362,7 +2362,7 @@ public partial class ControlCenterView : UserControl, IDisposable
             case "pi.school":
             case "pi.todos": _piKey = ""; BuildPiPage(); return;
             case "legion.mode":
-            case "control.system": _legionKey = ""; BuildLegionPage(); return;
+            case "control.system": ToggleLegionSection(section); return;
             case "system": _statsTiles = null; break;
             case "claude": _claudeKey = ""; BuildClaudeSection(); return;
         }
