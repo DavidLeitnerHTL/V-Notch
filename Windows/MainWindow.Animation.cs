@@ -714,16 +714,18 @@ public partial class MainWindow
     private void HideLyricsBlurBackgroundImmediately()
     {
         _isLyricsBlurFadeInProgress = false;
+        // A hidden view can reopen on the same track without another artwork update.
+        bool releaseSources = _currentMediaInfo?.IsAnyMediaPlaying != true;
         if (LyricsBlurImage != null)
         {
             LyricsBlurImage.BeginAnimation(OpacityProperty, null);
-            LyricsBlurImage.Source = null;
+            if (releaseSources) LyricsBlurImage.Source = null;
         }
         if (LyricsBlurImageNext != null)
         {
             LyricsBlurImageNext.BeginAnimation(OpacityProperty, null);
             LyricsBlurImageNext.Opacity = 0;
-            LyricsBlurImageNext.Source = null;
+            if (releaseSources) LyricsBlurImageNext.Source = null;
         }
         if (LyricsBlurBackground == null) return;
         LyricsBlurBackground.BeginAnimation(OpacityProperty, null);
@@ -2020,7 +2022,7 @@ public partial class MainWindow
 
         ResetContentTransformAndEffectsAfterCollapse();
 
-        if (!_isExpanded)
+        if (!_isExpanded && _currentMediaInfo?.IsAnyMediaPlaying != true)
         {
             ClearBlurredBackgroundSources();
             HideLyricsBlurBackgroundImmediately();
@@ -2040,7 +2042,10 @@ public partial class MainWindow
             ScheduleDesktopLayerDemotion();
         }
 
-        Task.Run(() => _mediaService.ArtworkService.TrimMemory(compactWorkingSet: true)).SafeFireAndForget("COLLAPSE-TRIM");
+        if (_currentMediaInfo?.IsAnyMediaPlaying != true)
+        {
+            Task.Run(() => _mediaService.ArtworkService.TrimMemory(compactWorkingSet: true)).SafeFireAndForget("COLLAPSE-TRIM");
+        }
     }
 
     private void ResetContentTransformAndEffectsAfterCollapse()
