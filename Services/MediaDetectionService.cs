@@ -1324,6 +1324,19 @@ public sealed partial class MediaDetectionService : IMediaDetectionService, IAsy
 
     private void ApplyPrePublishThumbnailFallbackAndCrop(MediaInfo info, bool isNewTrackForThumbnail)
     {
+        if (!info.IsAnyMediaPlaying && string.IsNullOrEmpty(info.CurrentTrack))
+        {
+            info.Thumbnail = null;
+            CachedThumbnail = null;
+            _lastInitialCroppedThumbnail = null;
+            _lastSessionArtworkFingerprint = null;
+            _sessionArtworkGeneration = -1;
+            _cachedThumbnailSource = "";
+            _lastThumbTrackIdentity = "";
+            _timelineSimulator.RecoveredThumbnail = null;
+            CancelAndClearThumbnailCts();
+            return;
+        }
         if (!isNewTrackForThumbnail && info.Thumbnail == null && CachedThumbnail != null)
         {
             info.Thumbnail = CachedThumbnail;
@@ -2564,9 +2577,12 @@ public sealed partial class MediaDetectionService : IMediaDetectionService, IAsy
         try
         {
             var (session, spotifyGroundTruth, mediaProperties) = await ResolveActiveSessionAsync(forceRefresh);
-            if (session == null) return false;
             // Pinned and fallback paths can still land on an ignored app (e.g. the Riot Client): it never counts as media.
-            if (IsIgnoredSourceApp(session.SourceAppUserModelId ?? "")) return false;
+            if (session == null || IsIgnoredSourceApp(session.SourceAppUserModelId ?? ""))
+            {
+                DetachActiveDisplaySession();
+                return false;
+            }
 
             SwitchActiveDisplaySessionIfNeeded(session);
 
