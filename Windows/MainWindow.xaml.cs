@@ -1002,6 +1002,14 @@ public partial class MainWindow : Window
     private bool _isFullscreenSlideAnimating = false;
     private int _fullscreenSlideGeneration;
 
+    private const int NotchRevealFadeDurationMs = 300;
+    private const int NotchRevealSlideDurationMs = 350;
+    private const int NotchHideFadeDurationMs = 220;
+    private const int NotchHideSlideDurationMs = 250;
+
+    private double NotchVisibilitySlideDistance =>
+        (NotchBorder.ActualHeight > 0 ? NotchBorder.ActualHeight : _collapsedHeight) + 10;
+
     private void ApplyNotchVisibilityState()
     {
         if (NotchContainer == null) return;
@@ -1017,7 +1025,7 @@ public partial class MainWindow : Window
         ApplyMicMutedPresentation();
         _isFullscreenSlideAnimating = true;
 
-        double slideDistance = NotchBorder.ActualHeight > 0 ? NotchBorder.ActualHeight + 10 : _collapsedHeight + 10;
+        double slideDistance = NotchVisibilitySlideDistance;
 
         double currentY = NotchContainerTranslate.Y;
         double currentOpacity = NotchContainer.Opacity;
@@ -1035,8 +1043,8 @@ public partial class MainWindow : Window
                 NotchContainerTranslate.Y = -slideDistance;
                 NotchContainer.Opacity = 0;
             }
-            AnimateNotchFade(toOpacity: 1, durationMs: 300, easeOut: true);
-            AnimateNotchSlide(toY: 0, durationMs: 350, easeOut: true, onComplete: () =>
+            AnimateNotchFade(toOpacity: 1, durationMs: NotchRevealFadeDurationMs, easeOut: true);
+            AnimateNotchSlide(toY: 0, durationMs: NotchRevealSlideDurationMs, easeOut: true, onComplete: () =>
             {
                 if (gen != _fullscreenSlideGeneration) return;
                 _isFullscreenSlideAnimating = false;
@@ -1044,8 +1052,8 @@ public partial class MainWindow : Window
         }
         else
         {
-            AnimateNotchFade(toOpacity: 0, durationMs: 220, easeOut: false);
-            AnimateNotchSlide(toY: -slideDistance, durationMs: 250, easeOut: false, onComplete: () =>
+            AnimateNotchFade(toOpacity: 0, durationMs: NotchHideFadeDurationMs, easeOut: false);
+            AnimateNotchSlide(toY: -slideDistance, durationMs: NotchHideSlideDurationMs, easeOut: false, onComplete: () =>
             {
                 if (gen != _fullscreenSlideGeneration) return;
                 _isFullscreenSlideAnimating = false;
