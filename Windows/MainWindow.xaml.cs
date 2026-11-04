@@ -873,7 +873,8 @@ public partial class MainWindow : Window
         else if (args.TargetView == VNotch.Models.NotchView.Camera && _pendingCameraPreviewVisualTeardown)
             FinalizePendingCameraPreviewTeardown();
         if (args.TargetView != VNotch.Models.NotchView.Compact && args.Reason != "CountdownCompletion" &&
-            (args.TargetView is VNotch.Models.NotchView.Secondary or VNotch.Models.NotchView.Camera or VNotch.Models.NotchView.Claude or VNotch.Models.NotchView.Pi or VNotch.Models.NotchView.School or VNotch.Models.NotchView.Weather ||
+            ((args.FromView != VNotch.Models.NotchView.Compact && args.FromView != args.TargetView) ||
+             args.TargetView is VNotch.Models.NotchView.Secondary or VNotch.Models.NotchView.Camera or VNotch.Models.NotchView.Claude or VNotch.Models.NotchView.Pi or VNotch.Models.NotchView.School or VNotch.Models.NotchView.Weather ||
              args.FromView is VNotch.Models.NotchView.Secondary or VNotch.Models.NotchView.Camera or VNotch.Models.NotchView.Claude or VNotch.Models.NotchView.Pi or VNotch.Models.NotchView.School or VNotch.Models.NotchView.Weather))
         {
             ExpandNotch(args.TransitionId, targetView: args.TargetView, fromView: args.FromView);
@@ -895,7 +896,7 @@ public partial class MainWindow : Window
                 }
                 else if (requiresExpansion)
                 {
-                    ExpandNotch(args.TransitionId);
+                    ExpandNotch(args.TransitionId, targetView: args.TargetView, fromView: args.FromView);
                 }
                 else if (_isAudioView)
                 {
@@ -918,7 +919,7 @@ public partial class MainWindow : Window
                 }
                 else if (requiresExpansion)
                 {
-                    ExpandNotch(args.TransitionId, targetView: VNotch.Models.NotchView.Timer);
+                    ExpandNotch(args.TransitionId, targetView: VNotch.Models.NotchView.Timer, fromView: args.FromView);
                 }
                 else if (_isAudioView)
                 {
@@ -933,7 +934,7 @@ public partial class MainWindow : Window
             case VNotch.Models.NotchView.AudioMixer:
                 if (requiresExpansion)
                 {
-                    ExpandNotch(args.TransitionId, targetView: VNotch.Models.NotchView.AudioMixer);
+                    ExpandNotch(args.TransitionId, targetView: VNotch.Models.NotchView.AudioMixer, fromView: args.FromView);
                 }
                 else if (_isTimerView)
                 {
@@ -2161,7 +2162,8 @@ public partial class MainWindow : Window
             : fallbackWidth;
         if (notchLength <= 0) return;
 
-        double primaryLength = notchLength * (2.0 / 3.0);
+        double effectiveMediaLength = Math.Max(notchLength, 480.0);
+        double primaryLength = effectiveMediaLength * (2.0 / 3.0);
         double secondaryLength = primaryLength * 0.84;
 
         double notchBreadth = NotchBorder.ActualHeight > 0 ? NotchBorder.ActualHeight : NotchBorder.Height;

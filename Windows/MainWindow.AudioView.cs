@@ -107,7 +107,8 @@ public partial class MainWindow
         }
         if (fromPrimary)
         {
-            HideMediaBackground();
+            ClearGlassMediaTint();
+            HideMediaBackgroundOverlay();
             if (LyricsBlurBackground != null && LyricsBlurBackground.Visibility == Visibility.Visible)
             {
                 LyricsBlurBackground.BeginAnimation(OpacityProperty, null);
@@ -158,6 +159,7 @@ public partial class MainWindow
         double openWindowHeight = Math.Max(fromH, _audioViewHeight);
         ResizeHostWindowHeight(openWindowHeight);
 
+        _shellState.UpdateExpandedWidth(IsNoWidgetMode, _isLyricsActive, _isMusicExpanded);
         AnimateAudioViewSwap(
             outgoing, AudioContent,
             new Size(fromW, fromH), new Size(_audioViewWidth, _audioViewHeight),
@@ -218,11 +220,13 @@ public partial class MainWindow
         double fromW = NotchBorder.ActualWidth > 0 ? NotchBorder.ActualWidth : _audioViewWidth;
         double fromH = NotchBorder.ActualHeight > 0 ? NotchBorder.ActualHeight : _audioViewHeight;
 
+        _shellState.UpdateExpandedWidth(IsNoWidgetMode, _isLyricsActive, _isMusicExpanded);
         AnimateAudioViewSwap(
             AudioContent, ExpandedContent,
             new Size(fromW, fromH), new Size(_expandedWidth, _expandedHeight),
             prepIncoming: () =>
             {
+                CancelMediaWidthAnimation();
                 ExpandedContent.Effect = null;
                 ExpandedContent.Width = _expandedWidth - 16;
                 ExpandedContent.Height = _expandedHeight - 10;
@@ -260,6 +264,7 @@ public partial class MainWindow
         double fromW = NotchBorder.ActualWidth > 0 ? NotchBorder.ActualWidth : _audioViewWidth;
         double fromH = NotchBorder.ActualHeight > 0 ? NotchBorder.ActualHeight : _audioViewHeight;
 
+        _shellState.UpdateExpandedWidth(IsNoWidgetMode, _isLyricsActive, _isMusicExpanded);
         AnimateAudioViewSwap(
             AudioContent, TimerContent,
             new Size(fromW, fromH), new Size(_clockViewWidth, _clockViewHeight),
