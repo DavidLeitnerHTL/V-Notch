@@ -236,7 +236,7 @@ public partial class MainWindow : Window
                 Settings_Click(sender, e);
         }), handledEventsToo: true);
         InitializeShellCornerRadiusSync();
-        MusicCompactContent.Loaded += (_, _) => MusicCompactContent.LayoutUpdated += CacheCompactThumbnailRestOffset;
+        MusicCompactContent.Loaded += (_, _) => { MusicCompactContent.LayoutUpdated -= CacheCompactThumbnailRestOffset; MusicCompactContent.LayoutUpdated += CacheCompactThumbnailRestOffset; };
         MusicCompactContent.Unloaded += (_, _) => MusicCompactContent.LayoutUpdated -= CacheCompactThumbnailRestOffset;
         System.Windows.Input.InputManager.Current.PreProcessInput += BlockGreetingInput;
         _glassMaterialPresenter = new(GlassMaterialClipHost,
@@ -699,7 +699,9 @@ public partial class MainWindow : Window
         _bluetoothModule.DeviceConnected -= BluetoothModule_DeviceConnected;
         _bluetoothModule.DeviceDisconnected -= BluetoothModule_DeviceDisconnected;
         AnimationConfig.ReduceMotionChanged -= OnReduceMotionChanged;
+        MusicCompactContent.LayoutUpdated -= CacheCompactThumbnailRestOffset;
         DisposeCalendarPresenter();
+        DisposeClockWidgetPresenter();
         _privacyModule.StateChanged -= PrivacyModule_StateChanged;
         WeatherWidgetView.Dispose();
         DisposeSystemMonitorPresenter();
@@ -741,6 +743,8 @@ public partial class MainWindow : Window
         _ownedTrayIcon = null;
         _updateTimer?.Dispose();
         _updateCheckTimer?.Dispose();
+        _updatePulseTimer?.Dispose();
+        _updatePulseTimer = null;
         if (_updateService != null)
         {
             _updateService.UpdateCheckCompleted -= OnUpdateCheckCompleted;
@@ -761,6 +765,8 @@ public partial class MainWindow : Window
         DetachDesktopTransparentFrameHandler();
         DisposeIdleAutoHide();
         _fullscreenController?.Dispose();
+        if (_camera != null) _camera.FrameAvailable -= OnCameraFrameAvailable;
+        DisposeCameraPresenter();
         _camera?.Dispose();
         DisposeGestureController();
         CancelDragDropTimers();
