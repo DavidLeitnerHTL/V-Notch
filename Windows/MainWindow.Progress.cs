@@ -151,6 +151,7 @@ public partial class MainWindow
 
         MediaPlayback.UpdateProgressTimerState();
         SetTimerEnabled(_lyricsTimer, shouldRunLyrics);
+        if (!shouldRunLyrics) _lyricWords.Suspend();
         SetTimerEnabled(_volumeSyncTimer, shouldRunVolumeSync);
 
         if (isExpanded)
