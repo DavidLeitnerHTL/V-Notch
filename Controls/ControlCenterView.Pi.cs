@@ -347,7 +347,7 @@ public partial class ControlCenterView
         foreach (var deadline in school.Deadlines.Where(d => d.Submitted && (d.SubmittedAt ?? d.Due) >= weekAgo)
                      .OrderByDescending(d => d.SubmittedAt ?? d.Due).Take(PiMaxSubmitted))
         {
-            var row = NewRow("", deadline.Name, muted: true);
+            var row = NewRow("", deadline.Name, dim: true);
             string day = (deadline.SubmittedAt ?? deadline.Due).ToLocalTime().ToString("ddd d.M.", CultureInfo.CurrentUICulture);
             AddStatus(row, Loc.Get("pi.handedIn", ShortCourse(deadline.Course), day), Mint);
             if (deadline.Cmid > 0) OpenOnClick(row, () => DeadlineLink(deadline), SignInToSchoolAsync);
