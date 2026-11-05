@@ -728,6 +728,8 @@
   "spotlight.launchFailed": "Impossible d’ouvrir {0}. L’élément a peut-être été déplacé ou supprimé",
   "spotlight.navigate": "Naviguer",
   "spotlight.noResults": "Aucun résultat",
+  "spotlight.home.apps": "Apps",
+  "spotlight.home.background": "En arrière-plan",
   "spotlight.noResults.hint": "Essayez un autre nom d’application ou de fichier.",
   "spotlight.open": "Ouvrir",
   "spotlight.pin": "Épingler l’application",

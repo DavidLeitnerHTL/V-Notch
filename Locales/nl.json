@@ -728,6 +728,8 @@
   "spotlight.launchFailed": "Kan {0} niet openen. Het bestand is mogelijk verplaatst of verwijderd.",
   "spotlight.navigate": "Navigeren",
   "spotlight.noResults": "Geen resultaten gevonden",
+  "spotlight.home.apps": "Apps",
+  "spotlight.home.background": "Op de achtergrond",
   "spotlight.noResults.hint": "Probeer een andere app- of bestandsnaam.",
   "spotlight.open": "Openen",
   "spotlight.pin": "App vastzetten",

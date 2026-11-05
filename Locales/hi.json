@@ -728,6 +728,8 @@
   "spotlight.launchFailed": "{0} नहीं खोला जा सका, शायद यह हटाया या स्थानांतरित किया गया हो",
   "spotlight.navigate": "नेविगेट",
   "spotlight.noResults": "कोई परिणाम नहीं मिला",
+  "spotlight.home.apps": "ऐप्स",
+  "spotlight.home.background": "बैकग्राउंड में",
   "spotlight.noResults.hint": "किसी दूसरे ऐप या फ़ाइल नाम से खोजें।",
   "spotlight.open": "खोलें",
   "spotlight.pin": "ऐप पिन करें",

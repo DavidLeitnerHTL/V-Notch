@@ -728,6 +728,8 @@
   "spotlight.launchFailed": "Không thể mở {0}. Mục này có thể đã bị di chuyển hoặc xóa",
   "spotlight.navigate": "Di chuyển",
   "spotlight.noResults": "Không tìm thấy kết quả",
+  "spotlight.home.apps": "Ứng dụng",
+  "spotlight.home.background": "Chạy nền",
   "spotlight.noResults.hint": "Hãy thử tên ứng dụng hoặc tệp khác.",
   "spotlight.open": "Mở",
   "spotlight.pin": "Ghim ứng dụng",

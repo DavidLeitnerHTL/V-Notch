@@ -231,6 +231,8 @@ public partial class NotchSettings
     public bool PlayClaudeSounds { get; set; } = true;
     // With nothing live the closed notch rests slim and shows the time and the weather.
     public bool SlimIdleNotch { get; set; } = true;
+    // A lone Win tap and a click on the taskbar's Start button open Spotlight instead of the Start menu.
+    public bool SpotlightReplacesStart { get; set; } = true;
     public string ClockPageStyle { get; set; } = "analog";
 
     public string ProcessPriority { get; set; } = "Normal";

@@ -728,6 +728,8 @@
   "spotlight.launchFailed": "{0} を開けませんでした。移動または削除された可能性があります",
   "spotlight.navigate": "移動",
   "spotlight.noResults": "結果が見つかりません",
+  "spotlight.home.apps": "アプリ",
+  "spotlight.home.background": "バックグラウンド",
   "spotlight.noResults.hint": "別のアプリ名またはファイル名を試してください。",
   "spotlight.open": "開く",
   "spotlight.pin": "アプリをピン留め",

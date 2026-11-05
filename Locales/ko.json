@@ -728,6 +728,8 @@
   "spotlight.launchFailed": "{0}을(를) 열 수 없습니다. 파일이 이동되었거나 삭제되었을 수 있습니다.",
   "spotlight.navigate": "탐색",
   "spotlight.noResults": "검색 결과 없음",
+  "spotlight.home.apps": "앱",
+  "spotlight.home.background": "백그라운드",
   "spotlight.noResults.hint": "다른 앱 또는 파일 이름을 입력해 보세요.",
   "spotlight.open": "열기",
   "spotlight.pin": "앱 고정",

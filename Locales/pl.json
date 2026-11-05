@@ -728,6 +728,8 @@
   "spotlight.launchFailed": "Nie można otworzyć {0}. Plik mógł zostać przeniesiony lub usunięty.",
   "spotlight.navigate": "Nawiguj",
   "spotlight.noResults": "Brak wyników",
+  "spotlight.home.apps": "Aplikacje",
+  "spotlight.home.background": "W tle",
   "spotlight.noResults.hint": "Spróbuj wpisać inną nazwę aplikacji lub pliku.",
   "spotlight.open": "Otwórz",
   "spotlight.pin": "Przypnij aplikację",

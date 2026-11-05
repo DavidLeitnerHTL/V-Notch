@@ -728,6 +728,8 @@
   "spotlight.launchFailed": "تعذر فتح {0}. قد يكون الملف تم نقله أو حذفه.",
   "spotlight.navigate": "تنقل",
   "spotlight.noResults": "لم يتم العثور على نتائج",
+  "spotlight.home.apps": "التطبيقات",
+  "spotlight.home.background": "في الخلفية",
   "spotlight.noResults.hint": "جرب اسماً آخر لتطبيق أو ملف.",
   "spotlight.open": "فتح",
   "spotlight.pin": "تثبيت التطبيق",

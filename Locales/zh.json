@@ -728,6 +728,8 @@
   "spotlight.launchFailed": "无法打开 {0}。文件可能已被移动或删除。",
   "spotlight.navigate": "导航",
   "spotlight.noResults": "未找到匹配结果",
+  "spotlight.home.apps": "应用",
+  "spotlight.home.background": "后台运行",
   "spotlight.noResults.hint": "尝试输入其他应用或文件名。",
   "spotlight.open": "打开",
   "spotlight.pin": "固定应用",

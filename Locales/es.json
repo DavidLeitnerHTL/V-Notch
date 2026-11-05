@@ -728,6 +728,8 @@
   "spotlight.launchFailed": "No se pudo abrir {0}; puede que se haya movido o eliminado",
   "spotlight.navigate": "Navegar",
   "spotlight.noResults": "No se encontraron resultados",
+  "spotlight.home.apps": "Apps",
+  "spotlight.home.background": "En segundo plano",
   "spotlight.noResults.hint": "Prueba con otro nombre de aplicación o archivo.",
   "spotlight.open": "Abrir",
   "spotlight.pin": "Fijar aplicación",

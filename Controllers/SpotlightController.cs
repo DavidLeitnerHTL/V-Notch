@@ -27,6 +27,7 @@ internal sealed partial class SpotlightController : ISpotlightController, IAsync
     private HwndSource? _source;
     private IntPtr _hwnd;
     private DedicatedKeyboardHook? _keyboardHook;
+    private StartMenuHooks? _startHooks;
     private readonly SpotlightKeyboardState _keyboardState = new();
     private bool _nativeRegistered;
     private NotchSettings? _settings;
@@ -84,6 +85,7 @@ internal sealed partial class SpotlightController : ISpotlightController, IAsync
             QueuePreparation();
 
         if (_hwnd == IntPtr.Zero) return;
+        UpdateStartReplacement();
 
         if (spotlightChanged || (!IsHotkeyRegistered && settings.EnableSpotlight))
         {
@@ -284,11 +286,44 @@ internal sealed partial class SpotlightController : ISpotlightController, IAsync
 
     private void Host_Closed(object? sender, EventArgs e) => DetachHost();
 
+    /// <summary>Win tap and the taskbar's Start button open Spotlight instead of the Start menu.</summary>
+    private void UpdateStartReplacement()
+    {
+        bool wanted = !_disposed && _host != null && _hwnd != IntPtr.Zero
+            && _settings?.EnableSpotlight == true && _settings.SpotlightReplacesStart;
+        if (wanted == (_startHooks != null)) return;
+        _startHooks?.Dispose();
+        _startHooks = null;
+        if (!wanted) return;
+
+        var dispatcher = _host!.Dispatcher;
+        int generation = _hostGeneration;
+        _startHooks = new StartMenuHooks(
+            () => dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input,
+                (Action)(() => OnStartRequested(fromWinKey: true, generation))),
+            () => dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input,
+                (Action)(() => OnStartRequested(fromWinKey: false, generation))));
+        RuntimeLog.Log(LogTag, _startHooks.IsInstalled
+            ? "Win key and Start button open Spotlight"
+            : "Start menu replacement unavailable");
+    }
+
+    private void OnStartRequested(bool fromWinKey, int generation)
+    {
+        if (_disposed || generation != _hostGeneration) return;
+        // A Win tap inside a fullscreen game does nothing: no Start menu, no Spotlight, no lost focus.
+        if (fromWinKey && FullscreenDetector.DetectFullscreenType(GetForegroundWindow(), _hwnd) != FullscreenType.None)
+            return;
+        ToggleSpotlight();
+    }
+
     private void DetachHost()
     {
         ++_hostGeneration;
         _preparationQueued = false;
         DisableHotkey();
+        _startHooks?.Dispose();
+        _startHooks = null;
         if (_source is { IsDisposed: false }) _source.RemoveHook(WndProc);
         _source = null;
         if (_host != null) _host.Closed -= Host_Closed;

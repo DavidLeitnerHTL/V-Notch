@@ -728,6 +728,8 @@
   "spotlight.launchFailed": "Tidak dapat membuka {0}. File mungkin telah dipindahkan atau dihapus.",
   "spotlight.navigate": "Navigasi",
   "spotlight.noResults": "Hasil tidak ditemukan",
+  "spotlight.home.apps": "Aplikasi",
+  "spotlight.home.background": "Di latar belakang",
   "spotlight.noResults.hint": "Coba gunakan nama aplikasi atau file yang lain.",
   "spotlight.open": "Buka",
   "spotlight.pin": "Sematkan aplikasi",

@@ -728,6 +728,8 @@
   "spotlight.launchFailed": "Не удалось открыть {0}. Файл мог быть перемещён или удалён.",
   "spotlight.navigate": "Навигация",
   "spotlight.noResults": "Ничего не найдено",
+  "spotlight.home.apps": "Приложения",
+  "spotlight.home.background": "В фоне",
   "spotlight.noResults.hint": "Попробуйте ввести другое имя файла или программы.",
   "spotlight.open": "Открыть",
   "spotlight.pin": "Закрепить приложение",
