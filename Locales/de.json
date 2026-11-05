@@ -1232,5 +1232,9 @@
   "pi.task.dropHint": "Fotos auswählen oder auf diese Zeile ziehen",
   "pi.task.repo": "Repo {0} öffnen",
   "pi.task.wmcMissing": "pi-wmc ist auf diesem PC nicht eingerichtet",
-  "pi.handedIn": "{0} · abgegeben {1}"
+  "pi.handedIn": "{0} · abgegeben {1}",
+  "pi.task.submitFile": "{0} abgeben",
+  "pi.task.pickFile": "Datei zum Abgeben",
+  "pi.task.dropFileHint": "Datei wählen oder auf diese Zeile ziehen",
+  "pi.task.tooBig": "Datei größer als 5 MB"
 }

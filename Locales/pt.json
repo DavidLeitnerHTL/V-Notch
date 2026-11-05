@@ -1232,5 +1232,9 @@
   "pi.task.dropHint": "Escolha fotos ou solte-as nesta linha",
   "pi.task.repo": "Abrir repositório {0}",
   "pi.task.wmcMissing": "pi-wmc não está configurado neste PC",
-  "pi.handedIn": "{0} · entregue {1}"
+  "pi.handedIn": "{0} · entregue {1}",
+  "pi.task.submitFile": "Entregar {0}",
+  "pi.task.pickFile": "Ficheiro para entregar",
+  "pi.task.dropFileHint": "Escolha um ficheiro ou largue-o nesta linha",
+  "pi.task.tooBig": "Ficheiro maior que 5 MB"
 }

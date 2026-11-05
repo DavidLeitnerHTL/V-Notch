@@ -1232,5 +1232,9 @@
   "pi.task.dropHint": "사진을 고르거나 이 줄에 끌어 놓으세요",
   "pi.task.repo": "저장소 {0} 열기",
   "pi.task.wmcMissing": "이 PC에 pi-wmc가 설정되어 있지 않습니다",
-  "pi.handedIn": "{0} · 제출함 {1}"
+  "pi.handedIn": "{0} · 제출함 {1}",
+  "pi.task.submitFile": "{0} 제출",
+  "pi.task.pickFile": "제출할 파일",
+  "pi.task.dropFileHint": "파일을 선택하거나 이 행에 놓으세요",
+  "pi.task.tooBig": "파일이 5MB보다 큽니다"
 }

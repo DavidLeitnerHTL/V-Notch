@@ -1232,5 +1232,9 @@
   "pi.task.dropHint": "Pilih foto atau seret ke baris ini",
   "pi.task.repo": "Buka repo {0}",
   "pi.task.wmcMissing": "pi-wmc belum diatur di PC ini",
-  "pi.handedIn": "{0} · diserahkan {1}"
+  "pi.handedIn": "{0} · diserahkan {1}",
+  "pi.task.submitFile": "Serahkan {0}",
+  "pi.task.pickFile": "File untuk diserahkan",
+  "pi.task.dropFileHint": "Pilih file, atau jatuhkan di baris ini",
+  "pi.task.tooBig": "File lebih dari 5 MB"
 }

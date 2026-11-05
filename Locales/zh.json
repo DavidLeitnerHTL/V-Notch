@@ -1232,5 +1232,9 @@
   "pi.task.dropHint": "选择照片或拖到这一行",
   "pi.task.repo": "打开仓库 {0}",
   "pi.task.wmcMissing": "此电脑未设置 pi-wmc",
-  "pi.handedIn": "{0} · 已提交 {1}"
+  "pi.handedIn": "{0} · 已提交 {1}",
+  "pi.task.submitFile": "提交 {0}",
+  "pi.task.pickFile": "要提交的文件",
+  "pi.task.dropFileHint": "选择文件，或拖到这一行",
+  "pi.task.tooBig": "文件大于 5 MB"
 }

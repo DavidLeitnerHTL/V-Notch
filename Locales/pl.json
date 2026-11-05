@@ -1232,5 +1232,9 @@
   "pi.task.dropHint": "Wybierz zdjęcia lub upuść je na ten wiersz",
   "pi.task.repo": "Otwórz repo {0}",
   "pi.task.wmcMissing": "pi-wmc nie jest skonfigurowany na tym PC",
-  "pi.handedIn": "{0} · oddane {1}"
+  "pi.handedIn": "{0} · oddane {1}",
+  "pi.task.submitFile": "Oddaj {0}",
+  "pi.task.pickFile": "Plik do oddania",
+  "pi.task.dropFileHint": "Wybierz plik lub upuść go na ten wiersz",
+  "pi.task.tooBig": "Plik większy niż 5 MB"
 }

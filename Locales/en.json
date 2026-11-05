@@ -1232,5 +1232,9 @@
   "pi.task.dropHint": "Pick photos, or drop them on this row",
   "pi.task.repo": "Open repo {0}",
   "pi.task.wmcMissing": "pi-wmc is not set up on this PC",
-  "pi.handedIn": "{0} · handed in {1}"
+  "pi.handedIn": "{0} · handed in {1}",
+  "pi.task.submitFile": "Hand in {0}",
+  "pi.task.pickFile": "File to hand in",
+  "pi.task.dropFileHint": "Pick a file, or drop it on this row",
+  "pi.task.tooBig": "File larger than 5 MB"
 }

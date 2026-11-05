@@ -1232,5 +1232,9 @@
   "pi.task.dropHint": "Fotoğraf seçin veya bu satıra bırakın",
   "pi.task.repo": "Depo {0} aç",
   "pi.task.wmcMissing": "pi-wmc bu bilgisayarda kurulu değil",
-  "pi.handedIn": "{0} · teslim edildi {1}"
+  "pi.handedIn": "{0} · teslim edildi {1}",
+  "pi.task.submitFile": "{0} teslim et",
+  "pi.task.pickFile": "Teslim edilecek dosya",
+  "pi.task.dropFileHint": "Bir dosya seçin veya bu satıra bırakın",
+  "pi.task.tooBig": "Dosya 5 MB’tan büyük"
 }

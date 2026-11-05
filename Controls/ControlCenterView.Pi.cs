@@ -339,7 +339,7 @@ public partial class ControlCenterView
             // Open the project or the WMC repo, fetch the task's files, hand maths photos in: like the dashboard's panel.
             if (deadline.Cmid > 0) AddAction(row, PiTaskActions(deadline, row));
             // Straight to the assignment's page, where it is handed in (a WMC task: its Moodle link to Classroom 50).
-            if (deadline.Cmid > 0) OpenOnClick(row, () => SchoolLinks.For(deadline, _moodleUrl()), SignInToSchoolAsync);
+            if (deadline.Cmid > 0) OpenOnClick(row, () => DeadlineLink(deadline), SignInToSchoolAsync);
             _piSchoolSection.Children.Add(row);
         }
         // Handed in during the last week, newest first, in a calm mint: the Pi keeps them for 7 days after their due date.
@@ -350,7 +350,7 @@ public partial class ControlCenterView
             var row = NewRow("", deadline.Name, muted: true);
             string day = (deadline.SubmittedAt ?? deadline.Due).ToLocalTime().ToString("ddd d.M.", CultureInfo.CurrentUICulture);
             AddStatus(row, Loc.Get("pi.handedIn", ShortCourse(deadline.Course), day), Mint);
-            if (deadline.Cmid > 0) OpenOnClick(row, () => SchoolLinks.For(deadline, _moodleUrl()), SignInToSchoolAsync);
+            if (deadline.Cmid > 0) OpenOnClick(row, () => DeadlineLink(deadline), SignInToSchoolAsync);
             _piSchoolSection.Children.Add(row);
         }
         int exams = 0;
@@ -364,6 +364,13 @@ public partial class ControlCenterView
             _piSchoolSection.Children.Add(row);
         }
     }
+
+    /// <summary>
+    /// Where a deadline row leads: an NW task (NSCS) to the dashboard's panel (its site needs a login the Pi keeps),
+    /// a WMC task to its Moodle link, the rest to the assignment page.
+    /// </summary>
+    private string? DeadlineLink(PiDeadline deadline) =>
+        deadline.Kind == "nw" && _pi?.PanelLink(deadline.Cmid) is { } panel ? panel : SchoolLinks.For(deadline, _moodleUrl());
 
     /// <summary>A Moodle page or Untis, signed in through the Pi (see <see cref="PiDashboardClient.SignedInSchoolLinkAsync"/>).</summary>
     private async Task<string> SignInToSchoolAsync(string url) =>

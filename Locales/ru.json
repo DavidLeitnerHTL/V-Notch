@@ -1232,5 +1232,9 @@
   "pi.task.dropHint": "Выберите фото или перетащите их на эту строку",
   "pi.task.repo": "Открыть репозиторий {0}",
   "pi.task.wmcMissing": "pi-wmc не настроен на этом ПК",
-  "pi.handedIn": "{0} · сдано {1}"
+  "pi.handedIn": "{0} · сдано {1}",
+  "pi.task.submitFile": "Сдать {0}",
+  "pi.task.pickFile": "Файл для сдачи",
+  "pi.task.dropFileHint": "Выберите файл или перетащите его на эту строку",
+  "pi.task.tooBig": "Файл больше 5 МБ"
 }

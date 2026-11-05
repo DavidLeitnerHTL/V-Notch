@@ -1232,5 +1232,9 @@
   "pi.task.dropHint": "Scegli le foto o trascinale su questa riga",
   "pi.task.repo": "Apri repo {0}",
   "pi.task.wmcMissing": "pi-wmc non è configurato su questo PC",
-  "pi.handedIn": "{0} · consegnato {1}"
+  "pi.handedIn": "{0} · consegnato {1}",
+  "pi.task.submitFile": "Consegna {0}",
+  "pi.task.pickFile": "File da consegnare",
+  "pi.task.dropFileHint": "Scegli un file o trascinalo su questa riga",
+  "pi.task.tooBig": "File più grande di 5 MB"
 }

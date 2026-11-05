@@ -149,4 +149,19 @@ public sealed class SchoolFilesTests
         var task = PiDashboardClient.ParseAssignment(JsonNode.Parse("""{"cmid":238415,"name":"04 Tool Lending","mode":"classroom","nr":"04","attachments":[],"status":null}""")!.AsObject())!;
         Assert.Equal(("classroom", "04", ""), (task.Mode, task.Nr, task.Status));
     }
+
+    [Fact]
+    public void AnNwTaskIsAnUploadAndOpensInTheDashboardPanel()
+    {
+        var nw = PiDashboardClient.ParseAssignment(JsonNode.Parse("""
+            {"cmid":973048058,"name":"Skript zum Ausgeben des kleinen Einmaleins","course":"NSCS 3AHIF","mode":"upload","nr":null,
+             "attachments":[],"status":"submitted","files":[{"name":"1x1.sh","time":1793638860}],"filename":"1x1.sh"}
+            """)!.AsObject())!;
+        Assert.Equal(("upload", "submitted", "1x1.sh"), (nw.Mode, nw.Status, nw.Filename));
+
+        using var client = new PiDashboardClient(() => "http://pi.example:4000/ ");
+        Assert.Equal("http://pi.example:4000/#abgabe-973048058", client.PanelLink(973048058));
+        using var unset = new PiDashboardClient(() => "");
+        Assert.Null(unset.PanelLink(973048058));
+    }
 }

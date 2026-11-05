@@ -200,15 +200,28 @@ internal sealed class PiDashboardClient : IDisposable
     }
 
     /// <summary>Hands photos (JPEG pages, base64) in as one PDF, like the dashboard's maths panel.</summary>
-    public async Task<PiSubmitResult> SubmitPhotosAsync(int cmid, string filename, IReadOnlyList<string> jpegPages)
+    public Task<PiSubmitResult> SubmitPhotosAsync(int cmid, string filename, IReadOnlyList<string> jpegPages)
     {
-        if (!IsConfigured || cmid <= 0 || jpegPages.Count == 0) return new(false, null, null);
         var pages = new JsonArray();
         foreach (string page in jpegPages) pages.Add(page);
+        return jpegPages.Count == 0 ? Task.FromResult(new PiSubmitResult(false, null, null))
+            : HandInAsync(cmid, new JsonObject { ["filename"] = filename, ["pages"] = pages });
+    }
+
+    /// <summary>One file for a task on the school's NW hand-in site (NSCS); the Pi holds that site's login.</summary>
+    public Task<PiSubmitResult> SubmitFileAsync(int cmid, string filename, byte[] bytes) =>
+        bytes.Length == 0 ? Task.FromResult(new PiSubmitResult(false, null, null))
+            : HandInAsync(cmid, new JsonObject { ["filename"] = filename, ["file"] = Convert.ToBase64String(bytes) });
+
+    /// <summary>The dashboard's hand-in panel of a task (its page opens it from the address).</summary>
+    public string? PanelLink(int cmid) => IsConfigured && cmid > 0 ? $"{_baseUrl().Trim().TrimEnd('/')}/#abgabe-{cmid}" : null;
+
+    private async Task<PiSubmitResult> HandInAsync(int cmid, JsonObject request)
+    {
+        if (!IsConfigured || cmid <= 0) return new(false, null, null);
         try
         {
-            using var content = new StringContent(new JsonObject { ["filename"] = filename, ["pages"] = pages }.ToJsonString(),
-                Encoding.UTF8, "application/json");
+            using var content = new StringContent(request.ToJsonString(), Encoding.UTF8, "application/json");
             using var response = await _transfer.PostAsync(Url($"/api/abgabe/{cmid}"), content).ConfigureAwait(false);
             string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             // The Pi explains refusals (too many pages, Moodle closed) in the body, with an error status.
