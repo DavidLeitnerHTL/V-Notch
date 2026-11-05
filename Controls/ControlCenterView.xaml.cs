@@ -122,6 +122,7 @@ public partial class ControlCenterView : UserControl, IDisposable
     {
         InitializeComponent();
         ControlRoot.Children.Add(_statsSection);
+        ControlRoot.Children.Add(_quickTiles);
         ControlRoot.Children.Add(_networkSection);
         ControlRoot.Children.Add(_bluetoothSection);
         ControlRoot.Children.Add(_audioSection);
@@ -418,6 +419,8 @@ public partial class ControlCenterView : UserControl, IDisposable
         if (_statsTiles == null) BuildStatsSection();
         if (s.Stats is { } stats) ApplyStats(stats);
         UpdateTopList(s.Top);
+
+        BuildQuickTilesIfChanged(s);
 
         string networkKey = NetworkKey(s);
         if (networkKey != _networkKey)
@@ -2261,7 +2264,7 @@ public partial class ControlCenterView : UserControl, IDisposable
 
     #region Shared builders (same look as AudioMixerView)
 
-    private bool IsExpanded(string section) => !_expanded.TryGetValue(section, out bool value) || value;
+    private bool IsExpanded(string section) => _expanded.TryGetValue(section, out bool value) ? value : !FoldedByDefault(section);
 
     private static Grid NewRowGrid()
     {
