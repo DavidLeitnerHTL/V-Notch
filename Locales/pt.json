@@ -1229,5 +1229,8 @@
   "pi.task.noPhotos": "Nenhuma foto legível",
   "pi.task.poseMissing": "O pi-pose não está configurado neste PC",
   "pi.task.pickTitle": "Fotos para entregar",
-  "pi.task.dropHint": "Escolha fotos ou solte-as nesta linha"
+  "pi.task.dropHint": "Escolha fotos ou solte-as nesta linha",
+  "pi.task.repo": "Abrir repositório {0}",
+  "pi.task.wmcMissing": "pi-wmc não está configurado neste PC",
+  "pi.handedIn": "{0} · entregue {1}"
 }

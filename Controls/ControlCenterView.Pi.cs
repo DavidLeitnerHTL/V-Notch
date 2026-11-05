@@ -23,6 +23,7 @@ public partial class ControlCenterView
     private static readonly TimeSpan PiSchoolMaxAge = TimeSpan.FromMinutes(5);
     private const int PiMaxTiles = 6;
     private const int PiMaxDeadlines = 4;
+    private const int PiMaxSubmitted = 3;
     private const int PiMaxExams = 2;
     private const int PiMaxTodos = 6;
     private static readonly Brush DueSoon = Frozen("#FF9F0A");
@@ -335,11 +336,21 @@ public partial class ControlCenterView
             var row = NewRow("\uE916", deadline.Name);
             Brush urgency = left < TimeSpan.FromDays(1) ? DueToday : left < TimeSpan.FromDays(3) ? DueSoon : Muted;
             AddStatus(row, $"{ShortCourse(deadline.Course)} · {DueText(deadline.Due, left)}", urgency);
-            // Open the project, fetch the task's files, hand maths photos in: like the dashboard's panel.
+            // Open the project or the WMC repo, fetch the task's files, hand maths photos in: like the dashboard's panel.
             if (deadline.Cmid > 0) AddAction(row, PiTaskActions(deadline, row));
-            // Straight to the assignment's page, where it is handed in.
-            int cmid = deadline.Cmid;
-            if (cmid > 0) OpenOnClick(row, () => SchoolLinks.Assignment(_moodleUrl(), cmid), SignInToSchoolAsync);
+            // Straight to the assignment's page, where it is handed in (a WMC task: its Moodle link to Classroom 50).
+            if (deadline.Cmid > 0) OpenOnClick(row, () => SchoolLinks.For(deadline, _moodleUrl()), SignInToSchoolAsync);
+            _piSchoolSection.Children.Add(row);
+        }
+        // Handed in during the last week, newest first, in a calm mint: the Pi keeps them for 7 days after their due date.
+        var weekAgo = now.AddDays(-7);
+        foreach (var deadline in school.Deadlines.Where(d => d.Submitted && (d.SubmittedAt ?? d.Due) >= weekAgo)
+                     .OrderByDescending(d => d.SubmittedAt ?? d.Due).Take(PiMaxSubmitted))
+        {
+            var row = NewRow("", deadline.Name, muted: true);
+            string day = (deadline.SubmittedAt ?? deadline.Due).ToLocalTime().ToString("ddd d.M.", CultureInfo.CurrentUICulture);
+            AddStatus(row, Loc.Get("pi.handedIn", ShortCourse(deadline.Course), day), Mint);
+            if (deadline.Cmid > 0) OpenOnClick(row, () => SchoolLinks.For(deadline, _moodleUrl()), SignInToSchoolAsync);
             _piSchoolSection.Children.Add(row);
         }
         int exams = 0;

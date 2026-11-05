@@ -1229,5 +1229,8 @@
   "pi.task.noPhotos": "Tidak ada foto yang terbaca",
   "pi.task.poseMissing": "pi-pose belum disiapkan di PC ini",
   "pi.task.pickTitle": "Foto untuk dikumpulkan",
-  "pi.task.dropHint": "Pilih foto atau seret ke baris ini"
+  "pi.task.dropHint": "Pilih foto atau seret ke baris ini",
+  "pi.task.repo": "Buka repo {0}",
+  "pi.task.wmcMissing": "pi-wmc belum diatur di PC ini",
+  "pi.handedIn": "{0} · diserahkan {1}"
 }

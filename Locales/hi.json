@@ -1229,5 +1229,8 @@
   "pi.task.noPhotos": "कोई पढ़ने योग्य फ़ोटो नहीं",
   "pi.task.poseMissing": "इस पीसी पर pi-pose सेट नहीं है",
   "pi.task.pickTitle": "जमा करने के लिए फ़ोटो",
-  "pi.task.dropHint": "फ़ोटो चुनें या इस पंक्ति पर छोड़ें"
+  "pi.task.dropHint": "फ़ोटो चुनें या इस पंक्ति पर छोड़ें",
+  "pi.task.repo": "रिपॉज़िटरी {0} खोलें",
+  "pi.task.wmcMissing": "इस PC पर pi-wmc सेट नहीं है",
+  "pi.handedIn": "{0} · जमा किया {1}"
 }

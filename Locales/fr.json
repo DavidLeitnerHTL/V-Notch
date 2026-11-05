@@ -1229,5 +1229,8 @@
   "pi.task.noPhotos": "Aucune photo lisible",
   "pi.task.poseMissing": "pi-pose n’est pas installé sur ce PC",
   "pi.task.pickTitle": "Photos à rendre",
-  "pi.task.dropHint": "Choisissez des photos ou déposez-les sur cette ligne"
+  "pi.task.dropHint": "Choisissez des photos ou déposez-les sur cette ligne",
+  "pi.task.repo": "Ouvrir le dépôt {0}",
+  "pi.task.wmcMissing": "pi-wmc n'est pas configuré sur ce PC",
+  "pi.handedIn": "{0} · rendu {1}"
 }

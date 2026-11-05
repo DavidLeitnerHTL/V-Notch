@@ -1229,5 +1229,8 @@
   "pi.task.noPhotos": "没有可读取的照片",
   "pi.task.poseMissing": "此电脑未设置 pi-pose",
   "pi.task.pickTitle": "要提交的照片",
-  "pi.task.dropHint": "选择照片或拖到这一行"
+  "pi.task.dropHint": "选择照片或拖到这一行",
+  "pi.task.repo": "打开仓库 {0}",
+  "pi.task.wmcMissing": "此电脑未设置 pi-wmc",
+  "pi.handedIn": "{0} · 已提交 {1}"
 }

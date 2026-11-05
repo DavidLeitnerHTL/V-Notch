@@ -1229,5 +1229,8 @@
   "pi.task.noPhotos": "Không có ảnh đọc được",
   "pi.task.poseMissing": "Máy này chưa cài pi-pose",
   "pi.task.pickTitle": "Ảnh để nộp",
-  "pi.task.dropHint": "Chọn ảnh hoặc thả vào dòng này"
+  "pi.task.dropHint": "Chọn ảnh hoặc thả vào dòng này",
+  "pi.task.repo": "Mở repo {0}",
+  "pi.task.wmcMissing": "pi-wmc chưa được thiết lập trên PC này",
+  "pi.handedIn": "{0} · đã nộp {1}"
 }

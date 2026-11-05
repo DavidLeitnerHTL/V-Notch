@@ -112,6 +112,12 @@ public partial class ControlCenterView
             {
                 if (!SchoolFiles.OpenPoseProject(cmid)) SetPiTask(cmid, new(PiTaskStep.Failed, Message: Loc.Get("pi.task.poseMissing")));
             }));
+        // WMC on Classroom 50: accept, clone into WMC\HÜn and open VS Code, all through the dashboard's pi-wmc:// tool.
+        else if (task.Mode == "classroom")
+            panel.Children.Add(TextButton(Loc.Get("pi.task.repo", task.Nr), accent: true, () =>
+            {
+                if (!SchoolFiles.OpenClassroomRepo(cmid)) SetPiTask(cmid, new(PiTaskStep.Failed, Message: Loc.Get("pi.task.wmcMissing")));
+            }));
         else if (task.Attachments.Count > 0)
             panel.Children.Add(TextButton(Loc.Get("pi.task.files"), accent: false, () => DownloadPiTask(deadline, task)));
 
@@ -136,7 +142,7 @@ public partial class ControlCenterView
         return note;
     }
 
-    /// <summary>The task's files into Downloads\Schule\&lt;subject&gt;, then open (one document) or show (several).</summary>
+    /// <summary>The task's files into the school folder (Schule\3AHIF\DBI\01), then open (one document) or show (several).</summary>
     private async void DownloadPiTask(PiDeadline deadline, PiAssignment task)
     {
         if (_pi == null) return;
@@ -154,7 +160,7 @@ public partial class ControlCenterView
         }
         try
         {
-            string folder = SchoolFiles.FolderFor(deadline.Course);
+            string folder = SchoolFiles.FolderFor(deadline.Course, task.Nr);
             var paths = await Task.Run(() => SchoolFiles.Save(folder, files));
             SchoolFiles.Open(paths);
             SetPiTask(cmid, new(PiTaskStep.Idle));

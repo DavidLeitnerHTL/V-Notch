@@ -1229,5 +1229,8 @@
   "pi.task.noPhotos": "읽을 수 있는 사진이 없습니다",
   "pi.task.poseMissing": "이 PC에 pi-pose가 설정되지 않았습니다",
   "pi.task.pickTitle": "제출할 사진",
-  "pi.task.dropHint": "사진을 고르거나 이 줄에 끌어 놓으세요"
+  "pi.task.dropHint": "사진을 고르거나 이 줄에 끌어 놓으세요",
+  "pi.task.repo": "저장소 {0} 열기",
+  "pi.task.wmcMissing": "이 PC에 pi-wmc가 설정되어 있지 않습니다",
+  "pi.handedIn": "{0} · 제출함 {1}"
 }

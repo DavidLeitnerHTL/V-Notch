@@ -1229,5 +1229,8 @@
   "pi.task.noPhotos": "Okunabilir fotoğraf yok",
   "pi.task.poseMissing": "pi-pose bu bilgisayarda kurulu değil",
   "pi.task.pickTitle": "Teslim edilecek fotoğraflar",
-  "pi.task.dropHint": "Fotoğraf seçin veya bu satıra bırakın"
+  "pi.task.dropHint": "Fotoğraf seçin veya bu satıra bırakın",
+  "pi.task.repo": "Depo {0} aç",
+  "pi.task.wmcMissing": "pi-wmc bu bilgisayarda kurulu değil",
+  "pi.handedIn": "{0} · teslim edildi {1}"
 }

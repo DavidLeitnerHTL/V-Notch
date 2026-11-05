@@ -1229,5 +1229,8 @@
   "pi.task.noPhotos": "読み取れる写真がありません",
   "pi.task.poseMissing": "この PC に pi-pose が設定されていません",
   "pi.task.pickTitle": "提出する写真",
-  "pi.task.dropHint": "写真を選ぶか、この行にドロップ"
+  "pi.task.dropHint": "写真を選ぶか、この行にドロップ",
+  "pi.task.repo": "リポジトリ {0} を開く",
+  "pi.task.wmcMissing": "この PC では pi-wmc が設定されていません",
+  "pi.handedIn": "{0} · 提出済み {1}"
 }
