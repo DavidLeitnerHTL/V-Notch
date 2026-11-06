@@ -143,8 +143,19 @@ internal sealed class NotchWindow : Window
 
         // Testing aid: VNOTCH_WINUI_AUTOTOGGLE=<ms> opens and closes the notch on its own, so its motion can be
         // filmed without moving the user's mouse.
+        // VNOTCH_WINUI_INTERRUPT_MS=<ms> instead closes each opening again after that delay, mid-spring.
         if (double.TryParse(Environment.GetEnvironmentVariable("VNOTCH_WINUI_AUTOTOGGLE"), out double toggleMs) && toggleMs >= 200)
-            Timer(toggleMs, () => { if (_open) Collapse(); else Expand(); }).Start();
+        {
+            bool interrupt = double.TryParse(Environment.GetEnvironmentVariable("VNOTCH_WINUI_INTERRUPT_MS"), out double interruptMs) && interruptMs > 0;
+            var closeAgain = Timer(interrupt ? interruptMs : 1000, Collapse);
+            closeAgain.IsRepeating = false;
+            Timer(toggleMs, () =>
+            {
+                if (_open) { Collapse(); return; }
+                Expand();
+                if (interrupt) closeAgain.Start();
+            }).Start();
+        }
     }
 
     private Vector2 ClosedSize => new((float)(_hasMedia ? _settings.Width : Math.Min(_settings.Width, IdleWidth)), (float)_settings.Height);
