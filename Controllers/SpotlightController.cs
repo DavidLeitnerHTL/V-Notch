@@ -286,7 +286,7 @@ internal sealed partial class SpotlightController : ISpotlightController, IAsync
 
     private void Host_Closed(object? sender, EventArgs e) => DetachHost();
 
-    /// <summary>Win tap and the taskbar's Start button open Spotlight instead of the Start menu.</summary>
+    /// <summary>A Win tap opens Spotlight instead of the Start menu; the Start button stays Windows'.</summary>
     private void UpdateStartReplacement()
     {
         bool wanted = !_disposed && _host != null && _hwnd != IntPtr.Zero
@@ -300,19 +300,17 @@ internal sealed partial class SpotlightController : ISpotlightController, IAsync
         int generation = _hostGeneration;
         _startHooks = new StartMenuHooks(
             () => dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input,
-                (Action)(() => OnStartRequested(fromWinKey: true, generation))),
-            () => dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input,
-                (Action)(() => OnStartRequested(fromWinKey: false, generation))));
+                (Action)(() => OnWinTap(generation))));
         RuntimeLog.Log(LogTag, _startHooks.IsInstalled
-            ? "Win key and Start button open Spotlight"
+            ? "Win key opens Spotlight"
             : "Start menu replacement unavailable");
     }
 
-    private void OnStartRequested(bool fromWinKey, int generation)
+    private void OnWinTap(int generation)
     {
         if (_disposed || generation != _hostGeneration) return;
         // A Win tap inside a fullscreen game does nothing: no Start menu, no Spotlight, no lost focus.
-        if (fromWinKey && FullscreenDetector.DetectFullscreenType(GetForegroundWindow(), _hwnd) != FullscreenType.None)
+        if (FullscreenDetector.DetectFullscreenType(GetForegroundWindow(), _hwnd) != FullscreenType.None)
             return;
         ToggleSpotlight();
     }

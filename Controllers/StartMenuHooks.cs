@@ -1,6 +1,5 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Windows.Automation;
 using System.Windows.Threading;
 using VNotch.Services;
 using static VNotch.Services.Win32Interop;
@@ -8,10 +7,10 @@ using static VNotch.Services.Win32Interop;
 namespace VNotch.Controllers;
 
 /// <summary>
-/// Lets Spotlight stand in for the Windows Start menu: a lone tap of a Windows key and a left click on
-/// the taskbar's Start button are taken away from Windows and reported instead. Win+key combinations,
-/// right clicks on Start (the Win+X menu) and Ctrl+Esc stay with Windows. Both low-level hooks live on
-/// one dedicated thread so a busy UI thread can never stall system input.
+/// Lets Spotlight stand in for the Windows Start menu on the keyboard: a lone tap of a Windows key is taken
+/// away from Windows and reported instead. Win+key combinations, Ctrl+Esc and the taskbar's Start button
+/// stay with Windows. A mouse click while Win is held makes the press a combination, not a tap. Both
+/// low-level hooks live on one dedicated thread so a busy UI thread can never stall system input.
 /// </summary>
 internal sealed unsafe partial class StartMenuHooks : IDisposable
 {
@@ -21,44 +20,29 @@ internal sealed unsafe partial class StartMenuHooks : IDisposable
     private const ushort MaskKey = 0xE8; // unassigned: Windows sees Win+<nothing useful> and keeps Start closed
     private const int WhMouseLl = 14;
     private const int WmKeyDown = 0x0100, WmKeyUp = 0x0101, WmSysKeyDown = 0x0104, WmSysKeyUp = 0x0105;
-    private const int WmMouseMove = 0x0200, WmLButtonDown = 0x0201, WmLButtonUp = 0x0202;
-    private const int WmRButtonDown = 0x0204, WmMButtonDown = 0x0207, WmXButtonDown = 0x020B;
-    private const long StartRefreshThrottleMs = 200;
-    private const long TaskbarRectRefreshMs = 1000;
+    private const int WmLButtonDown = 0x0201, WmRButtonDown = 0x0204, WmMButtonDown = 0x0207, WmXButtonDown = 0x020B;
 
     private static StartMenuHooks? s_mouseOwner;
 
     private readonly Action _winTap;
-    private readonly Action _startClick;
     private readonly WinKeyTapDetector _detector = new();
     private readonly Thread _thread;
     private readonly LowLevelKeyboardHook _keyboard;
     private Dispatcher? _dispatcher;
     private nint _mouseHook;
-    private bool _swallowStartUp;
     private int _disposed;
-
-    // Start button and taskbar bounds in physical screen pixels, refreshed off the hook thread.
-    private RECT _startRect;
-    private RECT _taskbarRect;
-    private long _taskbarRectAt;
-    private long _startRefreshAt;
-    private int _startRefreshRunning;
 
     internal bool IsInstalled { get; private set; }
 
     /// <param name="winTap">Called on the hook thread after a lone Win tap was taken from Windows.</param>
-    /// <param name="startClick">Called on the hook thread after a left click on Start was taken from Windows.</param>
-    internal StartMenuHooks(Action winTap, Action startClick)
+    internal StartMenuHooks(Action winTap)
     {
         _winTap = winTap;
-        _startClick = startClick;
         _keyboard = new LowLevelKeyboardHook(OnKey);
         var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         _thread = new Thread(() => Run(ready)) { IsBackground = true, Name = "Start menu replacement hooks" };
         _thread.Start();
         ready.Task.GetAwaiter().GetResult();
-        if (IsInstalled) QueueStartRefresh(force: true);
     }
 
     private void Run(TaskCompletionSource ready)
@@ -75,7 +59,7 @@ internal sealed unsafe partial class StartMenuHooks : IDisposable
             }
             IsInstalled = keyboard;
             if (!keyboard) RuntimeLog.Warn(LogTag, $"Keyboard hook failed (Win32={_keyboard.InstallationError})");
-            if (_mouseHook == 0) RuntimeLog.Warn(LogTag, "Mouse hook for the Start button could not be installed");
+            if (_mouseHook == 0) RuntimeLog.Warn(LogTag, "Mouse hook for Win+click could not be installed");
             ready.TrySetResult();
             if (keyboard || _mouseHook != 0) Dispatcher.Run();
         }
@@ -138,92 +122,15 @@ internal sealed unsafe partial class StartMenuHooks : IDisposable
         try
         {
             var owner = Volatile.Read(ref s_mouseOwner);
-            if (code >= 0 && owner != null && owner.HandleMouse((int)wParam, (MSLLHOOKSTRUCT*)lParam)) return 1;
+            if (code >= 0 && owner != null && Volatile.Read(ref owner._disposed) == 0 &&
+                (int)wParam is WmLButtonDown or WmRButtonDown or WmMButtonDown or WmXButtonDown)
+                owner._detector.NoteOtherInput();
         }
         catch
         {
             // Never let an exception unwind into user32's input chain.
         }
         return CallNextHookEx(0, code, wParam, lParam);
-    }
-
-    private bool HandleMouse(int message, MSLLHOOKSTRUCT* data)
-    {
-        // Injected clicks count too (automation tools, tests); this hook never injects mouse input itself.
-        if (Volatile.Read(ref _disposed) != 0) return false;
-        switch (message)
-        {
-            case WmMouseMove:
-                if (IsOverTaskbar(data->pt)) QueueStartRefresh(force: false);
-                return false;
-            case WmLButtonDown:
-                _detector.NoteOtherInput();
-                if (Contains(_startRect, data->pt) && IsOverTaskbar(data->pt))
-                {
-                    _swallowStartUp = true;
-                    _startClick();
-                    return true;
-                }
-                return false;
-            case WmLButtonUp:
-                if (!_swallowStartUp) return false;
-                _swallowStartUp = false;
-                return true;
-            case WmRButtonDown or WmMButtonDown or WmXButtonDown:
-                _detector.NoteOtherInput();
-                return false;
-            default:
-                return false;
-        }
-    }
-
-    private bool IsOverTaskbar(POINT pt)
-    {
-        long now = Environment.TickCount64;
-        if (now - _taskbarRectAt > TaskbarRectRefreshMs)
-        {
-            _taskbarRectAt = now;
-            IntPtr tray = FindWindow("Shell_TrayWnd");
-            _taskbarRect = tray != IntPtr.Zero && GetWindowRect(tray, out RECT rect) ? rect : default;
-        }
-        return Contains(_taskbarRect, pt);
-    }
-
-    private static bool Contains(RECT r, POINT pt) =>
-        r.Right > r.Left && pt.X >= r.Left && pt.X < r.Right && pt.Y >= r.Top && pt.Y < r.Bottom;
-
-    private void QueueStartRefresh(bool force)
-    {
-        long now = Environment.TickCount64;
-        if (!force && now - Volatile.Read(ref _startRefreshAt) < StartRefreshThrottleMs) return;
-        if (Interlocked.Exchange(ref _startRefreshRunning, 1) != 0) return;
-        Volatile.Write(ref _startRefreshAt, now);
-        // UI Automation calls can take tens of milliseconds; never make the input hook wait for them.
-        _ = Task.Run(() =>
-        {
-            try { _startRect = LocateStartButton() ?? default; }
-            catch (Exception ex) { RuntimeLog.Log(LogTag, $"Start button lookup failed: {ex.Message}"); }
-            finally { Volatile.Write(ref _startRefreshRunning, 0); }
-        });
-    }
-
-    private static RECT? LocateStartButton()
-    {
-        IntPtr tray = FindWindow("Shell_TrayWnd");
-        if (tray == IntPtr.Zero) return null;
-        var taskbar = AutomationElement.FromHandle(tray);
-        var start = taskbar.FindFirst(TreeScope.Descendants,
-            new PropertyCondition(AutomationElement.AutomationIdProperty, "StartButton"));
-        if (start == null) return null;
-        var bounds = start.Current.BoundingRectangle;
-        if (bounds.IsEmpty || bounds.Width < 1) return null;
-        return new RECT
-        {
-            Left = (int)Math.Floor(bounds.Left),
-            Top = (int)Math.Floor(bounds.Top),
-            Right = (int)Math.Ceiling(bounds.Right),
-            Bottom = (int)Math.Ceiling(bounds.Bottom),
-        };
     }
 
     public void Dispose()
@@ -236,16 +143,6 @@ internal sealed unsafe partial class StartMenuHooks : IDisposable
             RemoveHooks();
             dispatcher.InvokeShutdown();
         }, DispatcherPriority.Send);
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct MSLLHOOKSTRUCT
-    {
-        public POINT pt;
-        public uint mouseData;
-        public uint flags;
-        public uint time;
-        public nint dwExtraInfo;
     }
 
     [StructLayout(LayoutKind.Sequential)]

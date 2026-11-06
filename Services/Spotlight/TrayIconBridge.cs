@@ -82,29 +82,6 @@ internal static unsafe partial class TrayIconBridge
     }
 
     /// <summary>
-    /// Asks Windows to keep every app's icon in the taskbar instead of the hidden overflow, so Spotlight
-    /// can reach them. The taskbar styling makes the tray invisible, so nothing changes on screen.
-    /// </summary>
-    internal static void PromoteAllIcons()
-    {
-        try
-        {
-            using var root = Registry.CurrentUser.OpenSubKey(NotifyIconSettingsKey, writable: false);
-            if (root == null) return;
-            foreach (string sub in root.GetSubKeyNames())
-            {
-                using var key = Registry.CurrentUser.OpenSubKey($@"{NotifyIconSettingsKey}\{sub}", writable: true);
-                if (key == null || key.GetValue("IsPromoted") is int promoted && promoted == 1) continue;
-                key.SetValue("IsPromoted", 1, RegistryValueKind.DWord);
-            }
-        }
-        catch (Exception ex)
-        {
-            RuntimeLog.Log(LogTag, $"Promoting tray icons failed: {ex.Message}");
-        }
-    }
-
-    /// <summary>
     /// Tray apps that belong to a known program outside Windows' own folder, shown under the program's name
     /// with Windows' snapshot of the tray icon (else the program's icon). System entries (Bluetooth,
     /// Windows Security, backup reminders) and unknown tooltips stay out.

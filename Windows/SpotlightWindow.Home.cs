@@ -24,8 +24,7 @@ public partial class SpotlightWindow
             var (apps, tray) = await Task.Run(() =>
             {
                 var homeApps = _viewModel.BuildHomeApps();
-                // App icons live in the hidden overflow by default; bring them into the (invisible) tray first.
-                TrayIconBridge.PromoteAllIcons();
+                // Only icons the user keeps on the taskbar show up; the ones in the overflow stay hidden.
                 var trayApps = TrayIconBridge.ListApps(SpotlightHome.ShowInTrayRow);
                 return (homeApps, trayApps);
             });
