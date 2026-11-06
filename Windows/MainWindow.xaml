@@ -454,6 +454,11 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
+                <!-- The painted shadow of the plain notch; Liquid Glass tunes the DropShadowEffect instead
+                     (UseNotchShadowEffect). Collapsed until the skin is applied. -->
+                <ctrl:NotchSoftShadow x:Name="NotchSoftShadow" Grid.Column="1" Visibility="Collapsed"
+                                      CornerRadius="{Binding CornerRadius, ElementName=NotchBorder}"/>
+
                 <Path x:Name="LeftShadowEar" Grid.Column="0"
                       Data="M 0,0 L 11,0 L 11,10 C 11,4.4 6.2,0 0,0 Z"
                       Fill="Black"
