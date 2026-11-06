@@ -10,11 +10,13 @@ internal sealed record NotchSettings(
     string? MonitorDeviceId,
     bool GlowOnHover,
     bool DisableMouseLeaveAutoClose,
-    double HoverCollapseDelayMs)
+    double HoverCollapseDelayMs,
+    bool CoverBackdrop,
+    double CoverBackdropBoost)
 {
     public static NotchSettings Load()
     {
-        var defaults = new NotchSettings(230, 34, 8, null, true, false, 500);
+        var defaults = new NotchSettings(230, 34, 8, null, true, false, 500, true, 1.0);
         try
         {
             string path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "V-Notch", "settings.json");
@@ -27,7 +29,9 @@ internal sealed record NotchSettings(
                 root.TryGetProperty("MonitorDeviceId", out var id) && id.ValueKind == JsonValueKind.String ? id.GetString() : null,
                 Flag(root, "EnableGlowOnHover", defaults.GlowOnHover),
                 Flag(root, "DisableMouseLeaveAutoClose", defaults.DisableMouseLeaveAutoClose),
-                Number(root, "HoverCollapseDelay", defaults.HoverCollapseDelayMs));
+                Number(root, "HoverCollapseDelay", defaults.HoverCollapseDelayMs),
+                Flag(root, "ShowMediaArtBackground", true) && Flag(root, "EnableBlurEffects", true),
+                Number(root, "MediaBlurBrightnessBoost", defaults.CoverBackdropBoost));
         }
         catch (Exception)
         {

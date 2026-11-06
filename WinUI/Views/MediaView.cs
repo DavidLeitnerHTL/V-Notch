@@ -25,6 +25,8 @@ internal sealed class MediaView
     private readonly Border _progressFill;
 
     public Canvas Root { get; }
+    /// <summary>Holds the blurred-cover backdrop, behind everything else on the page.</summary>
+    public Grid BackdropHost { get; }
     public FrameworkElement Playback { get; }
     public FrameworkElement RightColumn { get; }
 
@@ -33,6 +35,8 @@ internal sealed class MediaView
     public MediaView()
     {
         Root = new Canvas { Width = Width, Height = Height, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top };
+        BackdropHost = new Grid { IsHitTestVisible = false };
+        Root.Children.Add(BackdropHost);
 
         var tabs = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 15 };
         foreach (var glyph in new[] { "", "", "", "", "", "" })
@@ -99,6 +103,27 @@ internal sealed class MediaView
     {
         _title.Text = title;
         _artist.Text = artist;
+    }
+
+    /// <summary>
+    /// WPF tints the playback row with the cover's lifted accent: the progress runs from the accent to 65 % of it,
+    /// the times wear the accent. Without a cover the row stays white.
+    /// </summary>
+    public void SetAccent(Windows.UI.Color? accent)
+    {
+        if (accent is not { } c)
+        {
+            _progressFill.Background = Fill;
+            _elapsed.Foreground = _remaining.Foreground = Tertiary;
+            return;
+        }
+        var dark = Windows.UI.Color.FromArgb(c.A, (byte)(c.R * 0.65), (byte)(c.G * 0.65), (byte)(c.B * 0.65));
+        _progressFill.Background = new Microsoft.UI.Xaml.Media.LinearGradientBrush(new Microsoft.UI.Xaml.Media.GradientStopCollection
+        {
+            new Microsoft.UI.Xaml.Media.GradientStop { Color = c, Offset = 0 },
+            new Microsoft.UI.Xaml.Media.GradientStop { Color = dark, Offset = 1 },
+        }, 0);
+        _elapsed.Foreground = _remaining.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(c);
     }
 
     public void SetPlaying(bool playing) => _playGlyph.Glyph = playing ? "" : "";

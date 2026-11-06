@@ -17,6 +17,7 @@
     <RootNamespace>VNotch.WinUI</RootNamespace>
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
     <ApplicationIcon>..\logo.ico</ApplicationIcon>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260921001" />
@@ -24,5 +25,7 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="..\Fonts\SF-Pro-Display-*.otf" Link="Fonts\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The shared native core (built by the WPF project): palette, brightness and blur code of the media page. -->
+    <Content Include="..\Native\out\VNotch.Native.dll" Link="VNotch.Native.dll" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

@@ -18,6 +18,9 @@ public static class Easings
     // WPF QuadraticEase { EaseOut }.
     public static double QuadOut(double t) => 1 - (1 - Clamp(t)) * (1 - Clamp(t));
 
+    // WPF PowerEase { Power = 2, EaseIn }.
+    public static double PowerIn2(double t) => Clamp(t) * Clamp(t);
+
     // DampedSpringEase() as EaseOut: the native step response with zeta 0.82, normalized to land on 1.
     public static double SoftSpring(double t) => DampedSpring(t, 0.82);
 

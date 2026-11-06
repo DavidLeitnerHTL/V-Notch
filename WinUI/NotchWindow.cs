@@ -38,6 +38,7 @@ internal sealed class NotchWindow : Window
     private readonly CompactView _compact;
     private readonly MediaView _media;
     private readonly CoverArt _cover;
+    private readonly MediaBackdrop _backdrop;
     private readonly MediaSource _source = new();
     private readonly DispatcherQueueTimer _pointerTimer, _fullscreenTimer, _clockTimer, _progressTimer, _collapseTimer;
     private RECT _monitor;
@@ -105,6 +106,8 @@ internal sealed class NotchWindow : Window
 
         _cover = new CoverArt(_c);
         ElementCompositionPreview.SetElementChildVisual(coverHost, _cover.Visual);
+        _backdrop = new MediaBackdrop(_c);
+        ElementCompositionPreview.SetElementChildVisual(_media.BackdropHost, _backdrop.Visual);
 
         foreach (var element in new UIElement[] { _compact.Root, _media.Root, _media.Playback, _media.RightColumn })
             ElementCompositionPreview.SetIsTranslationEnabled(element, true);
@@ -186,14 +189,18 @@ internal sealed class NotchWindow : Window
     {
         if (_open) return;
         _open = true;
-        ++_generation;
+        int generation = ++_generation;
         _settling = false;
         _collapseTimer.Stop();
 
+        var batch = _c.CreateScopedBatch(CompositionBatchTypes.Animation);
         var props = _shell.Props;
         props.StartAnimation("S", Spring(_c, OpenedSize, Springs.OpenResponse, Springs.OpenBounce));
         props.StartAnimation("R", Spring(_c, OpenedRadius, Springs.OpenResponse, 0));
         props.StartAnimation("H", Spring(_c, 1f, Springs.OpenResponse, Springs.OpenBounce));
+        batch.End();
+        // WPF brings in the blurred cover once the notch has finished opening (OnExpandCompleted).
+        batch.Completed += (_, _) => { if (generation == _generation && _open) _backdrop.FadeIn(); };
 
         // As in the WPF notch: the closed content fades in 200 ms, the media page comes in over 500 ms sliding up
         // 10 DIP, then the playback row (+20 ms) and the right column (+60 ms) follow, 25 ms after the start.
@@ -256,6 +263,7 @@ internal sealed class NotchWindow : Window
             _cover.MorphTo(CompactCover, 30);
         }
         Run(_shell.Glow, "Opacity", null, 0, 150, Easings.Linear);
+        _backdrop.FadeOut();
         batch.End();
 
         _settling = true;
@@ -379,15 +387,34 @@ internal sealed class NotchWindow : Window
 
         int version = ++_coverVersion;
         IRandomAccessStream? stream = null;
+        ArtworkLook? look = null;
         try
         {
-            if (_source.Thumbnail is { } thumbnail) stream = await thumbnail.OpenReadAsync();
+            if (_source.Thumbnail is { } thumbnail)
+            {
+                stream = await thumbnail.OpenReadAsync();
+                if (_settings.CoverBackdrop)
+                    look = await Artwork.AnalyzeAsync(await thumbnail.OpenReadAsync(), _settings.CoverBackdropBoost);
+            }
         }
         catch (Exception e)
         {
             App.Log(e);
         }
-        if (version == _coverVersion) _cover.SetImage(stream);
+        if (version != _coverVersion) return;
+        _cover.SetImage(stream);
+        if (look != null)
+        {
+            _backdrop.SetLook(look.Blurred, look.Dim, look.BackdropOpacity);
+            _media.SetAccent(Artwork.Lift(look.Accent));
+            if (_open) _backdrop.FadeIn();
+        }
+        else
+        {
+            _backdrop.Clear();
+            _backdrop.FadeOut();
+            _media.SetAccent(null);
+        }
     }
 
     private void OnPlaybackChanged()
