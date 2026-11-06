@@ -229,6 +229,7 @@ public partial class MainWindow : Window
         VNotch.Services.Clipboard.ClipboardHistoryStore? clipboardHistoryStore = null)
     {
         InitializeComponent();
+        ApplyDwmTransparencyExperiment();
         SettingsButton.AddHandler(Mouse.PreviewMouseDownEvent, new MouseButtonEventHandler((sender, e) =>
         {
             if (e.ChangedButton == MouseButton.Left)
@@ -517,6 +518,7 @@ public partial class MainWindow : Window
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
         InitializeSessionUnlockFeedback();
+        StartMotionLab();
         _invisibleHotkey ??= new VNotch.Controllers.InvisibleHotkeyController(this, ToggleInvisibleMode);
         _overlayWindow.Initialize();
         _spotlightController.Initialize(this, _settings);
