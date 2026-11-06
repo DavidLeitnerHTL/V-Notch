@@ -1212,7 +1212,8 @@ public partial class MainWindow
             Duration: _dur500,
             Easing: _easeAppleOut,
             TargetFps: animFps,
-            ReduceMotion: AnimationConfig.ReduceMotion
+            ReduceMotion: AnimationConfig.ReduceMotion,
+            Spring: ShellOpenSpring
         );
 
         var plan = new VNotch.Models.TransitionPlan(
@@ -2248,7 +2249,8 @@ public partial class MainWindow
             Duration: _dur500,
             Easing: _easeExpOut6,
             TargetFps: animFps,
-            ReduceMotion: AnimationConfig.ReduceMotion
+            ReduceMotion: AnimationConfig.ReduceMotion,
+            Spring: ShellCloseSpring
         );
 
         var plan = new VNotch.Models.TransitionPlan(
