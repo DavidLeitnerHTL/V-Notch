@@ -20,7 +20,7 @@ internal sealed class MediaView
 
     private const double TextX = 126, PlaybackY = 86, PlaybackWidth = 166;
 
-    private readonly TextBlock _title, _artist, _elapsed, _remaining, _time, _date, _battery;
+    private readonly TextBlock _title, _artist, _elapsed, _remaining, _month, _day, _battery;
     private readonly FontIcon _playGlyph;
     private readonly Border _progressFill;
 
@@ -29,6 +29,8 @@ internal sealed class MediaView
     public Grid BackdropHost { get; }
     public FrameworkElement Playback { get; }
     public FrameworkElement RightColumn { get; }
+    /// <summary>Where the analog clock visual goes (92 × 92).</summary>
+    public Grid ClockHost { get; private set; } = null!;
 
     public event Action? PreviousRequested, PlayPauseRequested, NextRequested;
 
@@ -73,14 +75,20 @@ internal sealed class MediaView
         Root.Children.Add(At(playback, TextX, PlaybackY));
         Playback = playback;
 
-        var right = new StackPanel { Width = 150, Spacing = 0 };
-        _date = Text("", 11.5, Semibold, Secondary, FontWeights.SemiBold);
-        _date.HorizontalAlignment = HorizontalAlignment.Center;
-        _time = Text("", 38, Regular, White, FontWeights.Normal);
-        _time.HorizontalAlignment = HorizontalAlignment.Center;
-        right.Children.Add(_date);
-        right.Children.Add(_time);
-        Root.Children.Add(At(right, 314, 44));
+        // WPF CalendarWidget in clock mode: a card (padding 6,8) with the month on the left and the 92 px analog
+        // clock, whose date sits at three o'clock. The clock itself is a compositor visual in ClockHost.
+        var right = new Canvas { Width = 149, Height = 108 };
+        _month = Text("", 15, Semibold, White, FontWeights.Bold);
+        _month.Width = 40;
+        _month.TextAlignment = TextAlignment.Center;
+        right.Children.Add(At(_month, 5, 44));
+        ClockHost = new Grid { Width = 92, Height = 92, IsHitTestVisible = false };
+        right.Children.Add(At(ClockHost, 51, 8));
+        _day = Text("", 12.6, Semibold, new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 0xE0, 0x23, 0x1F)), FontWeights.Bold);
+        _day.Width = 24;
+        _day.TextAlignment = TextAlignment.Center;
+        right.Children.Add(At(_day, 51 + 69.5 - 12, 8 + 46 - 8.5));
+        Root.Children.Add(At(right, 327, 26.5));
         RightColumn = right;
     }
 
@@ -139,8 +147,8 @@ internal sealed class MediaView
     public void SetClock(DateTime now)
     {
         var culture = CultureInfo.CurrentCulture;
-        _time.Text = now.ToString("t", culture);
-        _date.Text = now.ToString("ddd, d. MMM", culture);
+        _month.Text = now.ToString("MMM", culture).TrimEnd('.');
+        _day.Text = now.Day.ToString(culture);
     }
 
     public void SetBattery(int? percent) => _battery.Text = percent is int p ? $"{p} %" : "";

@@ -39,6 +39,7 @@ internal sealed class NotchWindow : Window
     private readonly MediaView _media;
     private readonly CoverArt _cover;
     private readonly MediaBackdrop _backdrop;
+    private readonly AnalogClockVisual _clock;
     private readonly MediaSource _source = new();
     private readonly DispatcherQueueTimer _pointerTimer, _fullscreenTimer, _clockTimer, _progressTimer, _collapseTimer;
     private RECT _monitor;
@@ -108,6 +109,8 @@ internal sealed class NotchWindow : Window
         ElementCompositionPreview.SetElementChildVisual(coverHost, _cover.Visual);
         _backdrop = new MediaBackdrop(_c);
         ElementCompositionPreview.SetElementChildVisual(_media.BackdropHost, _backdrop.Visual);
+        _clock = new AnalogClockVisual(_c, showDate: true);
+        ElementCompositionPreview.SetElementChildVisual(_media.ClockHost, _clock.Visual);
 
         foreach (var element in new UIElement[] { _compact.Root, _media.Root, _media.Playback, _media.RightColumn })
             ElementCompositionPreview.SetIsTranslationEnabled(element, true);
@@ -229,6 +232,7 @@ internal sealed class NotchWindow : Window
 
         _media.Root.IsHitTestVisible = true;
         _media.SetBattery(BatteryPercent());
+        _clock.Start();
         UpdateProgress();
         _progressTimer.Start();
     }
@@ -271,6 +275,8 @@ internal sealed class NotchWindow : Window
         {
             if (generation != _generation) return;
             _settling = false;
+            // The page has faded out; a sweeping clock would keep the compositor drawing for nothing.
+            _clock.Stop();
             if (_hovered) SetHover(true);
         };
     }
