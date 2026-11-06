@@ -33,6 +33,8 @@
   <ItemGroup>
     <ProjectReference Include="..\V-Notch.csproj" />
     <Compile Include="../Tools/TestSupport/BackgroundTestDesktop.cs" Link="BackgroundTestDesktop.cs" />
+    <!-- The WinUI notch's motion math has no WinUI types, so it is checked here against the WPF originals. -->
+    <Compile Include="../WinUI/Motion/*.cs" LinkBase="WinUIMotion" />
     <None Update="Fixtures\white-mat-artwork.png" CopyToOutputDirectory="PreserveNewest" />
     <None Update="Fixtures\dark-textured-artwork.png" CopyToOutputDirectory="PreserveNewest" />
     <None Update="Fixtures\canvas-test.mp4" CopyToOutputDirectory="PreserveNewest" />
