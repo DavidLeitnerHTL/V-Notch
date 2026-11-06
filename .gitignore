@@ -102,6 +102,7 @@ update_settings.ps1
 !/Tools/TestSupport/
 !/Tools/UpdateCompatibility/
 !/Tools/ShaderCompiler/
+!/Tools/NotchMotion/
 /changes
 build-installer.ps1
 .test-output/ai-errors/Locales/ar.json
