@@ -12,6 +12,7 @@ picture per screen refresh), measures the black notch shape in every picture and
 Usage (Windows, ffmpeg 6+ with ddagrab, numpy, Pillow):
   python Tools/NotchMotion/notch_motion.py                  click open, then close (click or move away)
   python Tools/NotchMotion/notch_motion.py --cycles 3       three open/close rounds
+  python Tools/NotchMotion/notch_motion.py --action interrupt   click shut again 120 ms into opening
   python Tools/NotchMotion/notch_motion.py --action none --seconds 4   just film, you trigger
   python Tools/NotchMotion/notch_motion.py --analyze DIR    measure an earlier capture again
 
@@ -115,7 +116,7 @@ root.mainloop()
 '''
 
 
-def record(out: Path, action: str, cycles: int, seconds: float, backdrop: bool) -> dict:
+def record(out: Path, action: str, cycles: int, seconds: float, backdrop: bool, interrupt_ms: int) -> dict:
     screen_w = user32.GetSystemMetrics(0)
     left = max(0, screen_w // 2 - CAPTURE_W // 2)
     hz = refresh_hz()
@@ -164,6 +165,18 @@ def record(out: Path, action: str, cycles: int, seconds: float, backdrop: bool) 
                     time.sleep(0.2)
                 user32.SetCursorPos(cx, CAPTURE_H + 260)
                 time.sleep(settings.get("HoverCollapseDelay", 500) / 1000 + 1.3)
+        elif action == "interrupt":
+            # Click it open and click again while it is still growing: does it turn around smoothly?
+            for _ in range(cycles):
+                user32.SetCursorPos(cx, 24)
+                time.sleep(0.35)
+                click(cx, 24)
+                time.sleep(interrupt_ms / 1000)
+                click(cx, 24)
+                time.sleep(1.2)
+                if not settings.get("DisableMouseLeaveAutoClose", False):
+                    user32.SetCursorPos(cx, CAPTURE_H + 260)
+                    time.sleep(settings.get("HoverCollapseDelay", 500) / 1000 + 1.0)
         else:
             time.sleep(seconds)
     finally:
@@ -445,7 +458,8 @@ def analyze(out: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--action", choices=["cycle", "none"], default="cycle")
+    parser.add_argument("--action", choices=["cycle", "interrupt", "none"], default="cycle")
+    parser.add_argument("--interrupt-ms", type=int, default=120, help="for --action interrupt: delay of the second click")
     parser.add_argument("--cycles", type=int, default=1)
     parser.add_argument("--seconds", type=float, default=4.0, help="filming time for --action none")
     parser.add_argument("--no-backdrop", action="store_true", help="film over whatever is open")
@@ -459,7 +473,7 @@ def main() -> None:
         return
     out = args.out or Path(os.environ.get("TEMP", ".")) / "notch-motion" / time.strftime("%Y%m%d-%H%M%S")
     out.mkdir(parents=True, exist_ok=True)
-    record(out, args.action, args.cycles, args.seconds, backdrop=not args.no_backdrop)
+    record(out, args.action, args.cycles, args.seconds, backdrop=not args.no_backdrop, interrupt_ms=args.interrupt_ms)
     analyze(out)
 
 
