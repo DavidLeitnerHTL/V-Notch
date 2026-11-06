@@ -84,6 +84,11 @@
     <Compile Remove="Tests\**\*.cs" />
     <Compile Remove="Tools\**\*.cs" />
     <Compile Remove="Uninstall\**\*.cs" />
+    <!-- The WinUI notch is its own project. -->
+    <Compile Remove="WinUI\**" />
+    <None Remove="WinUI\**" />
+    <Content Remove="WinUI\**" />
+    <EmbeddedResource Remove="WinUI\**" />
   </ItemGroup>
 
   <ItemGroup>
