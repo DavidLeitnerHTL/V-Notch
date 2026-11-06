@@ -42,7 +42,9 @@ from PIL import Image, ImageDraw, ImageFont
 DARK_ON_WHITE = 100    # luma; on the white backdrop the notch (even hover-lit) stays far below this
 DARK_ON_DARK = 6       # without the backdrop: notch fill 0-6, its shadow starts at 7, dark apps are ~12
 STILL_GAP_MS = 160     # this long without geometry change ends a transition
-CAPTURE_W, CAPTURE_H = 1600, 900   # physical px; the widest page is 720 DIP at 200 %
+# Physical px. The widest page is 720 DIP (1440 px at 200 %). At 360 Hz a smaller area keeps the encoder
+# ahead of the screen; --capture sets it.
+CAPTURE_W, CAPTURE_H = 1600, 900
 
 user32 = ctypes.windll.user32
 kernel32 = ctypes.windll.kernel32
@@ -66,7 +68,7 @@ def refresh_hz() -> int:
 
 def notch_pid() -> int | None:
     out = subprocess.run(["tasklist", "/FI", "IMAGENAME eq V-Notch.exe", "/FO", "CSV", "/NH"],
-                         capture_output=True, text=True).stdout
+                         capture_output=True, text=True, errors="replace").stdout or ""
     for line in out.splitlines():
         parts = [p.strip('"') for p in line.split('","')]
         if len(parts) > 1 and parts[0].lower() == "v-notch.exe":
@@ -103,52 +105,8 @@ def click(x: int, y: int) -> None:
     user32.mouse_event(0x0004, 0, 0, 0, 0)  # left up
 
 
-BACKDROP = r'''
-import ctypes, sys, tkinter as tk
-ctypes.windll.shcore.SetProcessDpiAwareness(2)
-x, y, w, h = map(int, sys.argv[1:5])
-root = tk.Tk()
-root.overrideredirect(True)
-root.configure(bg="white")
-root.geometry(f"{w}x{h}+{x}+{y}")
-root.lift()
-root.mainloop()
-'''
-
-
-def record(out: Path, action: str, cycles: int, seconds: float, backdrop: bool, interrupt_ms: int) -> dict:
-    screen_w = user32.GetSystemMetrics(0)
-    left = max(0, screen_w // 2 - CAPTURE_W // 2)
-    hz = refresh_hz()
-    backdrop_window = None
-    if backdrop:
-        backdrop_window = subprocess.Popen([sys.executable, "-c", BACKDROP, str(left), "0", str(CAPTURE_W), str(CAPTURE_H)])
-        time.sleep(0.8)
-    video = out / "capture.mkv"
-    graph = (f"ddagrab=output_idx=0:framerate={hz}:offset_x={left}:offset_y=0:"
-             f"video_size={CAPTURE_W}x{CAPTURE_H}:dup_frames=0:draw_mouse=0,hwdownload,format=bgra")
-    ffmpeg = subprocess.Popen(
-        ["ffmpeg", "-hide_banner", "-loglevel", "info", "-f", "lavfi", "-i", graph,
-         "-fps_mode", "passthrough", "-c:v", "ffv1", "-level", "3", "-slices", "16", "-threads", "8",
-         "-y", str(video)],
-        stdin=subprocess.PIPE, stderr=subprocess.PIPE, stdout=subprocess.DEVNULL)
-
-    started = threading.Event()
-
-    def watch_stderr() -> None:
-        for raw in iter(ffmpeg.stderr.readline, b""):
-            if b"Output #0" in raw or b"frame=" in raw:
-                started.set()
-    threading.Thread(target=watch_stderr, daemon=True).start()
-    if not started.wait(10):
-        ffmpeg.kill()
-        sys.exit("ffmpeg did not start capturing (needs ffmpeg 6+ with ddagrab)")
-    time.sleep(0.4)  # ddagrab's first frames arrive a little after the output opens
-
-    pid = notch_pid()
-    cpu_before = process_cpu_seconds(pid) if pid else None
-    wall_before = time.perf_counter()
-
+def drive(action: str, cycles: int, seconds: float, interrupt_ms: int, screen_w: int) -> None:
+    """Clicks the notch like a person would, then puts the mouse back where it was."""
     cursor = wt.POINT()
     user32.GetCursorPos(ctypes.byref(cursor))
     cx = screen_w // 2
@@ -182,15 +140,69 @@ def record(out: Path, action: str, cycles: int, seconds: float, backdrop: bool, 
     finally:
         user32.SetCursorPos(cursor.x, cursor.y)
 
-    wall = time.perf_counter() - wall_before
-    cpu_after = process_cpu_seconds(pid) if pid else None
-    ffmpeg.stdin.write(b"q")
-    ffmpeg.stdin.flush()
-    ffmpeg.wait(20)
-    if backdrop_window:
-        backdrop_window.terminate()
 
-    meta = {"refresh_hz": hz, "capture_left": left, "wall_seconds": round(wall, 3), "action": action,
+BACKDROP = r'''
+import ctypes, sys, tkinter as tk
+ctypes.windll.shcore.SetProcessDpiAwareness(2)
+x, y, w, h = map(int, sys.argv[1:5])
+root = tk.Tk()
+root.overrideredirect(True)
+root.configure(bg="white")
+root.geometry(f"{w}x{h}+{x}+{y}")
+root.lift()
+root.mainloop()
+'''
+
+
+def record(out: Path, action: str, cycles: int, seconds: float, backdrop: bool, interrupt_ms: int) -> dict:
+    screen_w = user32.GetSystemMetrics(0)
+    left = max(0, screen_w // 2 - CAPTURE_W // 2)
+    hz = refresh_hz()
+    backdrop_window = ffmpeg = None
+    try:
+        if backdrop:
+            backdrop_window = subprocess.Popen([sys.executable, "-c", BACKDROP, str(left), "0", str(CAPTURE_W), str(CAPTURE_H)])
+            time.sleep(0.8)
+        video = out / "capture.mkv"
+        graph = (f"ddagrab=output_idx=0:framerate={hz}:offset_x={left}:offset_y=0:"
+                 f"video_size={CAPTURE_W}x{CAPTURE_H}:dup_frames=0:draw_mouse=0,hwdownload,format=bgra")
+        ffmpeg = subprocess.Popen(
+            ["ffmpeg", "-hide_banner", "-loglevel", "info", "-f", "lavfi", "-i", graph,
+             "-fps_mode", "passthrough", "-c:v", "ffv1", "-level", "3", "-slices", "16", "-threads", "8",
+             "-y", str(video)],
+            stdin=subprocess.PIPE, stderr=subprocess.PIPE, stdout=subprocess.DEVNULL)
+
+        started = threading.Event()
+
+        def watch_stderr() -> None:
+            for raw in iter(ffmpeg.stderr.readline, b""):
+                if b"Output #0" in raw or b"frame=" in raw:
+                    started.set()
+        threading.Thread(target=watch_stderr, daemon=True).start()
+        if not started.wait(10):
+            sys.exit("ffmpeg did not start capturing (needs ffmpeg 6+ with ddagrab)")
+        time.sleep(0.4)  # ddagrab's first frames arrive a little after the output opens
+
+        pid = notch_pid()
+        cpu_before = process_cpu_seconds(pid) if pid else None
+        wall_before = time.perf_counter()
+        drive(action, cycles, seconds, interrupt_ms, screen_w)
+        wall = time.perf_counter() - wall_before
+        cpu_after = process_cpu_seconds(pid) if pid else None
+    finally:
+        # Whatever happened, leave nothing filming or covering the screen.
+        if ffmpeg and ffmpeg.poll() is None:
+            try:
+                ffmpeg.stdin.write(b"q")
+                ffmpeg.stdin.flush()
+                ffmpeg.wait(20)
+            except (OSError, subprocess.TimeoutExpired):
+                ffmpeg.kill()
+        if backdrop_window:
+            backdrop_window.terminate()
+
+    meta = {"refresh_hz": hz, "capture_left": left, "capture_size": [CAPTURE_W, CAPTURE_H],
+            "wall_seconds": round(wall, 3), "action": action,
             "cycles": cycles,
             "cpu_core_percent": None if cpu_before is None or cpu_after is None
             else round(100 * (cpu_after - cpu_before) / wall, 1)}
@@ -401,8 +413,11 @@ def draw_strip(video: Path, transitions: list[Transition], t_all: np.ndarray, ce
 
 
 def analyze(out: Path) -> None:
+    global CAPTURE_W, CAPTURE_H
     video = out / "capture.mkv"
     meta = json.loads((out / "meta.json").read_text(encoding="utf-8")) if (out / "meta.json").exists() else {}
+    if "capture_size" in meta:
+        CAPTURE_W, CAPTURE_H = meta["capture_size"]
     hz = int(meta.get("refresh_hz") or refresh_hz())
     t = frame_times(video)
     rows, dark_max, previous = [], None, None
@@ -457,17 +472,21 @@ def analyze(out: Path) -> None:
 
 
 def main() -> None:
+    global CAPTURE_W, CAPTURE_H
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--action", choices=["cycle", "interrupt", "none"], default="cycle")
     parser.add_argument("--interrupt-ms", type=int, default=120, help="for --action interrupt: delay of the second click")
     parser.add_argument("--cycles", type=int, default=1)
     parser.add_argument("--seconds", type=float, default=4.0, help="filming time for --action none")
     parser.add_argument("--no-backdrop", action="store_true", help="film over whatever is open")
+    parser.add_argument("--capture", default=f"{CAPTURE_W}x{CAPTURE_H}", metavar="WxH",
+                        help="filmed area at the top centre, physical px (smaller keeps up at high refresh rates)")
     parser.add_argument("--out", type=Path, help="output folder (default: %%TEMP%%/notch-motion/<time>)")
     parser.add_argument("--analyze", type=Path, metavar="DIR", help="only measure an existing capture")
     args = parser.parse_args()
 
     make_dpi_aware()
+    CAPTURE_W, CAPTURE_H = (int(v) for v in args.capture.lower().split("x"))
     if args.analyze:
         analyze(args.analyze)
         return
