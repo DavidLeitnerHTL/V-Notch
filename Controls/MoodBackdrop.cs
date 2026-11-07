@@ -15,7 +15,7 @@ namespace VNotch.Controls;
 /// It lives behind everything in the notch's content (whose clip gives it the notch's corners) and follows
 /// the system tab's opacity, so it fades in and out with the tab.
 /// </summary>
-public sealed class SystemBackdrop : Grid
+public sealed class MoodBackdrop : Grid
 {
     // Laid out for the open system tab (720 wide); the notch's clip cuts what does not fit while it opens.
     private const double Width0 = 720, Height0 = 400;
@@ -35,7 +35,7 @@ public sealed class SystemBackdrop : Grid
         public required double DriftX, DriftY, DriftScale, DriftSeconds;
     }
 
-    public SystemBackdrop()
+    public MoodBackdrop()
     {
         IsHitTestVisible = false;
         Focusable = false;

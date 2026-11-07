@@ -92,6 +92,7 @@ public partial class SettingsWindow
             ["Timer"] = (Loc.Get("nav.controls"), "M6 3H14A4 4 0 0 1 14 11H6A4 4 0 0 1 6 3ZM6 5A2 2 0 1 0 6 9A2 2 0 1 0 6 5ZM6 12H14A4 4 0 0 1 14 20H6A4 4 0 0 1 6 12ZM14 14A2 2 0 1 0 14 18A2 2 0 1 0 14 14Z"),
             ["Claude"] = (Loc.Get("nav.claude"), ClaudeGlyph.PathData),
             ["Pi"] = (Loc.Get("nav.pi"), PiGlyph.PathData),
+            ["School"] = (Loc.Get("nav.school"), SchoolGlyph.PathData),
             ["Weather"] = (Loc.Get("nav.weather"), WeatherGlyph.PathData),
             ["AudioMixer"] = ("Audio Mixer", "M13.5 2.5C13.5 2.1 13.05 1.86 12.72 2.09L6.8 6.2H3.5C2.95 6.2 2.5 6.65 2.5 7.2V12.8C2.5 13.35 2.95 13.8 3.5 13.8H6.8L12.72 17.91C13.05 18.14 13.5 17.9 13.5 17.5V2.5ZM16.04 6.05C15.74 5.79 15.28 5.82 15.02 6.13C14.76 6.43 14.79 6.89 15.1 7.15C16.0 7.93 16.5 8.93 16.5 10C16.5 11.07 16.0 12.07 15.1 12.85C14.79 13.11 14.76 13.57 15.02 13.87C15.28 14.18 15.74 14.21 16.04 13.95C17.25 12.91 18 11.5 18 10C18 8.5 17.25 7.09 16.04 6.05Z")
             ,

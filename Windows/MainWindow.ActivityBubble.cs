@@ -57,7 +57,8 @@ public partial class MainWindow
         if (_cleanedUp) return;
         bool music = MediaDisplayController.ShouldBeCompactMode(info);
         var live = _claudeLiveSessions;
-        var (main, bubble) = LiveActivities.Arrange(music, _claudeLiveSession?.Status, IsCountdownLive, moreClaude: live.Count > 1);
+        var (main, bubble) = LiveActivities.Arrange(music, _claudeLiveSession?.Status, IsCountdownLive, moreClaude: live.Count > 1,
+            download: _downloads.Count > 0);
         _mainActivity = main;
         _bubbleClaudeSessions = bubble != LiveActivity.Claude ? new()
             : main == LiveActivity.Claude ? live.Skip(1).ToList() : live.ToList();
@@ -159,7 +160,7 @@ public partial class MainWindow
     private static double FaceSize(LiveActivity activity, bool open) => activity switch
     {
         LiveActivity.Music => open ? 30 : 24,
-        LiveActivity.Countdown => open ? 26 : 21,
+        LiveActivity.Countdown or LiveActivity.Download => open ? 26 : 21,
         _ => open ? 19 : 16
     };
 
@@ -175,6 +176,7 @@ public partial class MainWindow
         BubbleClaudeFace.Visibility = activity == LiveActivity.Claude ? Visibility.Visible : Visibility.Collapsed;
         BubbleMusicFace.Visibility = activity == LiveActivity.Music ? Visibility.Visible : Visibility.Collapsed;
         BubbleTimerFace.Visibility = activity == LiveActivity.Countdown ? Visibility.Visible : Visibility.Collapsed;
+        BubbleDownloadFace.Visibility = activity == LiveActivity.Download ? Visibility.Visible : Visibility.Collapsed;
         foreach (var property in new[] { WidthProperty, HeightProperty, MarginProperty })
             BubbleIcon.BeginAnimation(property, null);
         double size = FaceSize(activity, _bubbleOpen);
@@ -208,6 +210,10 @@ public partial class MainWindow
                 title = Loc.Get("nav.timer");
                 trailing = FormatCountdown(countdown.Remaining);
                 UpdateTimerArc(countdown.Duration.TotalSeconds > 0 ? countdown.Remaining.TotalSeconds / countdown.Duration.TotalSeconds : 0);
+                break;
+            case LiveActivity.Download when _downloads.Count > 0:
+                (title, subtitle, trailing) = DownloadWords(_downloads);
+                ShowDownloadProgress(_downloads[0].Percent);
                 break;
         }
         BubbleTitle.Text = title;
@@ -804,6 +810,9 @@ public partial class MainWindow
                 break;
             case LiveActivity.Countdown:
                 _transitionCoordinator.RequestView(NotchView.Timer, "ActivityBubble");
+                break;
+            case LiveActivity.Download when _downloads.Count > 0:
+                OpenDownloadSource(_downloads[0]);
                 break;
         }
     }

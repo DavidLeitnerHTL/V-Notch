@@ -545,6 +545,21 @@
                                       StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                             </Canvas>
                         </Viewbox>
+                        <!-- A download: a muted sky ring that fills with its progress, an arrow that nudges with each update. -->
+                        <Viewbox x:Name="BubbleDownloadFace" Visibility="Collapsed">
+                            <Canvas Width="100" Height="100">
+                                <Ellipse Width="84" Height="84" Canvas.Left="8" Canvas.Top="8"
+                                         Stroke="#4093BCD2" StrokeThickness="12"/>
+                                <Path x:Name="BubbleDownloadArc" Stroke="#93BCD2" StrokeThickness="12"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                <Path Data="M50,28 L50,64 M35,50 L50,65 L65,50" Stroke="White" StrokeThickness="9"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round">
+                                    <Path.RenderTransform>
+                                        <TranslateTransform x:Name="BubbleDownloadArrowShift"/>
+                                    </Path.RenderTransform>
+                                </Path>
+                            </Canvas>
+                        </Viewbox>
                     </Grid>
                     <!-- Only in the open pill: what the activity is, and its time. -->
                     <Grid x:Name="BubbleDetail"
@@ -1058,11 +1073,19 @@
                         <Grid x:Name="SpotlightReturnContentHost">
                         <Grid x:Name="NotchContent" Margin="0" SizeChanged="NotchContent_SizeChanged" RenderOptions.ClearTypeHint="Enabled" UseLayoutRounding="False" SnapsToDevicePixels="False">
 
-                    <!-- The system tab's colour fields, behind everything; they fade in and out with the tab. -->
-                    <ctrl:SystemBackdrop x:Name="SystemBackdrop"
-                                         Panel.ZIndex="-1"
-                                         Opacity="{Binding Opacity, ElementName=TimerContent}"
-                                         Visibility="{Binding Visibility, ElementName=TimerContent}"/>
+                    <!-- The colour fields of the system, home and school tabs, behind everything; each fades in and out with its tab. -->
+                    <ctrl:MoodBackdrop x:Name="SystemBackdrop"
+                                       Panel.ZIndex="-1"
+                                       Opacity="{Binding Opacity, ElementName=TimerContent}"
+                                       Visibility="{Binding Visibility, ElementName=TimerContent}"/>
+                    <ctrl:MoodBackdrop x:Name="HomeBackdrop"
+                                       Panel.ZIndex="-1"
+                                       Opacity="{Binding Opacity, ElementName=PiContent}"
+                                       Visibility="{Binding Visibility, ElementName=PiContent}"/>
+                    <ctrl:MoodBackdrop x:Name="SchoolBackdrop"
+                                       Panel.ZIndex="-1"
+                                       Opacity="{Binding Opacity, ElementName=SchoolContent}"
+                                       Visibility="{Binding Visibility, ElementName=SchoolContent}"/>
 
 
 
@@ -1285,6 +1308,34 @@
                                 <Viewbox Width="15" Height="15" Stretch="Uniform"
                                          HorizontalAlignment="Center" VerticalAlignment="Center">
                                     <Path Data="{x:Static ctrl:PiGlyph.Data}"
+                                          Fill="{x:Static svc:UiPalette.PrimaryBrush}"/>
+                                </Viewbox>
+                            </ctrl:ActionBorder>
+                            <ctrl:ActionBorder x:Name="SchoolIconButton" AutomationProperties.Name="School"
+                                    Tag="School"
+                                    Width="22" Height="22"
+                                    Background="Transparent"
+                                    Cursor="Hand"
+                                    Margin="0,0,4,0"
+                                    Opacity="0.45"
+                                    RenderTransformOrigin="0.5,0.5"
+                                    PreviewMouseLeftButtonDown="NavIcon_PreviewMouseLeftButtonDown"
+                                    PreviewMouseMove="NavIcon_PreviewMouseMove"
+                                    PreviewMouseLeftButtonUp="NavIcon_PreviewMouseLeftButtonUp"
+                                    LostMouseCapture="NavIcon_LostMouseCapture"
+                                    Click="SchoolIconButton_Click">
+                                <Border.RenderTransform>
+                                    <TransformGroup>
+                                        <ScaleTransform ScaleX="1" ScaleY="1"/>
+                                        <TranslateTransform X="0" Y="0"/>
+                                    </TransformGroup>
+                                </Border.RenderTransform>
+                                <Border.Effect>
+                                    <DropShadowEffect Color="Black" BlurRadius="8" ShadowDepth="0" Opacity="0.9"/>
+                                </Border.Effect>
+                                <Viewbox Width="15" Height="15" Stretch="Uniform"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Path Data="{x:Static ctrl:SchoolGlyph.Data}"
                                           Fill="{x:Static svc:UiPalette.PrimaryBrush}"/>
                                 </Viewbox>
                             </ctrl:ActionBorder>
@@ -3172,6 +3223,17 @@
                           MouseLeftButtonDown="SecondaryContent_Click"
                           RenderOptions.ClearTypeHint="Enabled">
                         <ctrl:ControlCenterView x:Name="PiCenter" Page="Pi"/>
+                    </Grid>
+
+                    <Grid x:Name="SchoolContent"
+                          Opacity="0"
+                          Visibility="Collapsed"
+                          Margin="20,34,20,14"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Top"
+                          MouseLeftButtonDown="SecondaryContent_Click"
+                          RenderOptions.ClearTypeHint="Enabled">
+                        <ctrl:ControlCenterView x:Name="SchoolCenter" Page="School"/>
                     </Grid>
 
                     <Grid x:Name="WeatherContent"

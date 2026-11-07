@@ -22,8 +22,10 @@ public enum ControlCenterPage
     System,
     /// <summary>Claude Code sessions, approvals, questions and plan limits.</summary>
     Claude,
-    /// <summary>The user's Raspberry Pi dashboard: Home Assistant, school, to-dos.</summary>
-    Pi
+    /// <summary>Home, from the user's Raspberry Pi dashboard: lights, heating, air conditioner, sockets, scenes, the Pi.</summary>
+    Pi,
+    /// <summary>School, from the same dashboard: the next deadline, the others, tests and to-dos.</summary>
+    School
 }
 
 /// <summary>
@@ -179,6 +181,8 @@ public partial class ControlCenterView : UserControl, IDisposable
         _piTimer?.Stop();
         _legionTimer?.Stop();
         _legionLoops.StopAll();
+        _homeLoops.StopAll();
+        _targetSend?.Stop();
         _wifiLoops.StopAll();
         _bluetoothLoops.StopAll();
         _backdrop?.SetDrifting(false);
@@ -210,7 +214,7 @@ public partial class ControlCenterView : UserControl, IDisposable
                 _clockTimer.Start();
                 StartRipples();
             }
-            else if (Page == ControlCenterPage.Pi)
+            else if (Page is ControlCenterPage.Pi or ControlCenterPage.School)
             {
                 OnPiVisibleChanged(true);
             }
@@ -219,13 +223,13 @@ public partial class ControlCenterView : UserControl, IDisposable
                 _refreshTimer.Start();
                 SetGpuSampling(true);
                 OnLegionVisibleChanged(true);
-                // The colour fields drift and the curves draw in only while the tab is on screen.
-                if (_backdrop != null)
-                {
-                    _backdrop.Suppressed = _usesGlass();
-                    _backdrop.SetDrifting(true);
-                }
                 DrawSparksIn();
+            }
+            // The colour fields drift only while the tab is on screen.
+            if (_backdrop != null)
+            {
+                _backdrop.Suppressed = _usesGlass();
+                _backdrop.SetDrifting(true);
             }
         }
         else
@@ -241,12 +245,12 @@ public partial class ControlCenterView : UserControl, IDisposable
                 _topMode = TopMode.Off;
                 _wifiLoops.StopAll();
                 _bluetoothLoops.StopAll();
-                _backdrop?.SetDrifting(false);
                 OnLegionVisibleChanged(false);
             }
+            _backdrop?.SetDrifting(false);
             CloseMenu();
             if (_composingSessionId != null) StopComposing();
-            if (Page == ControlCenterPage.Pi) OnPiVisibleChanged(false);
+            if (Page is ControlCenterPage.Pi or ControlCenterPage.School) OnPiVisibleChanged(false);
         }
     }
 
@@ -254,7 +258,7 @@ public partial class ControlCenterView : UserControl, IDisposable
     {
         _networkKey = _bluetoothKey = _claudeKey = "";
         _statsTiles = null;
-        _piKey = _legionKey = "";
+        _piKey = _legionKey = _homeKey = "";
         if (_snapshot != null) ApplySnapshot(_snapshot);
         BuildClaudeSection();
         BuildPiPage();
@@ -300,7 +304,7 @@ public partial class ControlCenterView : UserControl, IDisposable
             BuildClaudeSection();
             return;
         }
-        if (Page == ControlCenterPage.Pi)
+        if (Page is ControlCenterPage.Pi or ControlCenterPage.School)
         {
             RefreshPi();
             return;
@@ -2268,8 +2272,8 @@ public partial class ControlCenterView : UserControl, IDisposable
         titlePanel.Children.Add(new System.Windows.Shapes.Path
         {
             Data = Geometry.Parse("M0,0 L8,0 L4,5 Z"),
-            // On the system tab the arrows wear the tab's colour too.
-            Fill = Page == ControlCenterPage.System ? _moodInk : HeaderText,
+            // On the system, home and school tabs the arrows wear the tab's colour too.
+            Fill = Page != ControlCenterPage.Claude ? _moodInk : HeaderText,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 1, 8, 0),
             RenderTransformOrigin = new Point(0.5, 0.5),
@@ -2341,9 +2345,14 @@ public partial class ControlCenterView : UserControl, IDisposable
         {
             case "network": _networkKey = ""; break;
             case "bluetooth": _bluetoothKey = ""; break;
-            case "pi.home":
             case "pi.school":
+            case "pi.exams":
             case "pi.todos": _piKey = ""; BuildPiPage(); return;
+            case "home.lights":
+            case "home.climate":
+            case "home.plugs":
+            case "home.scenes":
+            case "home.pi": _homeKey = ""; BuildPiPage(); return;
             case "legion.mode":
             case "legion.keys": ToggleLegionSection(section); return;
             case "system": _statsTiles = null; break;

@@ -75,38 +75,51 @@ public partial class ControlCenterView
     private readonly GradientStop _moodAreaBottom = new(Alpha(MoodAt(0), 0), 1);
     private LinearGradientBrush? _moodBar;
     private LinearGradientBrush? _moodArea;
-    private SystemBackdrop? _backdrop;
+    private MoodBackdrop? _backdrop;
 
     /// <summary>Bars fade from the tab's colour to a darker shade of it, like the music tab's progress bar.</summary>
     private LinearGradientBrush MoodBar => _moodBar ??= new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(1, 0), GradientStops = { _moodBarFrom, _moodBarTo } };
 
     private LinearGradientBrush MoodArea => _moodArea ??= new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1), GradientStops = { _moodAreaTop, _moodAreaBottom } };
 
-    /// <summary>For the <see cref="ControlCenterPage.System"/> page: the colour fields behind the whole notch.</summary>
-    internal void AttachBackdrop(SystemBackdrop backdrop)
+    // What the backdrop shows: the tab's colour and its two neighbours.
+    private (Color Main, Color Warmer, Color Cooler)? _moodColors;
+
+    /// <summary>The colour fields behind the whole notch, for the system, home and school tabs.</summary>
+    internal void AttachBackdrop(MoodBackdrop backdrop)
     {
         _backdrop = backdrop;
-        double load = double.IsNaN(_moodLoad) ? 0 : _moodLoad;
-        backdrop.SetMood(MoodAt(load), MoodAt(load + 22), MoodAt(load - 18), 0);
+        var (main, warmer, cooler) = _moodColors ?? (MoodAt(0), MoodAt(22), MoodAt(0));
+        backdrop.SetMood(main, warmer, cooler, 0);
     }
 
-    /// <summary>Moves the whole tab to the colour of <paramref name="load"/>; the first call paints at once.</summary>
+    /// <summary>The system tab: moves to the colour of <paramref name="load"/>.</summary>
     private void SetMood(double load)
     {
-        bool first = double.IsNaN(_moodLoad);
         // Small wobbles would keep the colours sliding for nothing.
-        if (!first && Math.Abs(load - _moodLoad) < 2) return;
+        if (!double.IsNaN(_moodLoad) && Math.Abs(load - _moodLoad) < 2) return;
         _moodLoad = load;
+        SetMoodColors(MoodAt(load), MoodAt(load + 22), MoodAt(load - 18));
+    }
+
+    /// <summary>
+    /// Moves the whole tab to <paramref name="main"/> (labels, bars, switches, rings) and the backdrop to it and its
+    /// two neighbours; the first call paints at once, later ones fade.
+    /// </summary>
+    private void SetMoodColors(Color main, Color warmer, Color cooler)
+    {
+        if (_moodColors is { } now && now.Main == main && now.Warmer == warmer && now.Cooler == cooler) return;
+        bool first = _moodColors == null;
+        _moodColors = (main, warmer, cooler);
         double ms = first || !IsVisible ? 0 : MoodFadeMs;
-        var mood = MoodAt(load);
-        SetOrTint(_mood, mood, ms);
-        SetOrTint(_moodInk, Lift(mood, 0.3), ms);
-        SetOrTint(_moodSoft, Alpha(Lift(mood, 0.2), 0.88), ms);
-        Fade(_moodBarFrom, mood, ms);
-        Fade(_moodBarTo, Dim(mood, 0.62), ms);
-        Fade(_moodAreaTop, Alpha(mood, 0.16), ms);
-        Fade(_moodAreaBottom, Alpha(mood, 0), ms);
-        _backdrop?.SetMood(mood, MoodAt(load + 22), MoodAt(load - 18), ms);
+        SetOrTint(_mood, main, ms);
+        SetOrTint(_moodInk, Lift(main, 0.3), ms);
+        SetOrTint(_moodSoft, Alpha(Lift(main, 0.2), 0.88), ms);
+        Fade(_moodBarFrom, main, ms);
+        Fade(_moodBarTo, Dim(main, 0.62), ms);
+        Fade(_moodAreaTop, Alpha(main, 0.16), ms);
+        Fade(_moodAreaBottom, Alpha(main, 0), ms);
+        _backdrop?.SetMood(main, warmer, cooler, ms);
     }
 
     private static void Fade(GradientStop stop, Color to, double ms)

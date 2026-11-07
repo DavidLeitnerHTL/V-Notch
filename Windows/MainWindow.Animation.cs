@@ -15,7 +15,7 @@ public partial class MainWindow
 {
 
     #region Notch Expand/Collapse
-    private enum LastExpandedView { Primary, Secondary, Timer, Audio, Camera, Claude, Pi, Weather }
+    private enum LastExpandedView { Primary, Secondary, Timer, Audio, Camera, Claude, Pi, School, Weather }
     private LastExpandedView _lastExpandedViewBeforeCollapse = LastExpandedView.Primary;
 
     private const double ExpandedContentHorizontalInset = 16;
@@ -817,6 +817,7 @@ public partial class MainWindow
         _isCameraView = effectiveTarget == VNotch.Models.NotchView.Camera;
         _isClaudeView = effectiveTarget == VNotch.Models.NotchView.Claude;
         _isPiView = effectiveTarget == VNotch.Models.NotchView.Pi;
+        _isSchoolView = effectiveTarget == VNotch.Models.NotchView.School;
         _isWeatherView = effectiveTarget == VNotch.Models.NotchView.Weather;
 
         if (effectiveTarget == VNotch.Models.NotchView.Timer)
@@ -874,6 +875,14 @@ public partial class MainWindow
             _isSecondaryView = false;
             _isAudioView = false;
             VNotch.Presenters.NotchContentTransitionPresenter.ClearTransformAndEffects(PiContent);
+            ResizeHostWindowHeight(PiViewHeight);
+        }
+        else if (effectiveTarget == VNotch.Models.NotchView.School)
+        {
+            _isTimerView = false;
+            _isSecondaryView = false;
+            _isAudioView = false;
+            VNotch.Presenters.NotchContentTransitionPresenter.ClearTransformAndEffects(SchoolContent);
             ResizeHostWindowHeight(PiViewHeight);
         }
         else if (effectiveTarget == VNotch.Models.NotchView.Weather)
@@ -1135,6 +1144,17 @@ public partial class MainWindow
                 ResizeHostWindowHeight(targetHeight);
             UpdateNavIconsActiveState();
         }
+        else if (effectiveTarget == VNotch.Models.NotchView.School)
+        {
+            VNotch.Presenters.NotchContentTransitionPresenter.ClearTransformAndEffects(SchoolContent);
+            targetWidth = PiViewWidth;
+            targetHeight = PiViewHeight;
+            SchoolContent.Width = targetWidth - SchoolContent.Margin.Left - SchoolContent.Margin.Right;
+            SchoolContent.Height = targetHeight - SchoolContent.Margin.Top - SchoolContent.Margin.Bottom;
+            if (targetHeight > currentHeight)
+                ResizeHostWindowHeight(targetHeight);
+            UpdateNavIconsActiveState();
+        }
         else if (effectiveTarget == VNotch.Models.NotchView.Weather)
         {
             VNotch.Presenters.NotchContentTransitionPresenter.ClearTransformAndEffects(WeatherContent);
@@ -1294,6 +1314,8 @@ public partial class MainWindow
             ClaudeCenter.RevealRows(TimeSpan.FromMilliseconds(35));
         else if (effectiveTarget == VNotch.Models.NotchView.Pi)
             PiCenter.RevealRows(TimeSpan.FromMilliseconds(35));
+        else if (effectiveTarget == VNotch.Models.NotchView.School)
+            SchoolCenter.RevealRows(TimeSpan.FromMilliseconds(35));
 
         if (effectiveTarget == VNotch.Models.NotchView.Media)
         {
@@ -1658,6 +1680,7 @@ public partial class MainWindow
         if (_isCameraView) return LastExpandedView.Camera;
         if (_isClaudeView) return LastExpandedView.Claude;
         if (_isPiView) return LastExpandedView.Pi;
+        if (_isSchoolView) return LastExpandedView.School;
         if (_isWeatherView) return LastExpandedView.Weather;
         if (_isAudioView) return LastExpandedView.Audio;
         if (_isTimerView) return LastExpandedView.Timer;
@@ -1681,6 +1704,7 @@ public partial class MainWindow
                 LastExpandedView.Camera when !_settings.HideCamera => VNotch.Models.NotchView.Camera,
                 LastExpandedView.Claude => VNotch.Models.NotchView.Claude,
                 LastExpandedView.Pi => VNotch.Models.NotchView.Pi,
+                LastExpandedView.School => VNotch.Models.NotchView.School,
                 LastExpandedView.Weather => VNotch.Models.NotchView.Weather,
                 _ => VNotch.Models.NotchView.Media
             };
@@ -2002,6 +2026,7 @@ public partial class MainWindow
         VNotch.Presenters.NotchContentTransitionPresenter.ResetElementVisualState(CameraContent);
         VNotch.Presenters.NotchContentTransitionPresenter.ResetElementVisualState(ClaudeContent);
         VNotch.Presenters.NotchContentTransitionPresenter.ResetElementVisualState(PiContent);
+        VNotch.Presenters.NotchContentTransitionPresenter.ResetElementVisualState(SchoolContent);
         VNotch.Presenters.NotchContentTransitionPresenter.ResetElementVisualState(WeatherContent);
 
         ResetMediaContentReveal();
@@ -2022,6 +2047,7 @@ public partial class MainWindow
         _isCameraView = false;
         _isClaudeView = false;
         _isPiView = false;
+        _isSchoolView = false;
         _isWeatherView = false;
     }
 
@@ -2127,6 +2153,7 @@ public partial class MainWindow
                 VNotch.Models.NotchView.Camera => LastExpandedView.Camera,
                 VNotch.Models.NotchView.Claude => LastExpandedView.Claude,
                 VNotch.Models.NotchView.Pi => LastExpandedView.Pi,
+                VNotch.Models.NotchView.School => LastExpandedView.School,
                 VNotch.Models.NotchView.Weather => LastExpandedView.Weather,
                 _ => LastExpandedView.Primary
             };
@@ -2235,6 +2262,7 @@ public partial class MainWindow
                 LastExpandedView.Camera => VNotch.Models.NotchView.Camera,
                 LastExpandedView.Claude => VNotch.Models.NotchView.Claude,
                 LastExpandedView.Pi => VNotch.Models.NotchView.Pi,
+                LastExpandedView.School => VNotch.Models.NotchView.School,
                 LastExpandedView.Weather => VNotch.Models.NotchView.Weather,
                 _ => VNotch.Models.NotchView.Media
             },
@@ -2291,6 +2319,7 @@ public partial class MainWindow
         AnimateAuxiliaryViewCollapse(CameraContent, generation);
         AnimateAuxiliaryViewCollapse(ClaudeContent, generation);
         AnimateAuxiliaryViewCollapse(PiContent, generation);
+        AnimateAuxiliaryViewCollapse(SchoolContent, generation);
         AnimateAuxiliaryViewCollapse(WeatherContent, generation);
         AnimateAuxiliaryViewCollapse(TimerContent, generation);
         AnimateAuxiliaryViewCollapse(AudioContent, generation);

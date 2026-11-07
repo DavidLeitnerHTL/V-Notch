@@ -741,6 +741,7 @@ public partial class MainWindow
         if (_isCameraView) fallbackView = VNotch.Models.NotchView.Camera;
         else if (_isClaudeView) fallbackView = VNotch.Models.NotchView.Claude;
         else if (_isPiView) fallbackView = VNotch.Models.NotchView.Pi;
+        else if (_isSchoolView) fallbackView = VNotch.Models.NotchView.School;
         else if (_isWeatherView) fallbackView = VNotch.Models.NotchView.Weather;
         else if (_isAudioView) fallbackView = VNotch.Models.NotchView.AudioMixer;
         else if (_isTimerView) fallbackView = VNotch.Models.NotchView.Timer;
@@ -750,6 +751,7 @@ public partial class MainWindow
             or VNotch.Models.NotchView.Timer
             or VNotch.Models.NotchView.Claude
             or VNotch.Models.NotchView.Pi
+            or VNotch.Models.NotchView.School
             or VNotch.Models.NotchView.Weather
             or VNotch.Models.NotchView.AudioMixer;
         double iconTargetY = _settings.EnableDynamicIslandMode ? 5 : 0;
