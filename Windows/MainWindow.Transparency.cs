@@ -48,6 +48,8 @@ public partial class MainWindow
             DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref doNotRound, sizeof(int));
             DwmSetWindowAttribute(hwnd, DWMWA_BORDER_COLOR, ref noBorder, sizeof(int));
             RemoveLayeredCreationHook();
+            // Belt and braces: a layered window without its alpha is invisible.
+            SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA);
             _clickThrough = new ClickThroughController(this, hwnd);
         };
         Closed += (_, _) => _clickThrough?.Dispose();
@@ -95,23 +97,26 @@ public partial class MainWindow
     }
 
     // WPF's HwndTarget clears WS_EX_LAYERED on every style change unless the window uses per-pixel opacity (the
-    // slow UpdateLayeredWindow path). Setting the bit again after WPF has handled the change keeps it.
+    // slow UpdateLayeredWindow path). Setting the bit again after WPF has handled the change keeps it. A window
+    // that turns layered starts invisible until it gets its alpha, so the alpha is set again whenever that happens.
     private static readonly SubclassProc KeepLayeredProc = (hwnd, msg, wParam, lParam, id, data) =>
     {
         IntPtr result = DefSubclassProc(hwnd, msg, wParam, lParam);
-        if (msg == WM_STYLECHANGING && (int)wParam == GWL_EXSTYLE)
+        if ((int)wParam != GWL_EXSTYLE) return result;
+        var change = Marshal.PtrToStructure<StyleStruct>(lParam);
+        if (msg == WM_STYLECHANGING && (change.StyleNew & WS_EX_LAYERED) == 0)
         {
-            var change = Marshal.PtrToStructure<StyleStruct>(lParam);
-            if ((change.StyleNew & WS_EX_LAYERED) == 0)
-            {
-                change.StyleNew |= WS_EX_LAYERED;
-                Marshal.StructureToPtr(change, lParam, false);
-            }
+            change.StyleNew |= WS_EX_LAYERED;
+            Marshal.StructureToPtr(change, lParam, false);
+        }
+        else if (msg == WM_STYLECHANGED && (change.StyleOld & WS_EX_LAYERED) == 0 && (change.StyleNew & WS_EX_LAYERED) != 0)
+        {
+            SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA);
         }
         return result;
     };
 
-    private const int WH_CBT = 5, HCBT_CREATEWND = 3, WS_EX_LAYERED = 0x80000, GWL_EXSTYLE = -20, LWA_ALPHA = 0x2, WM_STYLECHANGING = 0x007C;
+    private const int WH_CBT = 5, HCBT_CREATEWND = 3, WS_EX_LAYERED = 0x80000, GWL_EXSTYLE = -20, LWA_ALPHA = 0x2, WM_STYLECHANGING = 0x007C, WM_STYLECHANGED = 0x007D;
     private delegate IntPtr SubclassProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, UIntPtr id, UIntPtr data);
     [StructLayout(LayoutKind.Sequential)] private struct StyleStruct { public int StyleOld, StyleNew; }
     [DllImport("comctl32.dll")] private static extern bool SetWindowSubclass(IntPtr hwnd, SubclassProc proc, UIntPtr id, UIntPtr data);
