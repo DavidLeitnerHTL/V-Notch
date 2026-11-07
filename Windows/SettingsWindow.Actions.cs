@@ -169,6 +169,20 @@ public partial class SettingsWindow
     private void SocialLink_Discord_Click(object sender, RoutedEventArgs e) => SafeLauncher.TryOpenUrl(string.Concat("https://", "discord.com/users/298304189535092737"));
     private void DonatePaypal_Click(object sender, RoutedEventArgs e) => SafeLauncher.TryOpenUrl(string.Concat("https://", "www.paypal.com/paypalme/PhuocLe678"));
     private void StarRepoButton_Click(object sender, RoutedEventArgs e) => SafeLauncher.TryOpenUrl(string.Concat("https://", "github.com/w0otdev/V-Notch"));
+
+    /// <summary>
+    /// The star on the donate card pulses only while it is on screen. The window is prepared hidden at start-up, and
+    /// a Forever storyboard started there would keep every window on this thread redrawing at the display's rate.
+    /// </summary>
+    private void PulseStarWhileShown()
+    {
+        if (AnimatedStarPath.Resources["StarPulse"] is not Storyboard pulse) return;
+        AnimatedStarPath.IsVisibleChanged += (_, _) =>
+        {
+            if (AnimatedStarPath.IsVisible) pulse.Begin(AnimatedStarPath, isControllable: true);
+            else pulse.Stop(AnimatedStarPath);
+        };
+    }
     private void ProjectVertex_Click(object sender, RoutedEventArgs e) => SafeLauncher.TryOpenUrl(string.Concat("https://", "github.com/w0otdev/Vertex"));
     private void ProjectScrollV_Click(object sender, RoutedEventArgs e) => SafeLauncher.TryOpenUrl(string.Concat("https://", "github.com/w0otdev/Scroll-V"));
     private void ReportBug_Click(object sender, RoutedEventArgs e) => SafeLauncher.TryOpenUrl(string.Concat("https://", "github.com/w0otdev/V-Notch/issues/new"));

@@ -1156,6 +1156,11 @@
                                     HorizontalAlignment="Left" VerticalAlignment="Top"
                                     Margin="14,3,0,0"
                                     Background="Transparent">
+                            <!-- Drawn once with the icons' shadows and reused while the notch grows around it: re-blurring nine
+                                 shadows every frame cost a quarter of the frames while opening. -->
+                            <StackPanel.CacheMode>
+                                <BitmapCache SnapsToDevicePixels="True"/>
+                            </StackPanel.CacheMode>
                             <ctrl:ActionBorder x:Name="HomeIconButton" AutomationProperties.Name="Home"
                                     Tag="Media"
                                     Width="22" Height="22"

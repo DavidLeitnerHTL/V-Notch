@@ -123,6 +123,7 @@ public partial class SettingsWindow : Window
         AnimationPrimitives.ApplyFpsToTree(this);
         FirstOpenProbe?.Invoke($"DEBUG-FIRST-OPEN Settings FPS tree {firstOpenProbe.Elapsed.TotalMilliseconds:F1} ms");
         firstOpenProbe.Restart();
+        PulseStarWhileShown();
 
         _settings = settings.Clone();
         _editSession = new SettingsEditSession(settings);
