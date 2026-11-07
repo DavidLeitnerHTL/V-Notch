@@ -217,6 +217,9 @@ public partial class ControlCenterView
         _requestCards.Clear();
         _limitBars.Clear();
         _heroTick = null;
+        _tokenRow = null;
+        foreach (var seen in new List<string>(_tokensSeen.Keys))
+            if (!sessions.Exists(s => s.Id == seen)) _tokensSeen.Remove(seen);
         ForgetAnsweredQuestions(pending);
         StopRipples();
         _ripples.Clear();
@@ -237,6 +240,7 @@ public partial class ControlCenterView
         {
             StartRipples();
             PopTick(250);
+            RefreshTokens();
         }
         ApplyClaudeLoops();
         ContentHeightChanged?.Invoke();
@@ -413,12 +417,12 @@ public partial class ControlCenterView
 
         top.Children.Add(WhoRow(lead.Name, lead.Title is { Length: > 0 } && lead.Project != lead.Title ? lead.Project : null, lead.Cwd));
 
-        var state = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 5, 0, 2) };
+        var state = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 7, 0, 4) };
         state.Children.Add(new TextBlock
         {
             Text = StateWord(lead),
             FontFamily = ControlFont,
-            FontSize = 24,
+            FontSize = 19,
             FontWeight = FontWeights.Bold,
             Foreground = _heroInk,
             VerticalAlignment = VerticalAlignment.Center
@@ -430,10 +434,10 @@ public partial class ControlCenterView
             {
                 Text = "",
                 FontFamily = SegoeSymbolFont,
-                FontSize = 15,
+                FontSize = 13,
                 Foreground = _heroInk,
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(8, 3, 0, 0)
+                Margin = new Thickness(7, 2, 0, 0)
             };
             _heroTick = tick;
             _heroTickKey = lead.Id + (lead.FinishedUtc?.Ticks ?? 0);
@@ -499,8 +503,9 @@ public partial class ControlCenterView
         Grid.SetRow(side, 2);
         top.Children.Add(side);
 
-        var content = new StackPanel { Margin = new Thickness(16, 13, 16, 14) };
+        var content = new StackPanel { Margin = new Thickness(18, 16, 18, 16) };
         content.Children.Add(top);
+        content.Children.Add(TokenStats(lead));
 
         _accent = _heroInk;
         StackPanel? requests = null;
@@ -513,13 +518,13 @@ public partial class ControlCenterView
             _firstRequestCard ??= requestCard;
             _requestCards[request.Id] = requestCard;
             _cardScratch.Add(("request:" + request.Id, requestCard));
-            requests ??= new StackPanel { Margin = new Thickness(0, 11, 0, 0) };
+            requests ??= new StackPanel { Margin = new Thickness(0, 14, 0, 0) };
             requests.Children.Add(requestCard);
         }
         _accent = _mood;
         if (_composingSessionId == lead.Id)
         {
-            requests ??= new StackPanel { Margin = new Thickness(0, 11, 0, 0) };
+            requests ??= new StackPanel { Margin = new Thickness(0, 14, 0, 0) };
             requests.Children.Add(Composer(lead.Id));
         }
         if (requests != null) content.Children.Add(requests);
@@ -529,7 +534,7 @@ public partial class ControlCenterView
         {
             layers.Children.Add(new Border
             {
-                CornerRadius = new CornerRadius(16),
+                CornerRadius = new CornerRadius(18),
                 BorderThickness = new Thickness(1.2),
                 BorderBrush = _breathEdge,
                 Background = BreathGlow,
@@ -553,9 +558,9 @@ public partial class ControlCenterView
         var fill = new SolidColorBrush(CardRest);
         var hero = new Border
         {
-            CornerRadius = new CornerRadius(16),
+            CornerRadius = new CornerRadius(18),
             Background = fill,
-            Margin = new Thickness(0, 0, 0, 10),
+            Margin = new Thickness(0, 0, 0, 14),
             Cursor = Cursors.Hand,
             Child = layers
         };
@@ -613,12 +618,12 @@ public partial class ControlCenterView
         {
             Text = text,
             FontFamily = ControlFont,
-            FontSize = 26,
+            FontSize = 20,
             FontWeight = FontWeights.Light,
             Foreground = HeroTime,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Top,
-            Margin = new Thickness(12, -3, 0, 0)
+            Margin = new Thickness(12, -2, 0, 0)
         };
         Typography.SetNumeralAlignment(label, FontNumeralAlignment.Tabular);
         if (session.Status is ClaudeSessionStatus.Working or ClaudeSessionStatus.Waiting && session.TurnStartedUtc is { } from)
@@ -631,13 +636,13 @@ public partial class ControlCenterView
     {
         _heroSessionId = null;
         SetOrTint(_heroInk, IdleGrey, 0);
-        var stack = new StackPanel { Margin = new Thickness(16, 13, 16, 15) };
+        var stack = new StackPanel { Margin = new Thickness(18, 16, 18, 17) };
         stack.Children.Add(WhoRow("Claude Code", null, null));
         stack.Children.Add(new TextBlock
         {
             Text = Loc.Get("control.claude.noSessions"),
             FontFamily = ControlFont,
-            FontSize = 20,
+            FontSize = 17,
             FontWeight = FontWeights.Bold,
             Foreground = _moodInk,
             TextTrimming = TextTrimming.CharacterEllipsis,
@@ -645,9 +650,9 @@ public partial class ControlCenterView
         });
         var hero = new Border
         {
-            CornerRadius = new CornerRadius(16),
+            CornerRadius = new CornerRadius(18),
             Background = new SolidColorBrush(CardRest),
-            Margin = new Thickness(0, 0, 0, 10),
+            Margin = new Thickness(0, 0, 0, 14),
             Child = stack
         };
         _cardScratch.Add(("hero:none", hero));
@@ -677,7 +682,7 @@ public partial class ControlCenterView
 
     private FrameworkElement Chips(List<ClaudeSession> order)
     {
-        var wrap = new WrapPanel { Margin = new Thickness(0, 0, 0, 8), Tag = ChipsTag };
+        var wrap = new WrapPanel { Margin = new Thickness(0, 0, 0, 10), Tag = ChipsTag };
         for (int i = 1; i < order.Count; i++) wrap.Children.Add(Chip(order[i]));
         return wrap;
     }
@@ -717,8 +722,8 @@ public partial class ControlCenterView
         {
             CornerRadius = new CornerRadius(14),
             Background = fill,
-            Padding = new Thickness(9, 6, 12, 6),
-            Margin = new Thickness(0, 0, 6, 6),
+            Padding = new Thickness(10, 7, 13, 7),
+            Margin = new Thickness(0, 0, 8, 8),
             Cursor = Cursors.Hand,
             Child = row
         };
@@ -765,9 +770,9 @@ public partial class ControlCenterView
     /// <summary>The 5-hour and weekly limits as two slim bars, with the sound switch at the end.</summary>
     private FrameworkElement LimitStrip(ClaudeLimits? limits)
     {
-        var grid = new Grid { Margin = new Thickness(2, 2, 2, 0) };
+        var grid = new Grid { Margin = new Thickness(4, 4, 4, 2) };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(14) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(22) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         if (limits?.FiveHour is { } fiveHour) grid.Children.Add(MiniLimit("5h", Loc.Get("control.claude.limit5h"), fiveHour));
@@ -840,7 +845,7 @@ public partial class ControlCenterView
         var bar = new Grid
         {
             Height = 3,
-            Margin = new Thickness(0, 6, 0, 5),
+            Margin = new Thickness(0, 7, 0, 6),
             Children = { new Border { Background = LimitTrack, CornerRadius = new CornerRadius(1.5) }, fill }
         };
 
@@ -953,6 +958,7 @@ public partial class ControlCenterView
             GlideIn(element, start + Math.Min(index++, 6) * 70);
         }
         foreach (var bar in _limitBars) PlayLimit(bar, 0, start + 160);
+        RollTokensIn();
         PopTick(start + 280);
     }
 

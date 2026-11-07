@@ -187,6 +187,7 @@ public partial class ControlCenterView : UserControl, IDisposable
         _bluetoothLoops.StopAll();
         _backdrop?.SetDrifting(false);
         StopClaudeLoops();
+        StopTokenClock();
         SetGpuSampling(false);
         _stats.Dispose();
         IsVisibleChanged -= OnIsVisibleChanged;
@@ -215,6 +216,7 @@ public partial class ControlCenterView : UserControl, IDisposable
                 _clockTimer.Start();
                 StartRipples();
                 ApplyClaudeLoops();
+                StartTokenClock();
             }
             else if (Page is ControlCenterPage.Pi or ControlCenterPage.School)
             {
@@ -240,6 +242,7 @@ public partial class ControlCenterView : UserControl, IDisposable
             _clockTimer.Stop();
             StopRipples();
             StopClaudeLoops();
+            StopTokenClock();
             SetGpuSampling(false);
             if (Page == ControlCenterPage.System)
             {
