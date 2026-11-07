@@ -31,11 +31,6 @@ public partial class ControlCenterView
     /// <summary>The tint of the section being built; switches and accent buttons take it.</summary>
     private Brush _accent = Blue;
 
-    /// <summary>The colour of the album art that plays, for the audio parts (follows each new cover).</summary>
-    internal static SolidColorBrush MediaAccent { get; } = new(Color.FromRgb(0x0A, 0x84, 0xFF));
-
-    internal static void SetMediaAccent(Color color) => WeatherMotion.Tint(MediaAccent, Color.FromRgb(color.R, color.G, color.B), 420);
-
     /// <summary>Black on bright tints (yellow, mint), white on the rest.</summary>
     private static Brush InkOn(Brush tint)
     {

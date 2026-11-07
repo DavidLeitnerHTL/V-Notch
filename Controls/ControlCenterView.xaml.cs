@@ -18,7 +18,7 @@ namespace VNotch.Controls;
 /// <summary>Which part of the control center an instance shows.</summary>
 public enum ControlCenterPage
 {
-    /// <summary>Wired and Wi-Fi network, Bluetooth and Wallpaper Engine.</summary>
+    /// <summary>The system monitor, wired and Wi-Fi network and Bluetooth.</summary>
     System,
     /// <summary>Claude Code sessions, approvals, questions and plan limits.</summary>
     Claude,
@@ -29,8 +29,9 @@ public enum ControlCenterPage
 }
 
 /// <summary>
-/// The quick settings that live in Windows' notification area, in the notch: wired and Wi-Fi network,
-/// Bluetooth devices and Wallpaper Engine on one tab, Claude Code sessions on another. Built in code with
+/// The quick settings that live in Windows' notification area, in the notch: the system monitor, wired and
+/// Wi-Fi network and Bluetooth devices on one tab, Claude Code sessions on another. Sound lives in the audio
+/// tab and the notification switches in the settings window, so neither is repeated here. Built in code with
 /// the same rows, headers and pickers as <see cref="AudioMixerView"/> so the tabs look alike.
 /// </summary>
 public partial class ControlCenterView : UserControl, IDisposable
@@ -59,7 +60,6 @@ public partial class ControlCenterView : UserControl, IDisposable
     private static readonly FontFamily SegoeSymbolFont = new("pack://application:,,,/Fonts/#Segoe MDL2 Assets, Segoe Fluent Icons, Segoe MDL2 Assets, Segoe UI Symbol, Segoe UI");
     private static readonly FontFamily MonoFont = new("Cascadia Mono, Consolas");
 
-    private readonly WallpaperEngineControl _wallpaper = new();
     private readonly SystemStatsSampler _stats = new();
     private readonly ProcessLoadSampler _processes = new();
     private bool _gpuSampling;
@@ -100,19 +100,11 @@ public partial class ControlCenterView : UserControl, IDisposable
 
     private string _networkKey = "";
     private string _bluetoothKey = "";
-    private string _wallpaperKey = "";
-    private string _audioKey = "";
-    private string _notificationKey = "";
-    // The output in use before the last switch, so the swap button goes back to it.
-    private string? _previousOutputId;
     private string _claudeKey = "";
 
     private readonly StackPanel _statsSection = new();
     private readonly StackPanel _networkSection = new();
     private readonly StackPanel _bluetoothSection = new();
-    private readonly StackPanel _audioSection = new();
-    private readonly StackPanel _notificationSection = new();
-    private readonly StackPanel _wallpaperSection = new();
     private readonly StackPanel _claudeSection = new();
 
     private FontFamily? _fontCached;
@@ -124,9 +116,6 @@ public partial class ControlCenterView : UserControl, IDisposable
         ControlRoot.Children.Add(_statsSection);
         ControlRoot.Children.Add(_networkSection);
         ControlRoot.Children.Add(_bluetoothSection);
-        ControlRoot.Children.Add(_audioSection);
-        ControlRoot.Children.Add(_notificationSection);
-        ControlRoot.Children.Add(_wallpaperSection);
         ControlRoot.Children.Add(_claudeSection);
 
         _refreshTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = RefreshInterval };
@@ -149,9 +138,6 @@ public partial class ControlCenterView : UserControl, IDisposable
 
     /// <summary>Raised when a session's window was brought to the front from its card.</summary>
     public event Action? SessionOpened;
-
-    /// <summary>Raised with the device id when an audio output is picked; the mixer makes it the default.</summary>
-    public event Action<string>? OutputDeviceSelected;
 
     /// <summary>True while a message is typed here: the notch then has to take keyboard focus.</summary>
     public event Action<bool>? KeyboardInputRequested;
@@ -254,7 +240,7 @@ public partial class ControlCenterView : UserControl, IDisposable
 
     private void OnLanguageChanged() => Dispatcher.BeginInvoke(() =>
     {
-        _networkKey = _bluetoothKey = _audioKey = _notificationKey = _wallpaperKey = _claudeKey = "";
+        _networkKey = _bluetoothKey = _claudeKey = "";
         _statsTiles = null;
         _piKey = _legionKey = "";
         if (_snapshot != null) ApplySnapshot(_snapshot);
@@ -377,11 +363,6 @@ public partial class ControlCenterView : UserControl, IDisposable
         public List<WiredAdapter> Wired = new();
         public bool? BluetoothOn;
         public List<BluetoothDevice> Devices = new();
-        public WallpaperEngineState Wallpaper;
-        public bool WallpaperMuted;
-        public List<AudioDeviceInfo> Outputs = new();
-        public bool? MicMuted;
-        public string? MicName;
         public SystemStats? Stats;
         public List<ProcessLoad>? Top;
     }
@@ -401,14 +382,6 @@ public partial class ControlCenterView : UserControl, IDisposable
             }
         }
         if (bluetoothOn != false) s.Devices = BluetoothControl.Paired();
-        s.Wallpaper = _wallpaper.GetState();
-        s.WallpaperMuted = _wallpaper.IsMuted;
-        s.Outputs = AudioMixerService.EnumerateOutputDevices();
-        s.MicMuted = MicrophoneControl.IsMuted();
-        foreach (var input in AudioMixerService.EnumerateInputDevices())
-        {
-            if (input.IsDefault) s.MicName = input.FriendlyName;
-        }
         return s;
     }
 
@@ -431,23 +404,6 @@ public partial class ControlCenterView : UserControl, IDisposable
         {
             _bluetoothKey = bluetoothKey;
             BuildBluetoothSection(s);
-        }
-
-        var audioKey = new StringBuilder().Append(IsExpanded("audio")).Append('|').Append(s.MicMuted).Append(s.MicName).Append('|');
-        foreach (var d in s.Outputs) audioKey.Append(d.Id).Append(d.IsDefault).Append(';');
-        if (audioKey.ToString() != _audioKey)
-        {
-            _audioKey = audioKey.ToString();
-            BuildAudioSection(s);
-        }
-
-        BuildNotificationSectionIfChanged();
-
-        string wallpaperKey = $"{s.Wallpaper}|{s.WallpaperMuted}|{IsExpanded("wallpaper")}";
-        if (wallpaperKey != _wallpaperKey)
-        {
-            _wallpaperKey = wallpaperKey;
-            BuildWallpaperSection(s);
         }
     }
 
@@ -861,86 +817,7 @@ public partial class ControlCenterView : UserControl, IDisposable
 
     #endregion
 
-    #region Notifications
-
-    private Func<NotificationPrefs>? _notificationPrefs;
-    private Action<bool>? _setNotificationsEnabled;
-    private Action<string, bool>? _setNotificationAppMuted;
-
-    /// <summary>The shell owns the watcher and the settings; this tab shows and flips them.</summary>
-    internal void AttachNotifications(Func<NotificationPrefs> prefs, Action<bool> setEnabled, Action<string, bool> setMuted)
-    {
-        _notificationPrefs = prefs;
-        _setNotificationsEnabled = setEnabled;
-        _setNotificationAppMuted = setMuted;
-        _notificationKey = "";
-    }
-
-    /// <summary>A new app sent something: show it in the list if the tab is open.</summary>
-    internal void NotificationAppsChanged()
-    {
-        if (IsVisible) BuildNotificationSectionIfChanged();
-    }
-
-    private void BuildNotificationSectionIfChanged()
-    {
-        if (_notificationPrefs == null) return;
-        var prefs = _notificationPrefs();
-        var key = new StringBuilder().Append(IsExpanded("notifications")).Append(prefs.Allowed).Append(prefs.Enabled).Append('|');
-        foreach (var app in prefs.Apps) key.Append(app.Key).Append(app.Muted).Append(';');
-        if (key.ToString() == _notificationKey) return;
-        _notificationKey = key.ToString();
-        BuildNotificationSection(prefs);
-    }
-
-    private void BuildNotificationSection(NotificationPrefs prefs)
-    {
-        _accent = Indigo;
-        _notificationSection.Children.Clear();
-        _notificationSection.Children.Add(BuildSectionHeader("notifications", Loc.Get("control.notifications"), Loc.Get("control.status"), null, topMargin: 14));
-        if (!IsExpanded("notifications")) return;
-
-        var main = NewRow("\uEA8F", Loc.Get("control.notifications.inNotch"));
-        if (prefs.Allowed)
-        {
-            AddStatus(main, prefs.Enabled ? Loc.Get("control.on") : Loc.Get("control.off"), Muted,
-                Toggle(prefs.Enabled, on =>
-                {
-                    _setNotificationsEnabled?.Invoke(on);
-                    _notificationKey = "";
-                    BuildNotificationSectionIfChanged();
-                }));
-        }
-        else
-        {
-            // Windows' privacy switch for notification access is off: only Windows can turn it on.
-            AddStatus(main, Loc.Get("control.notifications.denied"), Muted);
-            AddAction(main, TextButton(Loc.Get("control.notifications.openSettings"), accent: false, OpenNotificationPrivacySettings));
-        }
-        _notificationSection.Children.Add(main);
-        if (!prefs.Allowed || !prefs.Enabled) return;
-
-        if (prefs.Apps.Count == 0)
-        {
-            _notificationSection.Children.Add(NewRow("\uE946", Loc.Get("control.notifications.empty"), muted: true));
-            return;
-        }
-        foreach (var app in prefs.Apps)
-        {
-            var row = NewRow("\uE737", app.Name);
-            string key = app.Key;
-            AddStatus(row, app.Muted ? Loc.Get("control.notifications.muted") : Loc.Get("control.notifications.shown"), Muted,
-                Toggle(!app.Muted, on =>
-                {
-                    _setNotificationAppMuted?.Invoke(key, !on);
-                    _notificationKey = "";
-                    BuildNotificationSectionIfChanged();
-                }));
-            _notificationSection.Children.Add(row);
-        }
-    }
-
-    private static void OpenNotificationPrivacySettings() => Launch("ms-settings:privacy-notifications");
+    #region Launching
 
     /// <summary>Opens a program or a settings page the way the Start menu would.</summary>
     private static void Launch(string target)
@@ -953,97 +830,6 @@ public partial class ControlCenterView : UserControl, IDisposable
         {
             RuntimeLog.Warn("CONTROL-CENTER", $"{target} did not open: {ex.Message}");
         }
-    }
-
-    #endregion
-
-    #region Audio output
-
-    private void BuildAudioSection(Snapshot s)
-    {
-        _accent = Orange; // the microphone switch: orange like the system's mic dot
-        CloseMenu();
-        _audioSection.Children.Clear();
-        _audioSection.Children.Add(BuildSectionHeader("audio", Loc.Get("control.audio"), Loc.Get("control.status"), null, topMargin: 14));
-        if (!IsExpanded("audio")) return;
-
-        AudioDeviceInfo? current = null;
-        foreach (var device in s.Outputs)
-        {
-            if (device.IsDefault)
-            {
-                current = device;
-                break;
-            }
-        }
-        var row = NewRow("\uE7F5", Loc.Get("control.audioOutput"));
-        if (s.Outputs.Count > 1 && SwapTarget(s.Outputs, current) is { } other)
-        {
-            // One click between the two outputs in use, e.g. headset and speakers.
-            var swap = IconButton("\uE8AB", other.FriendlyName, () => SelectOutput(other, current));
-            AddStatus(row, other.FriendlyName, Muted, swap);
-        }
-        else
-        {
-            AddStatus(row, s.Outputs.Count == 0 ? Loc.Get("control.noAdapter") : "", Muted);
-        }
-        var outputs = s.Outputs;
-        AddAction(row, Combo("\uE7F5", current?.FriendlyName ?? Loc.Get("control.noAdapter"), interactive: outputs.Count > 0,
-            anchor => ShowOutputMenu(anchor, outputs, current)));
-        _audioSection.Children.Add(row);
-
-        // The default microphone, muted for every app at once, e.g. before a voice call goes live.
-        var mic = NewRow(s.MicMuted == true ? "\uEC54" : "\uE720", Loc.Get("control.microphone"));
-        if (s.MicMuted is bool muted)
-        {
-            AddStatus(mic, muted ? Loc.Get("control.microphone.muted") : Loc.Get("control.on"), muted ? WorkingOrange : Muted,
-                Toggle(!muted, on => SetMicrophoneMuted(!on)));
-            if (s.MicName is { Length: > 0 } micName) AddAction(mic, InfoChip("\uE720", micName));
-        }
-        else
-        {
-            AddStatus(mic, Loc.Get("control.noAdapter"), Muted);
-        }
-        _audioSection.Children.Add(mic);
-    }
-
-    private async void SetMicrophoneMuted(bool mute)
-    {
-        await Task.Run(() => MicrophoneControl.SetMuted(mute));
-        RefreshSoon(300);
-    }
-
-    /// <summary>The output to swap to: the one used before this one, else the next in the list.</summary>
-    private AudioDeviceInfo? SwapTarget(List<AudioDeviceInfo> outputs, AudioDeviceInfo? current)
-    {
-        AudioDeviceInfo? next = null;
-        for (int i = 0; i < outputs.Count; i++)
-        {
-            var device = outputs[i];
-            if (device == current) continue;
-            if (device.Id == _previousOutputId) return device;
-            next ??= device;
-        }
-        return next;
-    }
-
-    private void ShowOutputMenu(Border anchor, List<AudioDeviceInfo> outputs, AudioDeviceInfo? current)
-    {
-        var items = new List<MenuItemSpec>(outputs.Count);
-        foreach (var device in outputs)
-        {
-            var target = device;
-            items.Add(new MenuItemSpec(device.FriendlyName, device.IsDefault, "\uE7F5", () => SelectOutput(target, current)));
-        }
-        ShowMenu(anchor, items, MediaAccent);
-    }
-
-    private void SelectOutput(AudioDeviceInfo target, AudioDeviceInfo? current)
-    {
-        if (target.IsDefault) return;
-        _previousOutputId = current?.Id;
-        OutputDeviceSelected?.Invoke(target.Id);
-        RefreshSoon(500);
     }
 
     #endregion
@@ -1108,65 +894,6 @@ public partial class ControlCenterView : UserControl, IDisposable
         // The device answers a moment later, if it's on and in reach.
         RefreshSoon(1500);
         RefreshSoon(5000);
-    }
-
-    #endregion
-
-    #region Wallpaper Engine
-
-    private void BuildWallpaperSection(Snapshot s)
-    {
-        _accent = Teal;
-        _wallpaperSection.Children.Clear();
-        _wallpaperSection.Children.Add(BuildSectionHeader("wallpaper", "Wallpaper Engine", Loc.Get("control.actions"), null, topMargin: 14));
-        if (!IsExpanded("wallpaper")) return;
-
-        var row = NewRow("\uE771", "Wallpaper Engine");
-        string status = s.Wallpaper switch
-        {
-            WallpaperEngineState.Running => Loc.Get("control.wallpaper.running"),
-            WallpaperEngineState.Paused => Loc.Get("control.wallpaper.paused"),
-            WallpaperEngineState.Stopped => Loc.Get("control.wallpaper.stopped"),
-            WallpaperEngineState.NotRunning => Loc.Get("control.wallpaper.notRunning"),
-            _ => Loc.Get("control.wallpaper.notInstalled")
-        };
-        AddStatus(row, status, s.Wallpaper == WallpaperEngineState.Running ? Teal : Muted);
-
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 0, 6, 0) };
-        switch (s.Wallpaper)
-        {
-            case WallpaperEngineState.Running:
-            case WallpaperEngineState.Paused:
-            case WallpaperEngineState.Stopped:
-                bool playing = s.Wallpaper == WallpaperEngineState.Running;
-                buttons.Children.Add(IconButton(playing ? "\uE769" : "\uE768",
-                    playing ? Loc.Get("control.wallpaper.pause") : Loc.Get("control.wallpaper.play"),
-                    () => WallpaperAction(playing ? _wallpaper.Pause : _wallpaper.Play)));
-                buttons.Children.Add(IconButton(s.WallpaperMuted ? "\uE74F" : "\uE767",
-                    s.WallpaperMuted ? Loc.Get("control.wallpaper.unmute") : Loc.Get("control.wallpaper.mute"),
-                    () => WallpaperAction(_wallpaper.ToggleMute)));
-                buttons.Children.Add(IconButton("\uE893", Loc.Get("control.wallpaper.next"), () => WallpaperAction(_wallpaper.NextWallpaper)));
-                buttons.Children.Add(IconButton("\uE71A", Loc.Get("control.wallpaper.stop"), () => WallpaperAction(_wallpaper.Stop)));
-                buttons.Children.Add(IconButton("\uE711", Loc.Get("control.wallpaper.quit"), QuitWallpaperEngine));
-                break;
-            case WallpaperEngineState.NotRunning:
-                buttons.Children.Add(TextButton(Loc.Get("control.wallpaper.start"), accent: true, () => WallpaperAction(_wallpaper.Start)));
-                break;
-        }
-        AddAction(row, buttons);
-        _wallpaperSection.Children.Add(row);
-    }
-
-    private void WallpaperAction(Func<bool> action)
-    {
-        Task.Run(action);
-        RefreshSoon(400);
-    }
-
-    private async void QuitWallpaperEngine()
-    {
-        await _wallpaper.QuitAsync();
-        Refresh();
     }
 
     #endregion
@@ -2355,9 +2082,6 @@ public partial class ControlCenterView : UserControl, IDisposable
         {
             case "network": _networkKey = ""; break;
             case "bluetooth": _bluetoothKey = ""; break;
-            case "wallpaper": _wallpaperKey = ""; break;
-            case "audio": _audioKey = ""; break;
-            case "notifications": _notificationKey = ""; break;
             case "pi.home":
             case "pi.school":
             case "pi.todos": _piKey = ""; BuildPiPage(); return;

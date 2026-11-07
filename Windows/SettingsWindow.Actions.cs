@@ -89,6 +89,7 @@ public partial class SettingsWindow
 
             MusicNotifyCheck.IsChecked = defaults.ShowMusicNotifications;
             SystemNotifyCheck.IsChecked = defaults.ShowSystemNotifications;
+            ResetAppNotifications(defaults);
             StayBehindWindowsCheck.IsChecked = defaults.StayBehindWindows;
             EnableSpotlightCheck.IsChecked = defaults.EnableSpotlight;
             LoadSpotlightAiSettings(defaults);
@@ -609,6 +610,7 @@ public partial class SettingsWindow
         snapshot.IdleAutoHideDelay = Math.Max(1000, (int)(IdleAutoHideDelaySlider.Value * 1000));
         snapshot.ShowMusicNotifications = MusicNotifyCheck.IsChecked ?? true;
         snapshot.ShowSystemNotifications = SystemNotifyCheck.IsChecked ?? true;
+        ReadAppNotifications(snapshot);
         snapshot.ShowBatteryIndicator = ShowBatteryCheck.IsChecked ?? true;
         snapshot.HideCamera = HideCameraCheck.IsChecked ?? false;
         snapshot.ClipboardHotkey = ClipboardHotkeyBox.Text.Trim();
