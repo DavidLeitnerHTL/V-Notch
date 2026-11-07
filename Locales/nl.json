@@ -1111,6 +1111,7 @@
   "control.claude.noSessions": "Geen actieve sessies",
   "control.claude.thinking": "Denkt na…",
   "control.claude.waiting": "Wacht op jou",
+  "control.claude.working": "Bezig",
   "claude.status.thinking": "Denken",
   "claude.status.writing": "Schrijven",
   "claude.status.reading": "Lezen",

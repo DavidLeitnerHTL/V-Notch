@@ -1111,6 +1111,7 @@
   "control.claude.noSessions": "Tidak ada sesi aktif",
   "control.claude.thinking": "Berpikir…",
   "control.claude.waiting": "Menunggu Anda",
+  "control.claude.working": "Bekerja",
   "claude.status.thinking": "Berpikir",
   "claude.status.writing": "Menulis",
   "claude.status.reading": "Membaca",

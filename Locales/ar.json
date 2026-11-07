@@ -1111,6 +1111,7 @@
   "control.claude.noSessions": "لا توجد جلسات نشطة",
   "control.claude.thinking": "يفكر…",
   "control.claude.waiting": "بانتظارك",
+  "control.claude.working": "يعمل",
   "claude.status.thinking": "يفكر",
   "claude.status.writing": "يكتب",
   "claude.status.reading": "يقرأ",

@@ -1111,6 +1111,7 @@
   "control.claude.noSessions": "활성 세션 없음",
   "control.claude.thinking": "생각 중…",
   "control.claude.waiting": "응답을 기다리는 중",
+  "control.claude.working": "작업 중",
   "claude.status.thinking": "생각 중",
   "claude.status.writing": "작성 중",
   "claude.status.reading": "읽는 중",

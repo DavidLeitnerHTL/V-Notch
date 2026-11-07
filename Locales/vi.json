@@ -1111,6 +1111,7 @@
   "control.claude.noSessions": "Không có phiên hoạt động",
   "control.claude.thinking": "Đang suy nghĩ…",
   "control.claude.waiting": "Đang chờ bạn",
+  "control.claude.working": "Đang làm việc",
   "claude.status.thinking": "Đang nghĩ",
   "claude.status.writing": "Đang viết",
   "claude.status.reading": "Đang đọc",

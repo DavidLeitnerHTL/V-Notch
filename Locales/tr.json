@@ -1111,6 +1111,7 @@
   "control.claude.noSessions": "Etkin oturum yok",
   "control.claude.thinking": "Düşünüyor…",
   "control.claude.waiting": "Sizi bekliyor",
+  "control.claude.working": "Çalışıyor",
   "claude.status.thinking": "Düşünüyor",
   "claude.status.writing": "Yazıyor",
   "claude.status.reading": "Okuyor",

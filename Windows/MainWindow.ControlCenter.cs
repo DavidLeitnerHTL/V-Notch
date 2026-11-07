@@ -47,6 +47,7 @@ public partial class MainWindow
         ControlCenter.AttachBackdrop(SystemBackdrop);
         ClaudeCenter.AttachClaude(_claudeTracker, _claudeHookServer, _claudeUsage,
             () => _settings?.EnableLocalOnlyMode ?? true, () => _settings != null && IsLiquidGlassEnabled);
+        ClaudeCenter.AttachBackdrop(ClaudeBackdrop);
         ClaudeCenter.AttentionRequested += OpenClaudeTabForAttention;
         ClaudeCenter.ContentHeightChanged += OnClaudeContentHeightChanged;
         ClaudeCenter.SessionOpened += OnClaudeSessionOpened;

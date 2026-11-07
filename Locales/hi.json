@@ -1111,6 +1111,7 @@
   "control.claude.noSessions": "कोई सक्रिय सत्र नहीं",
   "control.claude.thinking": "सोच रहा है…",
   "control.claude.waiting": "आपका इंतज़ार है",
+  "control.claude.working": "काम कर रहा है",
   "claude.status.thinking": "सोच रहा है",
   "claude.status.writing": "लिख रहा है",
   "claude.status.reading": "पढ़ रहा है",

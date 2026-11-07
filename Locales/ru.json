@@ -1111,6 +1111,7 @@
   "control.claude.noSessions": "Нет активных сеансов",
   "control.claude.thinking": "Думает…",
   "control.claude.waiting": "Ждёт вас",
+  "control.claude.working": "Работает",
   "claude.status.thinking": "Думает",
   "claude.status.writing": "Пишет",
   "claude.status.reading": "Читает",

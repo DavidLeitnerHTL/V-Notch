@@ -1111,6 +1111,7 @@
   "control.claude.noSessions": "没有活动会话",
   "control.claude.thinking": "思考中…",
   "control.claude.waiting": "正在等你",
+  "control.claude.working": "工作中",
   "claude.status.thinking": "思考中",
   "claude.status.writing": "写入中",
   "claude.status.reading": "读取中",

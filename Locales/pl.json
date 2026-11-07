@@ -1111,6 +1111,7 @@
   "control.claude.noSessions": "Brak aktywnych sesji",
   "control.claude.thinking": "Myśli…",
   "control.claude.waiting": "Czeka na Ciebie",
+  "control.claude.working": "Pracuje",
   "claude.status.thinking": "Myśli",
   "claude.status.writing": "Pisze",
   "claude.status.reading": "Czyta",
