@@ -1173,7 +1173,7 @@ public partial class ControlCenterView : UserControl, IDisposable
     /// </summary>
     public double MeasureContentHeight(double width)
     {
-        BuildClaudeSection();
+        if (Page == ControlCenterPage.Claude) BuildClaudeSection();
         var padding = ControlScrollViewer.Padding;
         ControlRoot.Measure(new Size(Math.Max(0, width - padding.Left - padding.Right), double.PositiveInfinity));
         return Math.Ceiling(ControlRoot.DesiredSize.Height);
