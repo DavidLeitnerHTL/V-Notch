@@ -1182,7 +1182,6 @@
   "media.jam.expired": "Spotify-Anmeldung abgelaufen. Klicken, um dich neu anzumelden.",
   "media.jam.rejected": "Spotify hat die Jam abgelehnt (Hosten braucht Premium und einen aktiven Player).",
   "media.jam.failed": "Jam konnte nicht gestartet werden. Klicken für neuen Versuch.",
-  "nav.legion": "Legion",
   "legion.mode": "Leistungsmodus",
   "legion.temps": "CPU {0}° · GPU {1}°",
   "legion.quiet": "Leise",

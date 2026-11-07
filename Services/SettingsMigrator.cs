@@ -211,7 +211,7 @@ public static partial class SettingsMigrator
 
     private static JsonObject MigrateV17(JsonObject root)
     {
-        // The Legion tab is new: it goes next to the weather tab (and only shows on a Legion).
+        // The Legion tab was new here. It later moved into the system tab; the leftover token is ignored.
         AddNavTab(root, nameof(NotchSettings.NavTabOrder), "Legion", after: "Weather");
         AddNavTab(root, nameof(NotchSettings.VisibleNavTabs), "Legion", after: "Weather");
         return root;

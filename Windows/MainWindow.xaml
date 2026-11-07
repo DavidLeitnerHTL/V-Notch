@@ -1058,6 +1058,12 @@
                         <Grid x:Name="SpotlightReturnContentHost">
                         <Grid x:Name="NotchContent" Margin="0" SizeChanged="NotchContent_SizeChanged" RenderOptions.ClearTypeHint="Enabled" UseLayoutRounding="False" SnapsToDevicePixels="False">
 
+                    <!-- The system tab's colour fields, behind everything; they fade in and out with the tab. -->
+                    <ctrl:SystemBackdrop x:Name="SystemBackdrop"
+                                         Panel.ZIndex="-1"
+                                         Opacity="{Binding Opacity, ElementName=TimerContent}"
+                                         Visibility="{Binding Visibility, ElementName=TimerContent}"/>
+
 
 
                     <ContentControl x:Name="SharedSettingsHost"
@@ -1307,34 +1313,6 @@
                                 <Viewbox Width="15" Height="15" Stretch="Uniform"
                                          HorizontalAlignment="Center" VerticalAlignment="Center">
                                     <Path Data="{x:Static ctrl:WeatherGlyph.Data}"
-                                          Fill="{x:Static svc:UiPalette.PrimaryBrush}"/>
-                                </Viewbox>
-                            </ctrl:ActionBorder>
-                            <ctrl:ActionBorder x:Name="LegionIconButton" AutomationProperties.Name="Legion"
-                                    Tag="Legion"
-                                    Width="22" Height="22"
-                                    Background="Transparent"
-                                    Cursor="Hand"
-                                    Margin="0,0,4,0"
-                                    Opacity="0.45"
-                                    RenderTransformOrigin="0.5,0.5"
-                                    PreviewMouseLeftButtonDown="NavIcon_PreviewMouseLeftButtonDown"
-                                    PreviewMouseMove="NavIcon_PreviewMouseMove"
-                                    PreviewMouseLeftButtonUp="NavIcon_PreviewMouseLeftButtonUp"
-                                    LostMouseCapture="NavIcon_LostMouseCapture"
-                                    Click="LegionIconButton_Click">
-                                <Border.RenderTransform>
-                                    <TransformGroup>
-                                        <ScaleTransform ScaleX="1" ScaleY="1"/>
-                                        <TranslateTransform X="0" Y="0"/>
-                                    </TransformGroup>
-                                </Border.RenderTransform>
-                                <Border.Effect>
-                                    <DropShadowEffect Color="Black" BlurRadius="8" ShadowDepth="0" Opacity="0.9"/>
-                                </Border.Effect>
-                                <Viewbox Width="15" Height="15" Stretch="Uniform"
-                                         HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <Path Data="{x:Static ctrl:LegionGlyph.Data}"
                                           Fill="{x:Static svc:UiPalette.PrimaryBrush}"/>
                                 </Viewbox>
                             </ctrl:ActionBorder>
@@ -3207,16 +3185,6 @@
                         <ctrl:WeatherView x:Name="WeatherPanel"/>
                     </Grid>
 
-                    <Grid x:Name="LegionContent"
-                          Opacity="0"
-                          Visibility="Collapsed"
-                          Margin="20,34,20,14"
-                          HorizontalAlignment="Center"
-                          VerticalAlignment="Top"
-                          MouseLeftButtonDown="SecondaryContent_Click"
-                          RenderOptions.ClearTypeHint="Enabled">
-                        <ctrl:ControlCenterView x:Name="LegionCenter" Page="Legion"/>
-                    </Grid>
 
                     <Grid x:Name="TimerContent"
                           Opacity="0"

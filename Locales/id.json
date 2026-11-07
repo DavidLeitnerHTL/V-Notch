@@ -1182,7 +1182,6 @@
   "media.jam.expired": "Sesi masuk Spotify kedaluwarsa. Klik untuk masuk lagi.",
   "media.jam.rejected": "Spotify menolak Jam (menjadi host butuh Premium dan pemutar yang aktif).",
   "media.jam.failed": "Jam tidak dapat dimulai. Klik untuk mencoba lagi.",
-  "nav.legion": "Legion",
   "legion.mode": "Mode daya",
   "legion.temps": "CPU {0}° · GPU {1}°",
   "legion.quiet": "Senyap",

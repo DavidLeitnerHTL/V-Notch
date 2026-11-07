@@ -1182,7 +1182,6 @@
   "media.jam.expired": "Phiên đăng nhập Spotify đã hết hạn. Nhấn để đăng nhập lại.",
   "media.jam.rejected": "Spotify đã từ chối Jam (cần Premium và trình phát đang hoạt động để tổ chức).",
   "media.jam.failed": "Không thể bắt đầu Jam. Nhấn để thử lại.",
-  "nav.legion": "Legion",
   "legion.mode": "Chế độ nguồn",
   "legion.temps": "CPU {0}° · GPU {1}°",
   "legion.quiet": "Yên tĩnh",

@@ -1182,7 +1182,6 @@
   "media.jam.expired": "انتهت صلاحية تسجيل الدخول إلى Spotify. انقر لتسجيل الدخول مجددًا.",
   "media.jam.rejected": "رفض Spotify جلسة Jam (الاستضافة تتطلب Premium ومشغّلًا نشطًا).",
   "media.jam.failed": "تعذّر بدء Jam. انقر للمحاولة مرة أخرى.",
-  "nav.legion": "Legion",
   "legion.mode": "وضع الطاقة",
   "legion.temps": "المعالج {0}° · الرسومات {1}°",
   "legion.quiet": "هادئ",

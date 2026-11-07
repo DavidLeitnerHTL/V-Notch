@@ -1182,7 +1182,6 @@
   "media.jam.expired": "Spotify のログインが期限切れです。クリックして再ログインしてください。",
   "media.jam.rejected": "Spotify が Jam を拒否しました（ホストには Premium と再生中のプレーヤーが必要です）。",
   "media.jam.failed": "Jam を開始できませんでした。クリックして再試行してください。",
-  "nav.legion": "Legion",
   "legion.mode": "電源モード",
   "legion.temps": "CPU {0}° · GPU {1}°",
   "legion.quiet": "静音",

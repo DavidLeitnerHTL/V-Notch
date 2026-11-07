@@ -1182,7 +1182,6 @@
   "media.jam.expired": "Spotify-aanmelding verlopen. Klik om opnieuw aan te melden.",
   "media.jam.rejected": "Spotify weigerde de Jam (hosten vereist Premium en een actieve speler).",
   "media.jam.failed": "Jam kon niet worden gestart. Klik om het opnieuw te proberen.",
-  "nav.legion": "Legion",
   "legion.mode": "Energiemodus",
   "legion.temps": "CPU {0}° · GPU {1}°",
   "legion.quiet": "Stil",

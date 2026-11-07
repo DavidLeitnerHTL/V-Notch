@@ -1182,7 +1182,6 @@
   "media.jam.expired": "Spotify 登录已过期。点击重新登录。",
   "media.jam.rejected": "Spotify 拒绝了 Jam（主持需要 Premium 和正在播放的播放器）。",
   "media.jam.failed": "无法开始 Jam。点击重试。",
-  "nav.legion": "Legion",
   "legion.mode": "电源模式",
   "legion.temps": "CPU {0}° · GPU {1}°",
   "legion.quiet": "安静",

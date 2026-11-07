@@ -1182,7 +1182,6 @@
   "media.jam.expired": "Spotify 로그인이 만료되었습니다. 클릭하여 다시 로그인하세요.",
   "media.jam.rejected": "Spotify가 Jam을 거부했습니다 (호스트하려면 Premium과 활성 플레이어가 필요합니다).",
   "media.jam.failed": "Jam을 시작할 수 없습니다. 클릭하여 다시 시도하세요.",
-  "nav.legion": "Legion",
   "legion.mode": "전원 모드",
   "legion.temps": "CPU {0}° · GPU {1}°",
   "legion.quiet": "저소음",

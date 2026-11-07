@@ -1182,7 +1182,6 @@
   "media.jam.expired": "La sesión de Spotify ha caducado. Haz clic para volver a iniciar sesión.",
   "media.jam.rejected": "Spotify rechazó la Jam (para organizarla se necesita Premium y un reproductor activo).",
   "media.jam.failed": "No se pudo iniciar la Jam. Haz clic para reintentar.",
-  "nav.legion": "Legion",
   "legion.mode": "Modo de energía",
   "legion.temps": "CPU {0}° · GPU {1}°",
   "legion.quiet": "Silencioso",

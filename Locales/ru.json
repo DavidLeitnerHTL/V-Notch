@@ -1182,7 +1182,6 @@
   "media.jam.expired": "Вход в Spotify истёк. Нажмите, чтобы войти снова.",
   "media.jam.rejected": "Spotify отклонил Jam (для проведения нужен Premium и активный плеер).",
   "media.jam.failed": "Не удалось начать Jam. Нажмите, чтобы повторить.",
-  "nav.legion": "Legion",
   "legion.mode": "Режим питания",
   "legion.temps": "CPU {0}° · GPU {1}°",
   "legion.quiet": "Тихий",

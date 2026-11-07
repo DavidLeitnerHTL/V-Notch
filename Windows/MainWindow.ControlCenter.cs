@@ -44,6 +44,7 @@ public partial class MainWindow
         // Settings load after this runs, and anything that pumps messages meanwhile can let the views build:
         // until then they are plain-skinned and offline.
         ControlCenter.Attach(() => _settings != null && IsLiquidGlassEnabled);
+        ControlCenter.AttachBackdrop(SystemBackdrop);
         ClaudeCenter.AttachClaude(_claudeTracker, _claudeHookServer, _claudeUsage,
             () => _settings?.EnableLocalOnlyMode ?? true, () => _settings != null && IsLiquidGlassEnabled);
         ClaudeCenter.AttentionRequested += OpenClaudeTabForAttention;
@@ -63,7 +64,6 @@ public partial class MainWindow
         Dispatcher.BeginInvoke(DispatcherPriority.Background, InitializeAppNotifications);
         InitializePi();
         InitializeWeather();
-        InitializeLegion();
         InitializeMicMuted();
     }
 
@@ -75,7 +75,6 @@ public partial class MainWindow
         DisposeAppNotifications();
         DisposePi();
         DisposeWeather();
-        DisposeLegion();
         DisposeMicMuted();
         ClaudeCenter.AttentionRequested -= OpenClaudeTabForAttention;
         ClaudeCenter.ContentHeightChanged -= OnClaudeContentHeightChanged;

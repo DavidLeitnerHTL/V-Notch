@@ -1182,7 +1182,6 @@
   "media.jam.expired": "Spotify sign-in expired. Click to sign in again.",
   "media.jam.rejected": "Spotify refused to start a Jam (hosting needs Premium and an active player).",
   "media.jam.failed": "Couldn't start the Jam. Click to try again.",
-  "nav.legion": "Legion",
   "legion.mode": "Power mode",
   "legion.temps": "CPU {0}° · GPU {1}°",
   "legion.quiet": "Quiet",

@@ -1182,7 +1182,6 @@
   "media.jam.expired": "O login do Spotify expirou. Clique para entrar novamente.",
   "media.jam.rejected": "O Spotify recusou a Jam (para hospedar é preciso Premium e um player ativo).",
   "media.jam.failed": "Não foi possível iniciar a Jam. Clique para tentar novamente.",
-  "nav.legion": "Legion",
   "legion.mode": "Modo de energia",
   "legion.temps": "CPU {0}° · GPU {1}°",
   "legion.quiet": "Silencioso",
