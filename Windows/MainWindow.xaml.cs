@@ -229,7 +229,7 @@ public partial class MainWindow : Window
         VNotch.Services.Clipboard.ClipboardHistoryStore? clipboardHistoryStore = null)
     {
         InitializeComponent();
-        ApplyDwmTransparencyExperiment();
+        InitializeTransparency();
         SettingsButton.AddHandler(Mouse.PreviewMouseDownEvent, new MouseButtonEventHandler((sender, e) =>
         {
             if (e.ChangedButton == MouseButton.Left)
