@@ -309,9 +309,8 @@ internal sealed partial class SpotlightController : ISpotlightController, IAsync
     private void OnWinTap(int generation)
     {
         if (_disposed || generation != _hostGeneration) return;
-        // A Win tap inside a fullscreen game does nothing: no Start menu, no Spotlight, no lost focus.
-        if (FullscreenDetector.DetectFullscreenType(GetForegroundWindow(), _hwnd) != FullscreenType.None)
-            return;
+        // Also over a fullscreen game: Spotlight takes the foreground, so the game tabs out, and
+        // closing Spotlight hands the foreground back to it (ParkWindow).
         ToggleSpotlight();
     }
 
