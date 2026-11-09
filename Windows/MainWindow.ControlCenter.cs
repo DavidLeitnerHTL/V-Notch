@@ -67,6 +67,7 @@ public partial class MainWindow
         InitializeWeather();
         InitializeMicMuted();
         InitializeDownloads();
+        InitializeLevelHud();
     }
 
     private void DisposeControlCenter()
@@ -79,6 +80,7 @@ public partial class MainWindow
         DisposeWeather();
         DisposeMicMuted();
         DisposeDownloads();
+        DisposeLevelHud();
         ClaudeCenter.AttentionRequested -= OpenClaudeTabForAttention;
         ClaudeCenter.ContentHeightChanged -= OnClaudeContentHeightChanged;
         ClaudeCenter.SessionOpened -= OnClaudeSessionOpened;

@@ -418,7 +418,8 @@ public partial class MainWindow
     {
         _volumeHudMediaColor = vibrantColor;
         _hasVolumeHudMediaTint = hasMediaTint;
-        Color glowColor = hasMediaTint ? vibrantColor : Colors.White;
+        var (tint, hasTint) = EffectiveHudTint();
+        Color glowColor = hasTint ? tint : Colors.White;
         if (VolumeIndicatorTicksGlow != null) VolumeIndicatorTicksGlow.Color = glowColor;
         if (VolumeIndicatorIconGlow != null) VolumeIndicatorIconGlow.Color = glowColor;
         if (_isVolumeIndicatorActive && VolumeIndicatorScale != null)
@@ -530,7 +531,8 @@ public partial class MainWindow
         double trackWidth = VolumeIndicatorContainer.ActualWidth > 0
             ? VolumeIndicatorContainer.ActualWidth
             : Math.Max(120.0, (_collapsedWidth + VolumeHudExtraWidth) - 28.0);
-        bool isMuted = _viewModel?.AudioMixer?.IsMuted == true && volume <= 0.0001;
+        bool isMuted = IsLevelHudMuted(volume);
+        var (hudTint, hasHudTint) = EffectiveHudTint();
 
         double approxLabelWidth = VolumeIndicatorPercentText?.ActualWidth > 0
             ? VolumeIndicatorPercentText.ActualWidth
@@ -609,10 +611,10 @@ public partial class MainWindow
                 VolumeHudTickCount,
                 layout.ActiveTicks,
                 layout.HighlightStartTick,
-                _volumeHudMediaColor.R,
-                _volumeHudMediaColor.G,
-                _volumeHudMediaColor.B,
-                _hasVolumeHudMediaTint ? (byte)1 : (byte)0,
+                hudTint.R,
+                hudTint.G,
+                hudTint.B,
+                hasHudTint ? (byte)1 : (byte)0,
                 tickArgb,
                 tickScaleY,
                 VolumeHudTickCount) == 0)
@@ -620,7 +622,7 @@ public partial class MainWindow
             bool activeChanged = _lastVolumeHudActiveTicks != layout.ActiveTicks;
             _lastVolumeHudActiveTicks = layout.ActiveTicks;
 
-            Color fallbackAccent = _hasVolumeHudMediaTint ? _volumeHudMediaColor : Color.FromArgb(0xE8, 0xFF, 0xFF, 0xFF);
+            Color fallbackAccent = hasHudTint ? hudTint : Color.FromArgb(0xE8, 0xFF, 0xFF, 0xFF);
             Color startAccent = layout.ActiveTicks > 0
                 ? Color.FromArgb(
                     (byte)(tickArgb[0] >> 24),
@@ -628,7 +630,10 @@ public partial class MainWindow
                     (byte)(tickArgb[0] >> 8),
                     (byte)tickArgb[0])
                 : fallbackAccent;
-            UpdateSolidSpeakerIconState(layout.IconCodepoint, startAccent, animate && activeChanged);
+            if (_levelHudKind == LevelHudKind.Brightness)
+                UpdateSunIconState(volume, startAccent, animate && activeChanged);
+            else
+                UpdateSolidSpeakerIconState(layout.IconCodepoint, startAccent, animate && activeChanged);
 
             for (int i = 0; i < VolumeHudTickCount; i++)
             {
@@ -825,10 +830,11 @@ public partial class MainWindow
         });
     }
 
-    private void ShowVolumeIndicator(float volume)
+    private void ShowVolumeIndicator(float volume, LevelHudKind kind = LevelHudKind.AppVolume)
     {
         if (VolumeIndicatorContainer == null || VolumeIndicatorFill == null) return;
-        if (!_isMusicCompactMode) return;
+        // The player's own volume only exists with music; system volume and brightness show either way.
+        if (!_isMusicCompactMode && kind == LevelHudKind.AppVolume) return;
         if (_isExpanded || _isAnimating) return;
 
         bool animateFill = _isVolumeIndicatorActive;
@@ -840,6 +846,12 @@ public partial class MainWindow
                 return;
             }
             _volumeIndicatorToken = token;
+        }
+
+        if (!_isVolumeIndicatorActive || kind != _levelHudKind)
+        {
+            _levelHudKind = kind;
+            ApplyLevelHudLook();
         }
 
         if (!_isVolumeIndicatorActive)
@@ -897,6 +909,7 @@ public partial class MainWindow
             }
 
             double targetHeight = trans.TargetHeight;
+            double targetWidth = LevelHudWidth(trans.TargetWidth);
             var morphDur = new Duration(TimeSpan.FromMilliseconds(trans.MorphDurationMs));
             var fadeDur = new Duration(TimeSpan.FromMilliseconds(trans.FadeDurationMs));
 
@@ -907,7 +920,7 @@ public partial class MainWindow
                 _isCompactThumbnailHovered = false;
 
                 NotchBorder.BeginAnimation(HeightProperty, null);
-                AnimateCompactWidth(trans.TargetWidth, _dur400, _easeExpOut6, _volumeIndicatorToken);
+                AnimateCompactWidth(targetWidth, _dur400, _easeExpOut6, _volumeIndicatorToken);
                 var heightAnim = MakeAnim(fromHeight, targetHeight, _dur400, _easeExpOut6, VNotch.Services.AnimationConfig.TargetFps);
                 NotchBorder.BeginAnimation(HeightProperty, heightAnim);
 
@@ -920,48 +933,55 @@ public partial class MainWindow
             }
             else
             {
-                AnimateCompactWidth(trans.TargetWidth, morphDur, _easeExpOut6, _volumeIndicatorToken);
+                AnimateCompactWidth(targetWidth, morphDur, _easeExpOut6, _volumeIndicatorToken);
                 NotchBorder.BeginAnimation(HeightProperty, null);
                 var heightAnim = MakeAnim(fromHeight, targetHeight, morphDur, _easeExpOut6, VNotch.Services.AnimationConfig.TargetFps);
                 NotchBorder.BeginAnimation(HeightProperty, heightAnim);
                 AnimateCornerRadius(trans.TargetCornerRadius, morphDur.TimeSpan);
             }
 
-            MusicViz.BeginAnimation(OpacityProperty, null);
-            var vizOut = MakeAnim(1.0, 0.0, _dur200, _easeQuadOut);
-            vizOut.Completed += (s, e) =>
+            if (!_isMusicCompactMode)
             {
-                if (_isVolumeIndicatorActive && !IsCompactSlotStale(presentationToken))
-                    MusicViz.Visibility = Visibility.Collapsed;
-            };
-            MusicViz.BeginAnimation(OpacityProperty, vizOut);
-
-            CompactThumbnailBorder.BeginAnimation(OpacityProperty, null);
-            if (!AnimationConfig.ReduceMotion)
-            {
-                var thumbShrink = MakeAnim(trans.MediaToScale, _dur200, _easeQuadOut, VNotch.Services.AnimationConfig.TargetFps);
-                CompactThumbnailScale.BeginAnimation(ScaleTransform.ScaleXProperty, thumbShrink);
-                CompactThumbnailScale.BeginAnimation(ScaleTransform.ScaleYProperty, thumbShrink);
-                if (enableBlur && MusicCompactContentBlur != null)
-                {
-                    var thumbBlurOut = MakeAnim(0.0, trans.MediaToBlur, _dur200, _easeQuadOut, VNotch.Services.AnimationConfig.TargetFps);
-                    MusicCompactContentBlur.BeginAnimation(BlurEffect.RadiusProperty, thumbBlurOut);
-                }
+                HideIdleUnderHud();
             }
-            var thumbOut = MakeAnim(1.0, 0.0, _dur200, _easeQuadOut);
-            thumbOut.Completed += (s, e) =>
+            else
             {
-                if (_isVolumeIndicatorActive && !IsCompactSlotStale(presentationToken))
+                MusicViz.BeginAnimation(OpacityProperty, null);
+                var vizOut = MakeAnim(1.0, 0.0, _dur200, _easeQuadOut);
+                vizOut.Completed += (s, e) =>
                 {
-                    CompactThumbnailBorder.Visibility = Visibility.Collapsed;
-                    if (MusicCompactContentBlur != null)
+                    if (_isVolumeIndicatorActive && !IsCompactSlotStale(presentationToken))
+                        MusicViz.Visibility = Visibility.Collapsed;
+                };
+                MusicViz.BeginAnimation(OpacityProperty, vizOut);
+
+                CompactThumbnailBorder.BeginAnimation(OpacityProperty, null);
+                if (!AnimationConfig.ReduceMotion)
+                {
+                    var thumbShrink = MakeAnim(trans.MediaToScale, _dur200, _easeQuadOut, VNotch.Services.AnimationConfig.TargetFps);
+                    CompactThumbnailScale.BeginAnimation(ScaleTransform.ScaleXProperty, thumbShrink);
+                    CompactThumbnailScale.BeginAnimation(ScaleTransform.ScaleYProperty, thumbShrink);
+                    if (enableBlur && MusicCompactContentBlur != null)
                     {
-                        MusicCompactContentBlur.BeginAnimation(BlurEffect.RadiusProperty, null);
-                        MusicCompactContentBlur.Radius = 0;
+                        var thumbBlurOut = MakeAnim(0.0, trans.MediaToBlur, _dur200, _easeQuadOut, VNotch.Services.AnimationConfig.TargetFps);
+                        MusicCompactContentBlur.BeginAnimation(BlurEffect.RadiusProperty, thumbBlurOut);
                     }
                 }
-            };
-            CompactThumbnailBorder.BeginAnimation(OpacityProperty, thumbOut);
+                var thumbOut = MakeAnim(1.0, 0.0, _dur200, _easeQuadOut);
+                thumbOut.Completed += (s, e) =>
+                {
+                    if (_isVolumeIndicatorActive && !IsCompactSlotStale(presentationToken))
+                    {
+                        CompactThumbnailBorder.Visibility = Visibility.Collapsed;
+                        if (MusicCompactContentBlur != null)
+                        {
+                            MusicCompactContentBlur.BeginAnimation(BlurEffect.RadiusProperty, null);
+                            MusicCompactContentBlur.Radius = 0;
+                        }
+                    }
+                };
+                CompactThumbnailBorder.BeginAnimation(OpacityProperty, thumbOut);
+            }
 
             VolumeIndicatorContainer.Visibility = Visibility.Visible;
             VolumeIndicatorContainer.Opacity = 0;
@@ -1061,6 +1081,7 @@ public partial class MainWindow
         if (_isExpanded || _isAnimating)
         {
             _isVolumeIndicatorExiting = false;
+            _levelHudOverIdle = false;
             ClearVolumeIndicatorTransitionEffects();
             VolumeIndicatorContainer.BeginAnimation(OpacityProperty, null);
             VolumeIndicatorContainer.Opacity = 0;
@@ -1168,6 +1189,13 @@ public partial class MainWindow
             }
         };
         VolumeIndicatorContainer.BeginAnimation(OpacityProperty, fadeOut);
+
+        // Without music the resting content (time, weather, Claude) comes back instead of cover and bars.
+        if (_levelHudOverIdle || !_isMusicCompactMode)
+        {
+            RestoreIdleUnderHud();
+            return;
+        }
 
         if (!_isClipboardPeekActive)
         {
@@ -1292,6 +1320,7 @@ public partial class MainWindow
         }
 
         RestorePrivacyDotVisibility();
+        ReleaseIdleUnderHud();
         if (restoreMedia) RestoreCompactMediaPresentation();
     }
 
@@ -1341,6 +1370,12 @@ public partial class MainWindow
             PlayVolumeOverscrollSpring(Math.Clamp(rawRatio, 0.0, 1.0), rawRatio > 1.0 ? (rawRatio - 1.0) : rawRatio);
         }
         float newVolume = (float)Math.Clamp(rawRatio, 0.0, 1.0);
+        if (_levelHudKind != LevelHudKind.AppVolume)
+        {
+            SetVolumeFill(VolumeIndicatorScale, newVolume, animate: true);
+            WriteSystemLevel(newVolume);
+            return;
+        }
         float priorVolume = _currentVolume;
         _currentVolume = newVolume;
         SetVolumeFill(VolumeIndicatorScale, newVolume, animate: true);

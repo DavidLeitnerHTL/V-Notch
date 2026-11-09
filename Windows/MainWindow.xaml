@@ -1052,6 +1052,22 @@
                                                   StrokeEndLineCap="Round"
                                                   StrokeLineJoin="Round"
                                                   Visibility="Collapsed"/>
+                                            <!-- Brightness: the same HUD with a sun whose rays grow with the level. -->
+                                            <Path x:Name="VolumeIndicatorSunRays"
+                                                  Data="M 19,12 L 21.6,12 M 5,12 L 2.4,12 M 12,19 L 12,21.6 M 12,5 L 12,2.4 M 16.95,16.95 L 18.79,18.79 M 7.05,7.05 L 5.21,5.21 M 16.95,7.05 L 18.79,5.21 M 7.05,16.95 L 5.21,18.79"
+                                                  Stroke="#FAFFFFFF"
+                                                  StrokeThickness="2.1"
+                                                  StrokeStartLineCap="Round"
+                                                  StrokeEndLineCap="Round"
+                                                  Visibility="Collapsed">
+                                                <Path.RenderTransform>
+                                                    <ScaleTransform x:Name="VolumeIndicatorSunRaysScale" CenterX="12" CenterY="12" ScaleX="1" ScaleY="1"/>
+                                                </Path.RenderTransform>
+                                            </Path>
+                                            <Path x:Name="VolumeIndicatorSun"
+                                                  Data="M 16.4,12 A 4.4,4.4 0 1 1 7.6,12 A 4.4,4.4 0 1 1 16.4,12 Z"
+                                                  Fill="#FAFFFFFF"
+                                                  Visibility="Collapsed"/>
                                         </Canvas>
                                     </Viewbox>
                                     <TextBlock x:Name="VolumeIndicatorIcon"
