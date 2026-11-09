@@ -55,6 +55,7 @@ public partial class MainWindow
         _claudeTracker.Changed += OnClaudeSessionsChanged;
         _claudeTracker.TurnFinished += OnClaudeTurnFinished;
         _claudeTracker.PermissionRequested += OnClaudePermissionRequestedSound;
+        NotchWrapper.PreviewMouseRightButtonUp += NotchWrapper_DismissClaudeDone;
         ClaudeCenter.AttachSoundSwitch(() => _settings?.PlayClaudeSounds ?? false, SetClaudeSounds);
 
         _claudeSweepTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = ClaudeSweepInterval };
@@ -149,6 +150,7 @@ public partial class MainWindow
     {
         if (_claudeTracker == null || _cleanedUp) return;
         UpdateClaudeLive();
+        PruneClaudeDone();
         bool waiting = _claudeTracker.GetPending().Count > 0;
         if (waiting != _isClaudeWaiting)
         {
@@ -236,14 +238,16 @@ public partial class MainWindow
     private void OnClaudeTurnFinished(ClaudeSession session) => Dispatcher.BeginInvoke(() =>
     {
         PlayClaudeSound(ClaudeSound.Done);
-        ShowNotchPill(session.Name, Loc.Get("control.claude.done"), appIcon: null, isClaude: true,
-            tap: () => ClaudeSessionWindow.TryActivate(session.Id, session.Title));
+        RememberClaudeDone(session);
     });
 
     /// <summary>A tap on the pill goes straight to the session's terminal or the app, not into the notch.</summary>
     private bool TryHandleNotificationTap()
     {
-        if (!_isClaudeNotificationVisible || _notificationTap is not { } tap || !tap()) return false;
+        if (!_isClaudeNotificationVisible) return false;
+        // Tapping a finished turn counts as seen, even when its window cannot come up and the notch opens instead.
+        if (_claudeDoneShownId is { } done) ForgetClaudeDone(done);
+        if (_notificationTap is not { } tap || !tap()) return false;
         _claudeNotificationTimer?.Stop();
         AnimateClaudeNotificationOut();
         return true;
@@ -253,7 +257,8 @@ public partial class MainWindow
     /// "name · status" in the closed notch, like a Bluetooth device connecting: Claude's star for a finished
     /// turn, the app's logo for a Windows notification. Never over a fullscreen app.
     /// </summary>
-    private void ShowNotchPill(string title, string status, ImageSource? appIcon, bool isClaude, Func<bool>? tap)
+    private void ShowNotchPill(string title, string status, ImageSource? appIcon, bool isClaude, Func<bool>? tap,
+        string? doneSessionId = null)
     {
         if (_cleanedUp || _isGreetingActive || _isAnimating || _isExpanded || _isMusicExpanded || !CanShowClaudeAttention) return;
 
@@ -273,10 +278,13 @@ public partial class MainWindow
             _isClaudeNotificationVisible = true;
             AnimateClaudeNotificationIn();
         }
+        _claudeDoneShownId = doneSessionId;
         FitNotchToPill();
 
         _claudeNotificationTimer ??= CreateClaudeNotificationTimer();
         _claudeNotificationTimer.Stop();
+        // A finished Claude turn has no timeout: it waits to be tapped, pushed away or answered.
+        if (doneSessionId != null) return;
         _claudeNotificationTimer.Interval = isClaude ? ClaudeNotificationDuration : AppNotificationDuration;
         _claudeNotificationTimer.Start();
     }
@@ -337,6 +345,7 @@ public partial class MainWindow
         if (!_isClaudeNotificationVisible) return;
         int token = _claudeNotificationToken;
         _isClaudePeek = false;
+        _claudeDoneShownId = null;
         if (NotchBorder.ActualWidth > _collapsedWidth + 0.5)
             AnimateCompactWidth(_collapsedWidth, TimeSpan.FromMilliseconds(400), _easeExpOut6, token);
 
@@ -365,6 +374,7 @@ public partial class MainWindow
     private void CancelClaudeNotificationImmediate()
     {
         _claudeNotificationTimer?.Stop();
+        _claudeDoneShownId = null;
         if (!_isClaudeNotificationVisible) return;
         _isClaudeNotificationVisible = false;
         _claudeNotificationToken = 0;

@@ -93,6 +93,8 @@ public partial class MainWindow
     {
         WakeFromIdle();
         EnsureCompactPresentationGuard();
+        // A finished Claude turn holds the pill for good, so any other alert may pass it; it returns afterwards.
+        if (slot != CompactPillSlot.Claude && IsClaudeDonePillShown) StepClaudeDonePillAside();
 
         var result = _compactPillArbiter.TryAcquire(slot);
         token = result.Token;
