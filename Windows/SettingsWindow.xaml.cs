@@ -117,6 +117,7 @@ public partial class SettingsWindow : Window
         _firstShowState = prepareForFirstShow ? FirstShowState.StandbyPrewarm : FirstShowState.ReadyForRealShow;
         IsVisibleChanged += OnFirstShowVisibilityChanged;
         var firstOpenProbe = System.Diagnostics.Stopwatch.StartNew();
+        AccentTheme.Apply(settings.AccentColor);
         InitializeComponent();
         FirstOpenProbe?.Invoke($"DEBUG-FIRST-OPEN Settings XAML {firstOpenProbe.Elapsed.TotalMilliseconds:F1} ms");
         firstOpenProbe.Restart();
@@ -255,6 +256,7 @@ public partial class SettingsWindow : Window
     private void LoadSettings()
     {
         _isLoadingSettings = true;
+        LoadAccentColor();
 
         // Apply tooltips to UI elements
         ApplyTooltips();
@@ -328,12 +330,20 @@ public partial class SettingsWindow : Window
         MusicNotifyCheck.IsChecked = _settings.ShowMusicNotifications;
         SystemNotifyCheck.IsChecked = _settings.ShowSystemNotifications;
         LoadAppNotifications(_settings);
+        AutoDismissNotifyCheck.IsChecked = _settings.AutoDismissNotifications;
+        bool autoDismissEnabled = _settings.ShowSystemNotifications && _settings.AutoDismissNotifications;
+        AutoDismissNotifyCheck.IsEnabled = _settings.ShowSystemNotifications;
+        AutoDismissNotifyCheck.Opacity = _settings.ShowSystemNotifications ? 1.0 : 0.4;
+        NotificationDurationSlider.Value = Math.Clamp(_settings.NotificationDuration / 1000.0, NotificationDurationSlider.Minimum, NotificationDurationSlider.Maximum);
+        NotificationDurationSlider.IsEnabled = autoDismissEnabled;
+        NotificationDurationSlider.Opacity = autoDismissEnabled ? 1.0 : 0.4;
         EnableSpotlightCheck.IsChecked = _settings.EnableSpotlight;
         LoadSpotlightAiSettings(_settings);
         LoadTranslationSettings();
         EnableDebugModeCheck.IsChecked = _settings.EnableDebugMode;
         UpdateSpotlightHotkeyWarning();
         ShowBatteryCheck.IsChecked = _settings.ShowBatteryIndicator;
+        PopulateBatterySources(preserveSelection: false);
         HideCameraCheck.Content = Loc.Get("settings.hideCamera");
         HideCameraHint.Text = Loc.Get("settings.hideCamera.hint");
         ClipboardHotkeyLabel.Text = Loc.Get("settings.clipboardHotkey");
@@ -450,6 +460,7 @@ public partial class SettingsWindow : Window
         TooltipHelper.SetLocalizedTooltip(HideOnWindowedFullscreenCheck, "tooltip.hideWindowedFs");
         TooltipHelper.SetLocalizedTooltip(MusicNotifyCheck, "tooltip.musicNotify");
         TooltipHelper.SetLocalizedTooltip(SystemNotifyCheck, "tooltip.systemNotify");
+        TooltipHelper.SetLocalizedTooltip(AutoDismissNotifyCheck, "tooltip.autoDismissNotify");
         TooltipHelper.SetLocalizedTooltip(ShowBatteryCheck, "tooltip.showBattery");
         TooltipHelper.SetLocalizedTooltip(HelloGreetingCheck, "tooltip.helloGreeting");
         TooltipHelper.SetLocalizedTooltip(EnableSpotlightCheck, "settings.enableSpotlight.hint");
@@ -480,6 +491,8 @@ public partial class SettingsWindow : Window
 
     private void ApplyLocalization()
     {
+        PopulateBatterySources();
+        LocalizeAccentColor();
         LocalizeTrayAdvanced();
         HideCameraCheck.Content = Loc.Get("settings.hideCamera");
         HideCameraHint.Text = Loc.Get("settings.hideCamera.hint");
@@ -702,6 +715,10 @@ public partial class SettingsWindow : Window
         SystemNotifyCheck.Content = Loc.Get("settings.systemNotify");
         SystemNotifyHint.Text = Loc.Get("settings.systemNotify.hint");
         LocalizeAppNotifications();
+        AutoDismissNotifyCheck.Content = Loc.Get("settings.autoDismissNotify");
+        AutoDismissNotifyHint.Text = Loc.Get("settings.autoDismissNotify.hint");
+        NotificationDurationSlider.Label = Loc.Get("settings.notificationDuration");
+        NotificationDurationSlider.Description = Loc.Get("settings.notificationDuration.hint");
         ShowBatteryCheck.Content = Loc.Get("settings.showBattery");
         ShowBatteryHint.Text = Loc.Get("settings.showBattery.hint");
         LanguageLabel.Text = Loc.Get("settings.language");
@@ -1084,7 +1101,7 @@ public partial class SettingsWindow : Window
         catch (Exception ex)
         {
             RuntimeLog.Error("PRIVACY-CLEAR", ex.Message);
-            MessageBox.Show(this, ex.Message, Title, MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(this, Loc.Get("error.unexpected", ex.Message), Title, MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -1098,6 +1115,7 @@ public partial class SettingsWindow : Window
         catch (Exception ex)
         {
             RuntimeLog.Error("PRIVACY-CLEAR", ex.Message);
+            MessageBox.Show(this, Loc.Get("error.unexpected", ex.Message), Title, MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 

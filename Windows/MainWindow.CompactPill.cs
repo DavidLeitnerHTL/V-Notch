@@ -93,6 +93,11 @@ public partial class MainWindow
     {
         WakeFromIdle();
         EnsureCompactPresentationGuard();
+        if (_isAppNotificationBannerVisible)
+        {
+            token = 0;
+            return false;
+        }
         // A finished Claude turn holds the pill for good, so any other alert may pass it; it returns afterwards.
         if (slot != CompactPillSlot.Claude && IsClaudeDonePillShown) StepClaudeDonePillAside();
 

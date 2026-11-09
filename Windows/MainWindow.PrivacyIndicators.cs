@@ -38,7 +38,8 @@ public partial class MainWindow
     private bool IsCompactPillForPrivacyIndicator =>
         _transitionCoordinator.ShapeState == VNotch.Controllers.NotchShapeState.Collapsed &&
         !_isAnimating &&
-        !_isGreetingActive;
+        !_isGreetingActive &&
+        !_isAppNotificationBannerVisible;
 
     /// <summary>Something else holds the dot's spot (an open notch, a pill, the audio view…).</summary>
     private bool IsPrivacySpotTaken => ShouldSuppressPrivacyDot(

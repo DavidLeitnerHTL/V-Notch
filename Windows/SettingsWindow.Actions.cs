@@ -71,6 +71,7 @@ public partial class SettingsWindow
         catch (Exception ex)
         {
             VNotch.Services.RuntimeLog.Error(LogCategory, ex, "Error in Reset_Click");
+            MessageBox.Show(this, Loc.Get("error.unexpected", ex.Message), Title, MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -139,6 +140,7 @@ public partial class SettingsWindow
         _hasRevertedLivePreview = true;
         var baseline = _editSession.Revert();
         _settings = baseline.Clone();
+        AccentTheme.Apply(baseline.AccentColor, animate: IsLoaded);
         ApplyGpuPreference(GetEffectiveGpuPreference(baseline));
         InteractionSounds.Configure(baseline.EnableInteractionSounds, baseline.InteractionSoundVolume);
         ProcessPriorityPolicy.Apply(baseline.ProcessPriority);
@@ -201,6 +203,7 @@ public partial class SettingsWindow
         catch (Exception ex)
         {
             VNotch.Services.RuntimeLog.Error(LogCategory, ex, "Error in ClearCache_Click");
+            MessageBox.Show(this, Loc.Get("error.unexpected", ex.Message), Title, MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -545,6 +548,7 @@ public partial class SettingsWindow
     internal NotchSettings ReadSettingsFromUi()
     {
         var snapshot = _settings.Clone();
+        snapshot.AccentColor = _selectedAccent;
 
         snapshot.Width = (int)WidthSlider.Value;
         snapshot.DynamicIslandWidth = Math.Max(100, (int)DynamicIslandWidthSlider.Value);
@@ -605,7 +609,10 @@ public partial class SettingsWindow
         snapshot.ShowMusicNotifications = MusicNotifyCheck.IsChecked ?? true;
         snapshot.ShowSystemNotifications = SystemNotifyCheck.IsChecked ?? true;
         ReadAppNotifications(snapshot);
+        snapshot.AutoDismissNotifications = AutoDismissNotifyCheck.IsChecked ?? true;
+        snapshot.NotificationDuration = Math.Clamp((int)Math.Round(NotificationDurationSlider.Value * 1000), 1500, 15000);
         snapshot.ShowBatteryIndicator = ShowBatteryCheck.IsChecked ?? true;
+        snapshot.BatteryDeviceId = BatteryDeviceCombo.SelectedValue as string ?? _settings.BatteryDeviceId;
         snapshot.HideCamera = HideCameraCheck.IsChecked ?? false;
         snapshot.ClipboardHotkey = ClipboardHotkeyBox.Text.Trim();
         snapshot.ClipboardAutoDeleteSensitive = TraySensitiveCheck.IsChecked == true;
@@ -652,6 +659,7 @@ public partial class SettingsWindow
 
     internal bool ApplyPreview(NotchSettings snapshot)
     {
+        AccentTheme.Apply(snapshot.AccentColor, animate: IsLoaded);
         _hasRevertedLivePreview = false;
         var appliedSettings = _editSession.Applied;
         InteractionSounds.Configure(snapshot.EnableInteractionSounds, snapshot.InteractionSoundVolume);
