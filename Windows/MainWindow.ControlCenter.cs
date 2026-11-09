@@ -206,6 +206,8 @@ public partial class MainWindow
     #region Claude notification (compact pill)
 
     private static readonly TimeSpan ClaudeNotificationDuration = TimeSpan.FromSeconds(4);
+    // App and Pi notifications carry a message to read, so they stay longer than Claude's short status pills.
+    private static readonly TimeSpan AppNotificationDuration = TimeSpan.FromSeconds(10);
 
     private bool _isClaudeNotificationVisible;
     private int _claudeNotificationToken;
@@ -275,7 +277,7 @@ public partial class MainWindow
 
         _claudeNotificationTimer ??= CreateClaudeNotificationTimer();
         _claudeNotificationTimer.Stop();
-        _claudeNotificationTimer.Interval = ClaudeNotificationDuration;
+        _claudeNotificationTimer.Interval = isClaude ? ClaudeNotificationDuration : AppNotificationDuration;
         _claudeNotificationTimer.Start();
     }
 
