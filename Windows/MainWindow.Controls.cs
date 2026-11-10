@@ -830,7 +830,10 @@ public partial class MainWindow
         });
     }
 
-    private void ShowVolumeIndicator(float volume, LevelHudKind kind = LevelHudKind.AppVolume)
+    private void ShowVolumeIndicator(float volume) => ShowLevelIndicator(volume, LevelHudKind.AppVolume);
+
+    /// <summary>The scroll HUD for the player's volume, the system volume or the brightness.</summary>
+    private void ShowLevelIndicator(float volume, LevelHudKind kind)
     {
         if (VolumeIndicatorContainer == null || VolumeIndicatorFill == null) return;
         // The player's own volume only exists with music; system volume and brightness show either way.

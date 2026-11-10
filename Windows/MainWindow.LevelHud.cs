@@ -63,7 +63,7 @@ public partial class MainWindow
         // The scroll HUD shows the player's volume right now; leave it to that.
         if (kind == LevelHudKind.SystemVolume && _isVolumeIndicatorActive && _levelHudKind == LevelHudKind.AppVolume) return;
         _levelHudMuted = muted;
-        ShowVolumeIndicator(muted ? 0f : level, kind);
+        ShowLevelIndicator(muted ? 0f : level, kind);
         // The notch shows it now, so Windows' own pill for the same key goes.
         if (_isVolumeIndicatorActive && _levelHudKind == kind) HideWindowsOsdForLevelHud();
     }
