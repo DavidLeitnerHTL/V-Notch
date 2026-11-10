@@ -72,7 +72,7 @@ public sealed class GradientAndAnimationGuardTests
         Assert.Contains("IsVisibleChanged=\"PanelDonating_IsVisibleChanged\"", starSection, StringComparison.Ordinal);
 
         Assert.Contains("UpdateAnimatedStarStoryboard()", codeBehind, StringComparison.Ordinal);
-        Assert.Contains("!AnimationConfig.ReduceMotion && PanelDonating.Visibility == Visibility.Visible", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("!AnimationConfig.ReduceMotion && PanelDonating.IsVisible", codeBehind, StringComparison.Ordinal);
     }
 
     [Fact]
