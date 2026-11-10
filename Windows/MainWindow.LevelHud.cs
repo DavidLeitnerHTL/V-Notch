@@ -43,10 +43,13 @@ public partial class MainWindow
         _brightnessWatcher.Changed += percent => Dispatcher.BeginInvoke(() =>
             OnSystemLevelChanged(LevelHudKind.Brightness, percent / 100f, muted: false));
         _brightnessWatcher.Start();
+
+        InitializeWindowsOsdHider();
     }
 
     private void DisposeLevelHud()
     {
+        DisposeWindowsOsdHider();
         _masterVolumeWatcher?.Dispose();
         _brightnessWatcher?.Dispose();
         _levelWrites.Dispose();
@@ -61,6 +64,8 @@ public partial class MainWindow
         if (kind == LevelHudKind.SystemVolume && _isVolumeIndicatorActive && _levelHudKind == LevelHudKind.AppVolume) return;
         _levelHudMuted = muted;
         ShowVolumeIndicator(muted ? 0f : level, kind);
+        // The notch shows it now, so Windows' own pill for the same key goes.
+        if (_isVolumeIndicatorActive && _levelHudKind == kind) HideWindowsOsdForLevelHud();
     }
 
     /// <summary>Dragging the HUD sets what it shows: the system volume or the brightness.</summary>
