@@ -80,7 +80,7 @@ public partial class SettingsWindow
         return orderTokens;
     }
 
-    private static readonly string[] SupportedNavTabKeys = [NavTabMedia, "Secondary", "Timer", "Claude", "Pi", "School", "Weather", "AudioMixer", "Camera"];
+    private static readonly string[] SupportedNavTabKeys = [NavTabMedia, "Secondary", "Timer", "AudioMixer", "Camera", "Claude", "Pi", "School", "Weather"];
 
     internal static List<string> ResolveFullNavTabOrder(string? rawOrder, IEnumerable<string>? knownKeys = null)
     {
