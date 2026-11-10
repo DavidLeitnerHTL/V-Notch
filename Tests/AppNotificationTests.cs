@@ -155,6 +155,8 @@ public sealed class AppNotificationTests
             {
                 s.Width = (int)restW;
                 s.Height = (int)restH;
+                // The fork's slim idle notch would rest at 150 instead of the configured width.
+                s.SlimIdleNotch = false;
                 s.EnableLocalOnlyMode = true;
                 s.ShowSystemNotifications = true;
                 s.NotificationDuration = 4000;

@@ -58,7 +58,7 @@ public partial class MainWindow
 
     internal void ShowAppNotification(AppNotificationInfo? notification)
     {
-        if (notification == null || _cleanedUp || !UseUpstreamNotificationBanner) return;
+        if (notification == null || _cleanedUp || !_settings.ShowSystemNotifications) return;
         if (!_isNotchVisible || _isGreetingActive || _isExpanded || _isAnimating || IsCountdownCompletionVisualActive) return;
 
         WakeFromIdle();
