@@ -81,6 +81,7 @@ public partial class MainWindow
                 if (element?.IsVisible == true) shown.Add(name);
             RuntimeLog.Info("RENDER-PROBE", $"expanded={_isExpanded} visible tabs=[{string.Join(",", shown)}] {lines.Count} driver(s): " + string.Join(" || ", lines));
             RuntimeLog.Info("RENDER-PROBE", "dispatcher, last 5 s: " + TakeDispatcherStats());
+            RuntimeLog.Info("RENDER-PROBE", "fast timers: " + string.Join(" || ", UiScheduledTimer.DescribeFast(Dispatcher, TimeSpan.FromMilliseconds(100))));
         }
         catch (Exception ex) when (ex is TargetInvocationException or NullReferenceException or InvalidOperationException)
         {
