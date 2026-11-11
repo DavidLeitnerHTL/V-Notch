@@ -119,6 +119,8 @@ public partial class SettingsWindow : Window
         var firstOpenProbe = System.Diagnostics.Stopwatch.StartNew();
         AccentTheme.Apply(settings.AccentColor);
         InitializeComponent();
+        AddHandler(Mouse.MouseUpEvent, new MouseButtonEventHandler(LivePreview_MouseUp), handledEventsToo: true);
+        AddHandler(Keyboard.KeyUpEvent, new KeyEventHandler(LivePreview_KeyUp), handledEventsToo: true);
         FirstOpenProbe?.Invoke($"DEBUG-FIRST-OPEN Settings XAML {firstOpenProbe.Elapsed.TotalMilliseconds:F1} ms");
         firstOpenProbe.Restart();
         AnimationPrimitives.ApplyFpsToTree(this);
@@ -491,6 +493,7 @@ public partial class SettingsWindow : Window
 
     private void ApplyLocalization()
     {
+        InvalidateSearchIndex();
         PopulateBatterySources();
         LocalizeAccentColor();
         LocalizeTrayAdvanced();

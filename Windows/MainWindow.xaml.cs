@@ -599,6 +599,7 @@ public partial class MainWindow : Window
             if (_cleanedUp) return;
             _viewModel.Initialize();
             StartCoreModules();
+            ScheduleSettingsFirstOpenPreparation();
         }), DispatcherPriority.ApplicationIdle);
     }
 
