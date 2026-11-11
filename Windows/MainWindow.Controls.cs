@@ -561,7 +561,12 @@ public partial class MainWindow
 
         if (VolumeIndicatorPercentText != null)
         {
-            string pctText = _levelHudKind == LevelHudKind.PowerMode ? _powerModeLook.Name ?? "" : $"{layout.Percentage}%";
+            string pctText = _levelHudKind switch
+            {
+                LevelHudKind.PowerMode => _powerModeLook.Name ?? "",
+                LevelHudKind.SystemVolume when _levelHudLabelOverride is { Length: > 0 } name => name,
+                _ => $"{layout.Percentage}%"
+            };
             if (!string.Equals(VolumeIndicatorPercentText.Text, pctText, StringComparison.Ordinal))
             {
                 VolumeIndicatorPercentText.Text = pctText;

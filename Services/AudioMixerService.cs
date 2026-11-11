@@ -339,7 +339,10 @@ public sealed partial class AudioMixerService : IDisposable
         lock (_enumLock) return ListDevices(RenderFlow, "AUDIOMIXER-DEVICES");
     }
 
-    public bool SetDefaultOutputDevice(string deviceId)
+    public bool SetDefaultOutputDevice(string deviceId) => SwitchDefaultOutputDevice(deviceId);
+
+    /// <summary>Makes a render endpoint the default without a mixer instance (the notch's swipe).</summary>
+    public static bool SwitchDefaultOutputDevice(string deviceId)
     {
         if (!SetDefaultEndpointInternal(deviceId))
             return false;

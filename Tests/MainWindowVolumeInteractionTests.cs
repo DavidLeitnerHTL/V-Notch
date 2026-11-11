@@ -284,6 +284,28 @@ public sealed class MainWindowVolumeInteractionTests
     });
 
     [Fact]
+    public void ASpeakerSwitchShowsItsNameUntilARealVolumePress() => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        Assert.Equal("Lautsprecher", MainWindow.ShortSpeakerName("Lautsprecher (Realtek(R) Audio)"));
+        Assert.Equal("System", MainWindow.ShortSpeakerName("System (Elgato Virtual Audio)"));
+        Assert.Equal("", MainWindow.ShortSpeakerName(null));
+        Assert.Equal(22, MainWindow.ShortSpeakerName("Kopfhörer mit sehr langem Gerätenamen").Length);
+
+        await using var fixture = Create(new FakeMediaDetectionService());
+        var window = fixture.Window;
+        window.SetDebugViewState("CompactMusicPill");
+        Set(window, "_pendingSwipeDirection", 1);
+        Invoke(window, "ShowSpeakerSwitch", "Lautsprecher (Realtek(R) Audio)", .4f, false);
+        Assert.Equal("Lautsprecher", window.VolumeIndicatorPercentText.Text);
+        Assert.Equal(0, Get<int>(window, "_pendingSwipeDirection"));
+
+        // A volume key right after: the number, at once.
+        Invoke(window, "OnSystemLevelChanged", Enum.Parse(typeof(MainWindow).GetNestedType("LevelHudKind", BindingFlags.NonPublic)!, "SystemVolume"), .55f, false);
+        Assert.Equal("55%", window.VolumeIndicatorPercentText.Text);
+        ct.ThrowIfCancellationRequested();
+    });
+
+    [Fact]
     public void VolumeIndicatorHudUpdatesSegmentedTicksIconAndPercentageLabel() => SharedStaTestRunner.RunAsync(async ct =>
     {
         await using var fixture = Create(new FakeMediaDetectionService());

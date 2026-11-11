@@ -64,6 +64,7 @@ public partial class MainWindow
         }
 
         InitializeWindowsOsdHider();
+        InitializeOutputSwipe();
     }
 
     private void OnPowerModeChanged(int rawMode)
@@ -84,6 +85,7 @@ public partial class MainWindow
     private void DisposeLevelHud()
     {
         _powerModeWatcher?.Dispose();
+        DisposeOutputSwipe();
         DisposeWindowsOsdHider();
         _masterVolumeWatcher?.Dispose();
         _brightnessWatcher?.Dispose();
@@ -97,6 +99,8 @@ public partial class MainWindow
         if (_isDraggingVolumeIndicator) return;
         // The scroll HUD shows the player's volume right now; leave it to that.
         if (kind == LevelHudKind.SystemVolume && _isVolumeIndicatorActive && _levelHudKind == LevelHudKind.AppVolume) return;
+        // A real volume press wants its number at once, not the speaker's name from a moment ago.
+        _levelHudLabelOverride = null;
         _levelHudMuted = muted;
         ShowLevelIndicator(muted ? 0f : level, kind);
         // The notch shows it now, so Windows' own pill for the same key goes.

@@ -37,6 +37,9 @@ internal sealed class MasterVolumeWatcher : IDisposable
     /// <summary>Volume 0..1 and whether it is muted; raised on a Windows audio thread.</summary>
     public event Action<float, bool>? Changed;
 
+    /// <summary>Another speaker became the default; its volume and mute. Raised on a worker thread.</summary>
+    public event Action<float, bool>? SpeakerSwitched;
+
     public MasterVolumeWatcher()
     {
         _callback = new VolumeCallback(this);
@@ -144,12 +147,25 @@ internal sealed class MasterVolumeWatcher : IDisposable
         // Never call back into the audio API from inside its own callback.
         Task.Run(() =>
         {
+            float volume;
+            bool muted;
             lock (_gate)
             {
                 if (_disposed) return;
                 try { BindDefault(); }
-                catch (COMException ex) { RuntimeLog.Warn(LogTag, $"Speaker switch not followed: {ex.Message}"); }
+                catch (COMException ex)
+                {
+                    RuntimeLog.Warn(LogTag, $"Speaker switch not followed: {ex.Message}");
+                    return;
+                }
+                if (_endpoint == null) return;
+                lock (_values)
+                {
+                    volume = _lastVolume;
+                    muted = _lastMuted;
+                }
             }
+            if (volume >= 0) SpeakerSwitched?.Invoke(volume, muted);
         });
     }
 
