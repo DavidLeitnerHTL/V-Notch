@@ -260,14 +260,21 @@ public partial class SettingsWindow
 
     private void UpdateNavButtonsForSearchMode()
     {
-        foreach (var kvp in _navButtons)
+        // Search itself shows the nav buttons (the Searching one starts collapsed). That is presentation, not a
+        // changed setting, so it must not mark every row dirty and rebuild the whole index on each search.
+        _updatingSearchPresentation = true;
+        try
         {
-            bool isSearching = kvp.Key == NavSectionSearching;
-            kvp.Value.Visibility = Visibility.Visible;
-            kvp.Value.IsHitTestVisible = isSearching;
-            kvp.Value.Opacity = isSearching ? 1.0 : 0.35;
-            UpdateNavButtonVisual(kvp.Value, isSearching, animate: false);
+            foreach (var kvp in _navButtons)
+            {
+                bool isSearching = kvp.Key == NavSectionSearching;
+                kvp.Value.Visibility = Visibility.Visible;
+                kvp.Value.IsHitTestVisible = isSearching;
+                kvp.Value.Opacity = isSearching ? 1.0 : 0.35;
+                UpdateNavButtonVisual(kvp.Value, isSearching, animate: false);
+            }
         }
+        finally { _updatingSearchPresentation = false; }
         SyncNavIndicators(animate: true);
     }
 
@@ -285,11 +292,16 @@ public partial class SettingsWindow
             UpdateSectionHeader();
         }
 
-        ShowAllNavItems();
-        if (_navButtons.TryGetValue(NavSectionSearching, out var searchButton))
+        _updatingSearchPresentation = true;
+        try
         {
-            searchButton.Visibility = Visibility.Collapsed;
+            ShowAllNavItems();
+            if (_navButtons.TryGetValue(NavSectionSearching, out var searchButton))
+            {
+                searchButton.Visibility = Visibility.Collapsed;
+            }
         }
+        finally { _updatingSearchPresentation = false; }
 
         foreach (var kvp in _navPanels)
         {
