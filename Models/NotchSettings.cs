@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -97,7 +98,6 @@ public partial class NotchSettings : IJsonOnDeserialized
     private int _translationTimeoutSeconds = 90;
     public int TranslationTimeoutSeconds { get => _translationTimeoutSeconds; set => _translationTimeoutSeconds = ClampInt(value, 15, 600); }
 
-
     public string CameraDeviceId { get; set; } = "";
     public string VisualizerAudioDeviceId { get; set; } = "";
     public string BatteryDeviceId { get; set; } = SystemBatteryDeviceId;
@@ -176,7 +176,6 @@ public partial class NotchSettings : IJsonOnDeserialized
     public string SpotlightDeepSeekApiKey { get; set; } = "";
     public string SpotlightDeepSeekModel { get; set; } = "";
 
-
     public bool EnableSpotifyLyrics { get; set; } = true;
     public string LyricsProviderPriority { get; set; } = VNotch.Services.LyricsProviderOrder.Default;
 
@@ -190,9 +189,6 @@ public partial class NotchSettings : IJsonOnDeserialized
 
     public bool EnableYouTubeSubtitles { get; set; } = true;
     public bool IgnoreYouTubeAutoSubtitles { get; set; } = true;
-
-
-
 
     public bool EnableWeather { get; set; } = false;
     public string ManualCity { get; set; } = string.Empty;
@@ -355,16 +351,27 @@ public partial class NotchSettings : IJsonOnDeserialized
         clone.LiquidGlassCustom = LiquidGlassCustom?.Clone();
         clone.BannerRestore = new(BannerRestore ?? new(), StringComparer.OrdinalIgnoreCase);
         clone.AllowanceAlertsSent = new(AllowanceAlertsSent ?? new());
-        if (ExtensionData != null)
-            clone.ExtensionData = new(ExtensionData, StringComparer.Ordinal);
+        clone.ExtensionData = ExtensionData != null
+            ? new Dictionary<string, JsonElement>(ExtensionData, StringComparer.Ordinal)
+            : null;
         return clone;
     }
 
-    internal static bool ExtensionDataEquals(Dictionary<string, JsonElement>? left, Dictionary<string, JsonElement>? right)
+    internal static bool ExtensionDataEquals(
+        Dictionary<string, JsonElement>? left,
+        Dictionary<string, JsonElement>? right)
     {
-        if ((left?.Count ?? 0) != (right?.Count ?? 0)) return false;
-        return left == null || left.All(entry => right != null && right.TryGetValue(entry.Key, out var value)
-            && entry.Value.GetRawText() == value.GetRawText());
+        int leftCount = left?.Count ?? 0;
+        int rightCount = right?.Count ?? 0;
+        if (leftCount != rightCount) return false;
+        if (leftCount == 0) return true;
+        foreach (var (key, leftVal) in left!)
+        {
+            if (!right!.TryGetValue(key, out var rightVal)) return false;
+            if (!string.Equals(leftVal.GetRawText(), rightVal.GetRawText(), StringComparison.Ordinal))
+                return false;
+        }
+        return true;
     }
 
     public bool ValueEquals(NotchSettings? other)
@@ -392,7 +399,7 @@ public partial class NotchSettings : IJsonOnDeserialized
         if (LiquidGlassCustom != null && other.LiquidGlassCustom != null && !LiquidGlassCustom.ValueEquals(other.LiquidGlassCustom))
             return false;
 
-        return true;
+        return ExtensionDataEquals(ExtensionData, other.ExtensionData);
     }
 }
 

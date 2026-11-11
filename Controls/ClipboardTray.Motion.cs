@@ -53,18 +53,6 @@ public sealed partial class ClipboardTray
         out double outOffsetX,
         out byte outShouldAnimate);
 
-    [LibraryImport("VNotch.Native")]
-    private static partial int vn_clipboard_motion_step_scroll_physics(
-        ref double ioPosition,
-        ref double ioVelocity,
-        double minBound,
-        double maxBound,
-        double dt,
-        double friction,
-        double springStiffness,
-        double springDamping,
-        out byte outIsSettled);
-
     private bool _animateResults = true;
     private int _motionVersion;
     private bool _trayLeaving;
@@ -327,7 +315,6 @@ public sealed partial class ClipboardTray
         return animation;
     }
 
-
     private static void AnimateValue(Animatable target, DependencyProperty property, double value, int milliseconds)
     {
         Motion.To(target, property, value, milliseconds == MotionFast ? Motion.PressDown : Motion.Press);
@@ -407,7 +394,6 @@ public sealed partial class ClipboardTray
         AnimateValue(scale, ScaleTransform.ScaleXProperty, value, duration);
         AnimateValue(scale, ScaleTransform.ScaleYProperty, value, duration);
     }
-
 
     private readonly HashSet<Guid> _arrivingCards = [];
     private Dictionary<Guid, double>? _pendingCardPositions;
