@@ -1797,6 +1797,12 @@ public partial class MainWindow : Window
             SuppressCompactVolumeWheelForClick();
         }
 
+        if (TryBeginCopiedGesture(e))
+        {
+            e.Handled = true;
+            return;
+        }
+
         if (TryBeginGesture(e))
         {
             e.Handled = true;

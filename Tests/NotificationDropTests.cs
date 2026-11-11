@@ -30,7 +30,7 @@ public sealed class NotificationDropTests
         var logo = new DrawingImage(new GeometryDrawing(Brushes.MediumPurple, null,
             new RectangleGeometry(new Rect(0, 0, 14, 14), 3, 3)));
         int taps = 0;
-        Invoke(window, "ShowNotchPill", "Discord", "Alex: hi", logo, false, new Func<bool>(() => { taps++; return true; }), null);
+        Invoke(window, "ShowNotchPill", "Discord", "Alex: hi", logo, false, new Func<bool>(() => { taps++; return true; }), null, null, null);
         await WpfFrameWaiter.UntilAsync(() => window.ClaudeNotification.Opacity > 0.99, "pill shown", ct);
 
         Assert.True((bool)Invoke(window, "TryHandleNotificationTap")!);
@@ -60,6 +60,28 @@ public sealed class NotificationDropTests
         Assert.True(lastY > firstY + 40, $"the drop did not fall ({firstY:F1} -> {lastY:F1})");
         Assert.Null(Field<EventHandler?>(window, "_dropFrame"));
         await WpfFrameWaiter.UntilAsync(() => window.ClaudeNotification.Visibility != Visibility.Visible, "pill gone", ct);
+    });
+
+    [Fact]
+    public void ACopyWithoutMusicShowsAShortCopiedPillThatHandsTheBellBack() => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        await using var fixture = new GreetingAcceptanceTests.MainWindowFixture("en", greeting: false,
+            configureSettings: settings => settings.EnableLocalOnlyMode = true,
+            configureServices: services => services.AddSingleton<IMediaDetectionService>(new FakeMediaDetectionService()));
+        var window = fixture.Window;
+        window.Show();
+        Invoke(window, "PlayClipboardPeek");
+        Assert.True(Field<bool>(window, "_isCopiedPillShown"));
+        Assert.Equal("Copied", window.ClaudeNotificationTitle.Text);
+        Assert.Equal("", window.NotificationBellIcon.Text);
+        Assert.Equal(TimeSpan.FromMilliseconds(2200), Field<System.Windows.Threading.DispatcherTimer>(window, "_claudeNotificationTimer").Interval);
+
+        // The next pill is an ordinary one again.
+        Invoke(window, "ShowNotchPill", "Pi", "Done", null, false, null, null, null, null);
+        Assert.False(Field<bool>(window, "_isCopiedPillShown"));
+        Assert.Equal("", window.NotificationBellIcon.Text);
+        Assert.Equal(TimeSpan.FromSeconds(10), Field<System.Windows.Threading.DispatcherTimer>(window, "_claudeNotificationTimer").Interval);
+        ct.ThrowIfCancellationRequested();
     });
 
     private static object? Invoke(MainWindow window, string name, params object?[] arguments) =>

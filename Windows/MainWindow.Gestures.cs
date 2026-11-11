@@ -155,6 +155,12 @@ public partial class MainWindow
             return;
         }
 
+        if (HandleCopiedGestureMove(e))
+        {
+            e.Handled = true;
+            return;
+        }
+
         NotchBorder_GestureMouseMove(sender, e);
     }
 
@@ -171,6 +177,12 @@ public partial class MainWindow
                 ToggleNotchFromClick(e.ClickCount);
             }
 
+            e.Handled = true;
+            return;
+        }
+
+        if (HandleCopiedGestureUp(e))
+        {
             e.Handled = true;
             return;
         }

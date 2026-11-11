@@ -261,17 +261,21 @@ public partial class MainWindow
     /// "name · status" in the closed notch, like a Bluetooth device connecting: Claude's star for a finished
     /// turn, the app's logo for a Windows notification. Never over a fullscreen app.
     /// </summary>
+    private const string NotificationBellGlyph = "";
+
     private void ShowNotchPill(string title, string status, ImageSource? appIcon, bool isClaude, Func<bool>? tap,
-        string? doneSessionId = null)
+        string? doneSessionId = null, string? glyph = null, TimeSpan? duration = null)
     {
         if (_cleanedUp || _isGreetingActive || _isAnimating || _isExpanded || _isMusicExpanded || !CanShowClaudeAttention) return;
 
         _isClaudePeek = false;
+        _isCopiedPillShown = false;
         ClaudeNotificationTitle.Text = title;
         ClaudeNotificationStatus.Text = status;
         NotificationClaudeIcon.Visibility = isClaude ? Visibility.Visible : Visibility.Collapsed;
         NotificationAppIcon.Source = appIcon;
         NotificationAppIcon.Visibility = !isClaude && appIcon != null ? Visibility.Visible : Visibility.Collapsed;
+        NotificationBellIcon.Text = glyph ?? NotificationBellGlyph;
         NotificationBellIcon.Visibility = !isClaude && appIcon == null ? Visibility.Visible : Visibility.Collapsed;
         _notificationTap = tap;
         _isClaudePill = isClaude;
@@ -289,7 +293,7 @@ public partial class MainWindow
         _claudeNotificationTimer.Stop();
         // A finished Claude turn has no timeout: it waits to be tapped, pushed away or answered.
         if (doneSessionId != null) return;
-        _claudeNotificationTimer.Interval = isClaude ? ClaudeNotificationDuration : AppNotificationDuration;
+        _claudeNotificationTimer.Interval = duration ?? (isClaude ? ClaudeNotificationDuration : AppNotificationDuration);
         _claudeNotificationTimer.Start();
     }
 
@@ -349,6 +353,7 @@ public partial class MainWindow
         if (!_isClaudeNotificationVisible) return;
         int token = _claudeNotificationToken;
         _isClaudePeek = false;
+        _isCopiedPillShown = false;
         _claudeDoneShownId = null;
         if (NotchBorder.ActualWidth > _collapsedWidth + 0.5)
             AnimateCompactWidth(_collapsedWidth, TimeSpan.FromMilliseconds(400), _easeExpOut6, token);
@@ -379,6 +384,7 @@ public partial class MainWindow
     {
         _claudeNotificationTimer?.Stop();
         _claudeDoneShownId = null;
+        _isCopiedPillShown = false;
         if (!_isClaudeNotificationVisible) return;
         _isClaudeNotificationVisible = false;
         _claudeNotificationToken = 0;

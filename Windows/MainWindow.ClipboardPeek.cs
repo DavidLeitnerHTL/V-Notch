@@ -53,6 +53,11 @@ public partial class MainWindow
         {
             ShowClipboardCopiedState();
         }
+        else if (!_isExpanded && !_isAnimating)
+        {
+            // Without music the copy gets a short pill to drag out or hand to Claude.
+            ShowCopiedPill();
+        }
     }
     private void ShowClipboardCopiedState()
     {
