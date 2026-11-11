@@ -126,6 +126,28 @@ public partial class ControlCenterView : UserControl, IDisposable
         Loc.LanguageChanged += OnLanguageChanged;
     }
 
+    /// <summary>
+    /// One quiet read while the tab is not on screen, shortly after start, so its first open shows it filled (and
+    /// sized) instead of "loading".
+    /// </summary>
+    internal void Prefetch()
+    {
+        if (_disposed || IsVisible) return;
+        switch (Page)
+        {
+            case ControlCenterPage.Pi or ControlCenterPage.School:
+                RefreshPi();
+                break;
+            case ControlCenterPage.Claude:
+                RefreshUsage(UsageViewMinAge);
+                BuildClaudeSection();
+                break;
+            default:
+                Refresh();
+                break;
+        }
+    }
+
     /// <summary>Set in XAML; fixed once the view is built.</summary>
     public ControlCenterPage Page { get; set; }
 

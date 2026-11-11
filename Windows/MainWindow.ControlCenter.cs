@@ -72,6 +72,7 @@ public partial class MainWindow
         InitializeMicMuted();
         InitializeDownloads();
         InitializeLevelHud();
+        SchedulePrefetch();
     }
 
     private void DisposeControlCenter()

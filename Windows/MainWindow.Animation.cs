@@ -1030,6 +1030,7 @@ public partial class MainWindow
         _transitionCoordinator.CompleteTransition(generation);
         UpdateSpotifyCanvasPresentationContext();
         UpdateNavIconsActiveState();
+        RunQueuedNavigation(generation);
 
         if (_focusNotchAfterExpand) FocusNotchForKeyboard();
 
@@ -1329,6 +1330,7 @@ public partial class MainWindow
         AnimateStatusBarReveal(true);
 
         NotchBorder.IsHitTestVisible = switchingExpandedViews;
+        if (!switchingExpandedViews) ArmEarlyHitTest(generation);
         int animFps = VNotch.Services.AnimationConfig.TargetFps;
 
         var fadeOutAnim = MakeAnim(0, _dur200, _easeQuadOut);
