@@ -244,11 +244,17 @@ namespace VNotch.Controls
             _stopwatch.Stop();
         }
 
+        // Bars that follow the sound look the same at 60 fps; at the animation rate (up to the display's 240-360 Hz)
+        // every extra frame only redraws the whole notch window again while music plays.
+        private const int MaxFrameRate = 60;
+
+        private static int FrameRate => Math.Clamp(VNotch.Services.AnimationConfig.TargetFps, 1, MaxFrameRate);
+
         private void OnRendering(object? sender, EventArgs e)
         {
             double totalSec = _stopwatch.Elapsed.TotalSeconds;
             double dt = totalSec - _lastTickSeconds;
-            if (dt * 1000 + 0.1 < 1000d / Math.Max(1, VNotch.Services.AnimationConfig.TargetFps)) return;
+            if (dt * 1000 + 0.1 < 1000d / FrameRate) return;
             _lastTickSeconds = totalSec;
 
             EnsureAudioCaptureStarted();
