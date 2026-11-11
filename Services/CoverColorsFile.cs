@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Windows.Media;
 
@@ -16,9 +18,23 @@ internal static class CoverColorsFile
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "V-Notch", "cover-colors.json");
     private static string? _last;
 
-    public static void Publish(Color main, Color sub) => Write(new[] { Hex(main), Hex(sub) });
+    /// <summary>The playing track's cover colours (main first); empty when nothing plays.</summary>
+    public static IReadOnlyList<Color> Current { get; private set; } = Array.Empty<Color>();
 
-    public static void Clear() => Write(Array.Empty<string>());
+    /// <summary>The colours changed; raised on the thread that published them (the UI thread).</summary>
+    public static event Action? Changed;
+
+    public static void Publish(Color main, Color sub) => Set(new[] { main, sub });
+
+    public static void Clear() => Set(Array.Empty<Color>());
+
+    private static void Set(Color[] colors)
+    {
+        if (colors.SequenceEqual(Current)) return;
+        Current = colors;
+        Write(colors.Select(Hex).ToArray());
+        Changed?.Invoke();
+    }
 
     private static void Write(string[] colors)
     {

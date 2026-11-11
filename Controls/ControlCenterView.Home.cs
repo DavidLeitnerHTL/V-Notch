@@ -71,6 +71,7 @@ public partial class ControlCenterView
             ControlRoot.Children.Add(section);
         }
         SetMoodColors(HomeNight.Main, HomeNight.Warmer, HomeNight.Cooler);
+        CoverColorsFile.Changed += OnCoverColorsChanged;
     }
 
     private async Task RefreshMusicSyncAsync() => _musicSync = await GoveeSync.IsRunningAsync();
@@ -89,7 +90,7 @@ public partial class ControlCenterView
             return;
         }
 
-        var mood = HomeMood(home.Lights, _musicSync == true);
+        var mood = HomeMood(home.Lights.Select(AsShown).ToList());
         SetMoodColors(mood.Main, mood.Warmer, mood.Cooler);
         string key = HomeKey(home);
         if (key == _homeKey)
@@ -137,17 +138,33 @@ public partial class ControlCenterView
 
     /// <summary>
     /// The strip's colour while it is on (muted to the tab's calm tones), warm sand with a lamp on, night indigo
-    /// when the room is dark. With music sync the strip plays the cover's colours and Home Assistant only knows its
-    /// resting colour, so the room counts as lamp-lit.
+    /// when the room is dark. Pass the lights through <see cref="AsShown"/> first, so music sync counts with the
+    /// cover's colour.
     /// </summary>
-    internal static (Color Main, Color Warmer, Color Cooler) HomeMood(IReadOnlyList<HomeLight> lights, bool musicSync = false)
+    internal static (Color Main, Color Warmer, Color Cooler) HomeMood(IReadOnlyList<HomeLight> lights)
     {
-        if (!musicSync && lights.FirstOrDefault(l => l.Rgb && l.On && l.Color != null) is { Color: { } strip })
+        if (lights.FirstOrDefault(l => l.Rgb && l.On && l.Color != null) is { Color: { } strip })
         {
             var main = Calm(strip, maxSaturation: 0.3, lightness: 0.6);
             return (main, Mix(main, HomeLamp.Main, 0.5), Mix(main, HomeNight.Main, 0.5));
         }
         return lights.Any(l => l.On) ? HomeLamp : HomeNight;
+    }
+
+    /// <summary>
+    /// The strip as the room sees it: with music sync and a song playing it glows in the cover's main colour (Home
+    /// Assistant only knows its resting colour then); otherwise in the colour picked.
+    /// </summary>
+    internal static HomeLight AsShown(HomeLight light, bool musicSync, IReadOnlyList<Color> cover) =>
+        light.Rgb && musicSync && cover.Count > 0 ? light with { Color = cover[0] } : light;
+
+    private HomeLight AsShown(HomeLight light) => AsShown(light, _musicSync == true, CoverColorsFile.Current);
+
+    private void OnCoverColorsChanged()
+    {
+        if (_disposed || Page != ControlCenterPage.Pi || _home is not { } home || _musicSync != true) return;
+        UpdateHome(home, force: true);
+        SetHomeMoodFromTiles();
     }
 
     /// <summary>A light's colour as the notch shows it: its hue, but with little saturation and a set lightness.</summary>
@@ -178,13 +195,13 @@ public partial class ControlCenterView
         return Color.FromRgb((byte)Math.Round((r1 + m) * 255), (byte)Math.Round((g1 + m) * 255), (byte)Math.Round((b1 + m) * 255));
     }
 
-    private void UpdateHome(PiHome home)
+    private void UpdateHome(PiHome home, bool force = false)
     {
-        bool quiet = DateTime.UtcNow < _homeQuietUntilUtc;
+        bool quiet = !force && DateTime.UtcNow < _homeQuietUntilUtc;
         if (!quiet)
         {
             foreach (var light in home.Lights)
-                if (_lightTiles.TryGetValue(light.Id, out var tile)) tile.Show(light, animate: true);
+                if (_lightTiles.TryGetValue(light.Id, out var tile)) tile.Show(AsShown(light), animate: true);
         }
         if (_heating != null && home.Climate is { } climate) _heating.Show(climate, keepTarget: quiet || _targetDraft != null);
         foreach (var plug in home.Plugs)
@@ -315,7 +332,7 @@ public partial class ControlCenterView
         var grid = TileGrid(home.Lights.Count, home.Lights.Count);
         for (int i = 0; i < home.Lights.Count; i++)
         {
-            var tile = NewLightTile(home.Lights[i], home.StripColors);
+            var tile = NewLightTile(AsShown(home.Lights[i]), home.StripColors);
             _lightTiles[home.Lights[i].Id] = tile;
             PlaceTile(grid, tile.Card, i, home.Lights.Count);
         }
@@ -446,6 +463,7 @@ public partial class ControlCenterView
                 music.Stroke = run ? Brushes.White : RingOff;
                 if (await GoveeSync.SetRunningAsync(run)) _musicSync = run;
                 tile.State.Text = tile.StateText();
+                if (_home is { } shown) UpdateHome(shown, force: true);
                 SetHomeMoodFromTiles();
             };
             tile.MusicDot = music;
@@ -538,7 +556,7 @@ public partial class ControlCenterView
     private void SetHomeMoodFromTiles()
     {
         var lights = _lightTiles.Values.Select(t => t.Light with { On = t.On == true, Color = t.Light.Rgb ? t.Color : t.Light.Color }).ToList();
-        var mood = HomeMood(lights, _musicSync == true);
+        var mood = HomeMood(lights);
         SetMoodColors(mood.Main, mood.Warmer, mood.Cooler);
     }
 

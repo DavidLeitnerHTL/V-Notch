@@ -182,6 +182,7 @@ public partial class ControlCenterView : UserControl, IDisposable
         _piTimer?.Stop();
         StopLiveTexts();
         DetachOutput();
+        CoverColorsFile.Changed -= OnCoverColorsChanged;
         _legionTimer?.Stop();
         _legionLoops.StopAll();
         _homeLoops.StopAll();
