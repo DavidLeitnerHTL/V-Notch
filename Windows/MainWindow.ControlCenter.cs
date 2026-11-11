@@ -118,6 +118,12 @@ public partial class MainWindow
     private void OpenClaudeTabForAttention()
     {
         if (_cleanedUp || _isClaudeView) return;
+        // A tool to allow or a question goes to the pill in the closed notch; a plan to read opens the tab.
+        if (NewestAskForPill() is { } ask && (IsAskPillShown || TryShowClaudeAskPill(ask)))
+        {
+            _claudeAttentionRetry?.Stop();
+            return;
+        }
         if (_isAnimating || _isGreetingActive || _isExpanded || _isMusicExpanded || !CanShowClaudeAttention)
         {
             _claudeAttentionRetry ??= CreateClaudeAttentionRetry();
@@ -153,6 +159,7 @@ public partial class MainWindow
         if (_claudeTracker == null || _cleanedUp) return;
         UpdateClaudeLive();
         PruneClaudeDone();
+        SyncClaudeAskPill();
         bool waiting = _claudeTracker.GetPending().Count > 0;
         if (waiting != _isClaudeWaiting)
         {
@@ -270,6 +277,7 @@ public partial class MainWindow
 
         _isClaudePeek = false;
         _isCopiedPillShown = false;
+        _askRequest = null;
         ClaudeNotificationTitle.Text = title;
         ClaudeNotificationStatus.Text = status;
         NotificationClaudeIcon.Visibility = isClaude ? Visibility.Visible : Visibility.Collapsed;
@@ -354,6 +362,7 @@ public partial class MainWindow
         int token = _claudeNotificationToken;
         _isClaudePeek = false;
         _isCopiedPillShown = false;
+        _askRequest = null;
         _claudeDoneShownId = null;
         if (NotchBorder.ActualWidth > _collapsedWidth + 0.5)
             AnimateCompactWidth(_collapsedWidth, TimeSpan.FromMilliseconds(400), _easeExpOut6, token);
@@ -385,6 +394,7 @@ public partial class MainWindow
         _claudeNotificationTimer?.Stop();
         _claudeDoneShownId = null;
         _isCopiedPillShown = false;
+        _askRequest = null;
         if (!_isClaudeNotificationVisible) return;
         _isClaudeNotificationVisible = false;
         _claudeNotificationToken = 0;

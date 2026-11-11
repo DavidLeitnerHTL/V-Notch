@@ -155,7 +155,7 @@ public partial class MainWindow
             return;
         }
 
-        if (HandleCopiedGestureMove(e))
+        if (HandleAskGestureMove(e) || HandleCopiedGestureMove(e))
         {
             e.Handled = true;
             return;
@@ -181,7 +181,7 @@ public partial class MainWindow
             return;
         }
 
-        if (HandleCopiedGestureUp(e))
+        if (HandleAskGestureUp(e) || HandleCopiedGestureUp(e))
         {
             e.Handled = true;
             return;
