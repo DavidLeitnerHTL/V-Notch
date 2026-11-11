@@ -89,7 +89,7 @@ public partial class ControlCenterView
             return;
         }
 
-        var mood = HomeMood(home.Lights);
+        var mood = HomeMood(home.Lights, _musicSync == true);
         SetMoodColors(mood.Main, mood.Warmer, mood.Cooler);
         string key = HomeKey(home);
         if (key == _homeKey)
@@ -135,15 +135,47 @@ public partial class ControlCenterView
         return sb.ToString();
     }
 
-    /// <summary>The strip's colour while it is on, warm sand with a lamp on, night indigo when the room is dark.</summary>
-    internal static (Color Main, Color Warmer, Color Cooler) HomeMood(IReadOnlyList<HomeLight> lights)
+    /// <summary>
+    /// The strip's colour while it is on (muted to the tab's calm tones), warm sand with a lamp on, night indigo
+    /// when the room is dark. With music sync the strip plays the cover's colours and Home Assistant only knows its
+    /// resting colour, so the room counts as lamp-lit.
+    /// </summary>
+    internal static (Color Main, Color Warmer, Color Cooler) HomeMood(IReadOnlyList<HomeLight> lights, bool musicSync = false)
     {
-        if (lights.FirstOrDefault(l => l.Rgb && l.On && l.Color != null) is { Color: { } strip })
+        if (!musicSync && lights.FirstOrDefault(l => l.Rgb && l.On && l.Color != null) is { Color: { } strip })
         {
-            var main = Mix(strip, Grey, 0.42);
+            var main = Calm(strip, maxSaturation: 0.3, lightness: 0.6);
             return (main, Mix(main, HomeLamp.Main, 0.5), Mix(main, HomeNight.Main, 0.5));
         }
         return lights.Any(l => l.On) ? HomeLamp : HomeNight;
+    }
+
+    /// <summary>A light's colour as the notch shows it: its hue, but with little saturation and a set lightness.</summary>
+    internal static Color Calm(Color c, double maxSaturation, double lightness)
+    {
+        double r = c.R / 255.0, g = c.G / 255.0, b = c.B / 255.0;
+        double max = Math.Max(r, Math.Max(g, b)), min = Math.Min(r, Math.Min(g, b)), d = max - min;
+        double h = 0;
+        if (d > 0)
+        {
+            h = max == r ? (g - b) / d % 6 : max == g ? (b - r) / d + 2 : (r - g) / d + 4;
+            h = (h * 60 + 360) % 360;
+        }
+        double l = (max + min) / 2;
+        double s = d == 0 ? 0 : d / (1 - Math.Abs(2 * l - 1));
+        s = Math.Min(s, maxSaturation);
+        l = lightness;
+        double chroma = (1 - Math.Abs(2 * l - 1)) * s, x = chroma * (1 - Math.Abs(h / 60 % 2 - 1)), m = l - chroma / 2;
+        (double r1, double g1, double b1) = h switch
+        {
+            < 60 => (chroma, x, 0.0),
+            < 120 => (x, chroma, 0.0),
+            < 180 => (0.0, chroma, x),
+            < 240 => (0.0, x, chroma),
+            < 300 => (x, 0.0, chroma),
+            _ => (chroma, 0.0, x)
+        };
+        return Color.FromRgb((byte)Math.Round((r1 + m) * 255), (byte)Math.Round((g1 + m) * 255), (byte)Math.Round((b1 + m) * 255));
     }
 
     private void UpdateHome(PiHome home)
@@ -198,7 +230,7 @@ public partial class ControlCenterView
         public readonly List<(Ellipse Dot, Color Color)> Dots = new();
         public Ellipse? MusicDot;
 
-        public Color LitColor => Light.Rgb ? Mix(Color, Colors.White, 0.12) : LampLight;
+        public Color LitColor => Light.Rgb ? Calm(Color, maxSaturation: 0.45, lightness: 0.66) : LampLight;
 
         public void Show(HomeLight light, bool animate)
         {
@@ -414,6 +446,7 @@ public partial class ControlCenterView
                 music.Stroke = run ? Brushes.White : RingOff;
                 if (await GoveeSync.SetRunningAsync(run)) _musicSync = run;
                 tile.State.Text = tile.StateText();
+                SetHomeMoodFromTiles();
             };
             tile.MusicDot = music;
             dots.Children.Add(music);
@@ -505,7 +538,7 @@ public partial class ControlCenterView
     private void SetHomeMoodFromTiles()
     {
         var lights = _lightTiles.Values.Select(t => t.Light with { On = t.On == true, Color = t.Light.Rgb ? t.Color : t.Light.Color }).ToList();
-        var mood = HomeMood(lights);
+        var mood = HomeMood(lights, _musicSync == true);
         SetMoodColors(mood.Main, mood.Warmer, mood.Cooler);
     }
 

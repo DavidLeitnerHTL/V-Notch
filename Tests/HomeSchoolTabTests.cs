@@ -58,6 +58,17 @@ public sealed class HomeSchoolTabTests
     }
 
     [Fact]
+    public void AGreenStripStaysCalmAndMusicSyncReadsAsLamplight()
+    {
+        var lamp = new HomeLight("a", "A", false, true, true, null, null);
+        var strip = new HomeLight("s", "Strip", true, true, true, Color.FromRgb(0, 255, 0), 100);
+        var green = ControlCenterView.HomeMood(new[] { lamp, strip }).Main;
+        Assert.True(green.G > green.R && green.G > green.B, "still a hint of green");
+        Assert.True(green.G - Math.Min(green.R, green.B) < 80, $"muted, not loud: {green}");
+        Assert.Equal(ControlCenterView.HomeMood(new[] { lamp }), ControlCenterView.HomeMood(new[] { lamp, strip }, musicSync: true));
+    }
+
+    [Fact]
     public void TheSchoolTabTurnsWarmAsThingsComeDue()
     {
         var calm = ControlCenterView.SchoolMood(null);
