@@ -1,0 +1,69 @@
+using System.IO;
+using System.Reflection;
+using System.Windows;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using Microsoft.Extensions.DependencyInjection;
+using VNotch.Services;
+using VNotch.Tests.Fakes;
+using Xunit;
+
+namespace VNotch.Tests;
+
+[Collection("Localization")]
+public sealed class NotificationDropTests
+{
+    private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
+
+    [Fact]
+    public void TappingAnAppPillDropsItsLogoOutOfTheNotchOnATearingNeck() => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        await using var fixture = new GreetingAcceptanceTests.MainWindowFixture("en", greeting: false,
+            configureSettings: settings =>
+            {
+                settings.EnableLocalOnlyMode = true;
+                settings.DisableMouseLeaveAutoClose = true;
+            },
+            configureServices: services => services.AddSingleton<IMediaDetectionService>(new FakeMediaDetectionService()));
+        var window = fixture.Window;
+        window.Show();
+        var logo = new DrawingImage(new GeometryDrawing(Brushes.MediumPurple, null,
+            new RectangleGeometry(new Rect(0, 0, 14, 14), 3, 3)));
+        int taps = 0;
+        Invoke(window, "ShowNotchPill", "Discord", "Alex: hi", logo, false, new Func<bool>(() => { taps++; return true; }), null);
+        await WpfFrameWaiter.UntilAsync(() => window.ClaudeNotification.Opacity > 0.99, "pill shown", ct);
+
+        Assert.True((bool)Invoke(window, "TryHandleNotificationTap")!);
+        Assert.Equal(1, taps);
+
+        var layer = Field<System.Windows.Controls.Canvas>(window, "_dropLayer");
+        var move = Field<TranslateTransform>(window, "_dropMove");
+        var neck = Field<System.Windows.Shapes.Path>(window, "_dropNeck");
+        Assert.Equal(Visibility.Visible, layer.Visibility);
+        // Behind the notch, so the neck comes out from under it.
+        Assert.True(window.NotchContainer.Children.IndexOf(layer) < window.NotchContainer.Children.IndexOf(window.NotchWrapper));
+
+        bool sawNeck = false, sawTorn = false;
+        double firstY = double.NaN, lastY = double.NaN;
+        await WpfFrameWaiter.UntilAsync(() =>
+        {
+            if (layer.Visibility != Visibility.Visible) return true;
+            if (double.IsNaN(firstY)) firstY = move.Y;
+            lastY = move.Y;
+            if (neck.Visibility == Visibility.Visible) sawNeck = true;
+            else if (sawNeck) sawTorn = true;
+            return false;
+        }, "drop finished", ct);
+
+        Assert.True(sawNeck, "the drop never hung on a neck");
+        Assert.True(sawTorn, "the neck never tore");
+        Assert.True(lastY > firstY + 40, $"the drop did not fall ({firstY:F1} -> {lastY:F1})");
+        Assert.Null(Field<EventHandler?>(window, "_dropFrame"));
+        await WpfFrameWaiter.UntilAsync(() => window.ClaudeNotification.Visibility != Visibility.Visible, "pill gone", ct);
+    });
+
+    private static object? Invoke(MainWindow window, string name, params object?[] arguments) =>
+        typeof(MainWindow).GetMethod(name, Private)!.Invoke(window, arguments);
+
+    private static T Field<T>(MainWindow window, string name) => (T)typeof(MainWindow).GetField(name, Private)!.GetValue(window)!;
+}

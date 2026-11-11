@@ -249,7 +249,9 @@ public partial class MainWindow
         if (!_isClaudeNotificationVisible) return false;
         // Tapping a finished turn counts as seen, even when its window cannot come up and the notch opens instead.
         if (_claudeDoneShownId is { } done) ForgetClaudeDone(done);
+        IntPtr foregroundBefore = OverlayWindowController.GetForegroundWindowHandle();
         if (_notificationTap is not { } tap || !tap()) return false;
+        PlayNotificationDrop(foregroundBefore);
         _claudeNotificationTimer?.Stop();
         AnimateClaudeNotificationOut();
         return true;
