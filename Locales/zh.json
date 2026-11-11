@@ -1207,6 +1207,7 @@
   "legion.active": "已启用",
   "legion.tapToSet": "轻点切换",
   "legion.custom": "自定义模式已开启（在 Lenovo Vantage 中设置）",
+  "legion.customName": "自定义",
   "legion.keys": "按键",
   "legion.winKey": "Windows 键",
   "legion.touchpad": "触控板",

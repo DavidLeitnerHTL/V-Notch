@@ -1207,6 +1207,7 @@
   "legion.active": "Active",
   "legion.tapToSet": "Tap to switch",
   "legion.custom": "Custom mode is on (set up in Lenovo Vantage)",
+  "legion.customName": "Custom",
   "legion.keys": "Keys",
   "legion.winKey": "Windows key",
   "legion.touchpad": "Touchpad",

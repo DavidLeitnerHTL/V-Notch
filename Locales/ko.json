@@ -1207,6 +1207,7 @@
   "legion.active": "사용 중",
   "legion.tapToSet": "탭하여 전환",
   "legion.custom": "사용자 지정 모드가 켜져 있습니다(Lenovo Vantage에서 설정)",
+  "legion.customName": "사용자 지정",
   "legion.keys": "키",
   "legion.winKey": "Windows 키",
   "legion.touchpad": "터치패드",

@@ -1207,6 +1207,7 @@
   "legion.active": "有効",
   "legion.tapToSet": "タップで切り替え",
   "legion.custom": "カスタムモードがオンです（Lenovo Vantage で設定）",
+  "legion.customName": "カスタム",
   "legion.keys": "キー",
   "legion.winKey": "Windows キー",
   "legion.touchpad": "タッチパッド",

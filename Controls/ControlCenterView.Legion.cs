@@ -34,6 +34,15 @@ public partial class ControlCenterView
     ];
     private static readonly Color LegionCustomGlow = Color.FromRgb(0xD9, 0xB0, 0x88);
 
+    /// <summary>Glyph, name, colour and step (1-4, Custom 4) of a raw mode, shared with the notch's Fn+Q HUD.</summary>
+    internal static (string Glyph, string Name, Color Glow, int Step) LegionModeLook(int rawMode)
+    {
+        int index = Array.FindIndex(LegionModes, m => (int)m.Mode == rawMode);
+        if (index >= 0)
+            return (LegionModes[index].Glyph, Loc.Get(LegionModes[index].Key), LegionModes[index].Glow, index + 1);
+        return (LegionModes[^1].Glyph, Loc.Get("legion.customName"), LegionCustomGlow, LegionModes.Length);
+    }
+
     private DispatcherTimer? _legionTimer;
     private LegionState? _legion;
     private bool _legionReachable = true;

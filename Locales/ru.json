@@ -1207,6 +1207,7 @@
   "legion.active": "Активен",
   "legion.tapToSet": "Нажмите, чтобы переключить",
   "legion.custom": "Включён пользовательский режим (настроен в Lenovo Vantage)",
+  "legion.customName": "Пользовательский",
   "legion.keys": "Клавиши",
   "legion.winKey": "Клавиша Windows",
   "legion.touchpad": "Сенсорная панель",

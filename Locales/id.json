@@ -1207,6 +1207,7 @@
   "legion.active": "Aktif",
   "legion.tapToSet": "Ketuk untuk beralih",
   "legion.custom": "Mode kustom aktif (diatur di Lenovo Vantage)",
+  "legion.customName": "Kustom",
   "legion.keys": "Tombol",
   "legion.winKey": "Tombol Windows",
   "legion.touchpad": "Touchpad",

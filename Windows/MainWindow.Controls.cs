@@ -552,7 +552,7 @@ public partial class MainWindow
             return;
         }
 
-        if (VolumeIndicatorIcon != null)
+        if (VolumeIndicatorIcon != null && _levelHudKind != LevelHudKind.PowerMode)
         {
             string glyph = ((char)layout.IconCodepoint).ToString();
             if (!string.Equals(VolumeIndicatorIcon.Text, glyph, StringComparison.Ordinal))
@@ -561,7 +561,7 @@ public partial class MainWindow
 
         if (VolumeIndicatorPercentText != null)
         {
-            string pctText = $"{layout.Percentage}%";
+            string pctText = _levelHudKind == LevelHudKind.PowerMode ? _powerModeLook.Name ?? "" : $"{layout.Percentage}%";
             if (!string.Equals(VolumeIndicatorPercentText.Text, pctText, StringComparison.Ordinal))
             {
                 VolumeIndicatorPercentText.Text = pctText;
@@ -632,6 +632,8 @@ public partial class MainWindow
                 : fallbackAccent;
             if (_levelHudKind == LevelHudKind.Brightness)
                 UpdateSunIconState(volume, startAccent, animate && activeChanged);
+            else if (_levelHudKind == LevelHudKind.PowerMode)
+                UpdatePowerModeIconState(animate);
             else
                 UpdateSolidSpeakerIconState(layout.IconCodepoint, startAccent, animate && activeChanged);
 
@@ -1378,6 +1380,8 @@ public partial class MainWindow
             PlayVolumeOverscrollSpring(Math.Clamp(rawRatio, 0.0, 1.0), rawRatio > 1.0 ? (rawRatio - 1.0) : rawRatio);
         }
         float newVolume = (float)Math.Clamp(rawRatio, 0.0, 1.0);
+        // The power mode has four steps: the bar snaps to the one under the finger.
+        if (_levelHudKind == LevelHudKind.PowerMode) newVolume = PowerModeStep(newVolume) / (float)PowerModeSteps;
         if (_levelHudKind != LevelHudKind.AppVolume)
         {
             SetVolumeFill(VolumeIndicatorScale, newVolume, animate: true);

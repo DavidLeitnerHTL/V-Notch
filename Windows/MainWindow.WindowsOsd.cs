@@ -41,10 +41,12 @@ public partial class MainWindow
         // Explorer creates the window on the first press after it started; until then the first show finds it.
         _windowsOsd = FindWindowsOsd();
         if (_windowsOsd != IntPtr.Zero && CanShowLevelHud()) SetWindowsOsdSuppressed(true);
+        InitializeLenovoOsdHider();
     }
 
     private void DisposeWindowsOsdHider()
     {
+        DisposeLenovoOsdHider();
         _windowsOsdRevealTimer?.Stop();
         _windowShownHook?.Dispose();
         _windowShownHook = null;
@@ -55,6 +57,7 @@ public partial class MainWindow
     private void OnWindowShownOrHidden(uint eventType, IntPtr hwnd)
     {
         if (hwnd == IntPtr.Zero || _cleanedUp) return;
+        if (OnLenovoOsdShownOrHidden(eventType, hwnd)) return;
         if (hwnd != _windowsOsd)
         {
             if (eventType != EventObjectShow || !IsWindowsOsd(hwnd)) return;

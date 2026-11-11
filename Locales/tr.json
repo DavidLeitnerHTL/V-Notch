@@ -1207,6 +1207,7 @@
   "legion.active": "Etkin",
   "legion.tapToSet": "Değiştirmek için dokunun",
   "legion.custom": "Özel mod açık (Lenovo Vantage’da ayarlandı)",
+  "legion.customName": "Özel",
   "legion.keys": "Tuşlar",
   "legion.winKey": "Windows tuşu",
   "legion.touchpad": "Dokunmatik yüzey",

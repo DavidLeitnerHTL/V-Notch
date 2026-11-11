@@ -1207,6 +1207,7 @@
   "legion.active": "Aktywny",
   "legion.tapToSet": "Dotknij, aby przełączyć",
   "legion.custom": "Tryb niestandardowy jest włączony (ustawiony w Lenovo Vantage)",
+  "legion.customName": "Niestandardowy",
   "legion.keys": "Klawisze",
   "legion.winKey": "Klawisz Windows",
   "legion.touchpad": "Touchpad",

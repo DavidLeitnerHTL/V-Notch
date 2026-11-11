@@ -1207,6 +1207,7 @@
   "legion.active": "Aktiv",
   "legion.tapToSet": "Tippen zum Wechseln",
   "legion.custom": "Benutzerdefinierter Modus ist an (in Lenovo Vantage eingestellt)",
+  "legion.customName": "Benutzerdefiniert",
   "legion.keys": "Tasten",
   "legion.winKey": "Windows-Taste",
   "legion.touchpad": "Touchpad",

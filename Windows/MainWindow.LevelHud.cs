@@ -19,8 +19,20 @@ public partial class MainWindow
     {
         AppVolume,
         SystemVolume,
-        Brightness
+        Brightness,
+        // Lenovo's Fn+Q power mode: four steps, the mode's glyph and name, tinted in the mode's colour.
+        PowerMode
     }
+
+    private const int PowerModeSteps = 4;
+    private static readonly VNotch.Services.LegionMode[] PowerModeByStep =
+    [
+        VNotch.Services.LegionMode.Quiet, VNotch.Services.LegionMode.Balanced,
+        VNotch.Services.LegionMode.Performance, VNotch.Services.LegionMode.Extreme
+    ];
+    private LenovoPowerModeWatcher? _powerModeWatcher;
+    private (string Glyph, string Name, Color Glow, int Step) _powerModeLook;
+    private int _powerModeIconStep;
 
     private static readonly Color BrightnessHudTint = Color.FromRgb(0xE2, 0xBE, 0x86);
 
@@ -44,11 +56,34 @@ public partial class MainWindow
             OnSystemLevelChanged(LevelHudKind.Brightness, percent / 100f, muted: false));
         _brightnessWatcher.Start();
 
+        if (LegionService.IsSupported)
+        {
+            _powerModeWatcher = new LenovoPowerModeWatcher();
+            _powerModeWatcher.Changed += mode => Dispatcher.BeginInvoke(() => OnPowerModeChanged(mode));
+            _powerModeWatcher.Start();
+        }
+
         InitializeWindowsOsdHider();
+    }
+
+    private void OnPowerModeChanged(int rawMode)
+    {
+        if (_cleanedUp || _settings == null || _isGreetingActive || !CanShowClaudeAttention) return;
+        // While dragging the HUD its own writes come back here.
+        if (_isDraggingVolumeIndicator && _levelHudKind == LevelHudKind.PowerMode) return;
+        _powerModeLook = VNotch.Controls.ControlCenterView.LegionModeLook(rawMode);
+        bool refresh = _isVolumeIndicatorActive && _levelHudKind == LevelHudKind.PowerMode;
+        ShowLevelIndicator(_powerModeLook.Step / (float)PowerModeSteps, LevelHudKind.PowerMode);
+        // Same kind already on screen: ShowLevelIndicator keeps the look, so the new mode's colour goes on here.
+        if (refresh) ApplyLevelHudLook();
+        _powerModeRawShown = rawMode;
+        // The notch shows it now, so Lenovo's own overlay for this press goes.
+        if (_isVolumeIndicatorActive && _levelHudKind == LevelHudKind.PowerMode) HideLenovoOsdForPowerMode();
     }
 
     private void DisposeLevelHud()
     {
+        _powerModeWatcher?.Dispose();
         DisposeWindowsOsdHider();
         _masterVolumeWatcher?.Dispose();
         _brightnessWatcher?.Dispose();
@@ -81,13 +116,29 @@ public partial class MainWindow
                 int percent = (int)Math.Round(level * 100);
                 _levelWrites.Post("brightness", () => brightness.SetBrightness(percent));
                 break;
+            case LevelHudKind.PowerMode:
+                var mode = PowerModeByStep[PowerModeStep(level) - 1];
+                if ((int)mode == _powerModeRawShown) break;
+                _powerModeRawShown = (int)mode;
+                _powerModeLook = VNotch.Controls.ControlCenterView.LegionModeLook((int)mode);
+                ApplyLevelHudLook();
+                UpdateVolumeIndicatorHud(level, animate: true);
+                _levelWrites.Post("powermode", () => LegionService.SetModeAsync(mode).GetAwaiter().GetResult());
+                break;
         }
     }
+
+    private int _powerModeRawShown = -1;
+
+    /// <summary>A drag position or level as one of the four steps (any touch of the bar picks at least Quiet).</summary>
+    private static int PowerModeStep(double level) =>
+        Math.Clamp((int)Math.Ceiling(level * PowerModeSteps - 0.001), 1, PowerModeSteps);
 
     /// <summary>The music's colour for volume while music shows, warm sand for brightness, else white.</summary>
     private (Color Color, bool Has) EffectiveHudTint() => _levelHudKind switch
     {
         LevelHudKind.Brightness => (BrightnessHudTint, true),
+        LevelHudKind.PowerMode => (_powerModeLook.Glow, true),
         LevelHudKind.SystemVolume when !_isMusicCompactMode => (Colors.White, false),
         _ => (_hasVolumeHudMediaTint ? _volumeHudMediaColor : Colors.White, _hasVolumeHudMediaTint)
     };
@@ -103,11 +154,13 @@ public partial class MainWindow
     private void ApplyLevelHudLook()
     {
         bool sun = _levelHudKind == LevelHudKind.Brightness;
-        var speaker = sun ? Visibility.Collapsed : Visibility.Visible;
+        bool power = _levelHudKind == LevelHudKind.PowerMode;
+        var speaker = sun || power ? Visibility.Collapsed : Visibility.Visible;
         VolumeIndicatorSpeakerCone.Visibility = speaker;
         VolumeIndicatorWave1.Visibility = speaker;
         VolumeIndicatorWave2.Visibility = speaker;
-        if (sun)
+        ApplyPowerModeGlyph(power);
+        if (sun || power)
         {
             VolumeIndicatorMuteSlash.Visibility = Visibility.Collapsed;
             VolumeIndicatorMuteSlashGap.Visibility = Visibility.Collapsed;
@@ -149,6 +202,43 @@ public partial class MainWindow
         Timeline.SetDesiredFrameRate(pop, AnimationConfig.TargetFps);
         VolumeIndicatorIconScale.BeginAnimation(ScaleTransform.ScaleXProperty, pop);
         VolumeIndicatorIconScale.BeginAnimation(ScaleTransform.ScaleYProperty, pop);
+    }
+
+    private ScaleTransform? _powerModeIconScale;
+
+    /// <summary>The power mode wears its own glyph (moon, balance, gauge, bolt) instead of speaker or sun.</summary>
+    private void ApplyPowerModeGlyph(bool power)
+    {
+        VolumeIndicatorIcon.Visibility = power ? Visibility.Visible : Visibility.Collapsed;
+        if (!power) return;
+        if (_powerModeIconScale == null)
+        {
+            _powerModeIconScale = new ScaleTransform(1, 1);
+            VolumeIndicatorIcon.FontSize = 15;
+            VolumeIndicatorIcon.HorizontalAlignment = HorizontalAlignment.Left;
+            VolumeIndicatorIcon.VerticalAlignment = VerticalAlignment.Center;
+            VolumeIndicatorIcon.Margin = new Thickness(1, 0, 0, 0);
+            VolumeIndicatorIcon.RenderTransformOrigin = new Point(0.5, 0.5);
+            VolumeIndicatorIcon.RenderTransform = _powerModeIconScale;
+        }
+        VolumeIndicatorIcon.Text = _powerModeLook.Glyph;
+        VolumeIndicatorIcon.Foreground = new SolidColorBrush(_powerModeLook.Glow);
+    }
+
+    /// <summary>The glyph hops when the mode steps up or down, a touch more going up.</summary>
+    private void UpdatePowerModeIconState(bool animate)
+    {
+        int step = _powerModeLook.Step;
+        int previous = _powerModeIconStep;
+        _powerModeIconStep = step;
+        if (!animate || previous == 0 || previous == step || _powerModeIconScale == null || AnimationConfig.ReduceMotion) return;
+        double peak = step > previous ? 1.22 : 1.12;
+        var pop = new DoubleAnimationUsingKeyFrames();
+        pop.KeyFrames.Add(new EasingDoubleKeyFrame(peak, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(85)), _easeQuadOut));
+        pop.KeyFrames.Add(new EasingDoubleKeyFrame(1.0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(260)), _easeSoftSpring));
+        Timeline.SetDesiredFrameRate(pop, AnimationConfig.TargetFps);
+        _powerModeIconScale.BeginAnimation(ScaleTransform.ScaleXProperty, pop);
+        _powerModeIconScale.BeginAnimation(ScaleTransform.ScaleYProperty, pop);
     }
 
     private static void TintPath(Shape path, Color color, bool fill)
