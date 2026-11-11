@@ -664,9 +664,8 @@
                         <Grid.RenderTransform>
                             <TranslateTransform x:Name="BubbleDetailSlide" X="-8"/>
                         </Grid.RenderTransform>
-                        <Grid.Effect>
-                            <BlurEffect x:Name="BubbleDetailBlur" Radius="0" RenderingBias="Performance"/>
-                        </Grid.Effect>
+                        <!-- Only attached while it blurs (ActiveBlur): no idle effect surface under the orb's text. -->
+                        <ctrl:ActiveBlur.Blur><ctrl:BlurDefinition><BlurEffect x:Name="BubbleDetailBlur" Radius="0" RenderingBias="Performance"/></ctrl:BlurDefinition></ctrl:ActiveBlur.Blur>
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock x:Name="BubbleTitle"
                                        Foreground="{x:Static svc:UiPalette.PrimaryBrush}"
