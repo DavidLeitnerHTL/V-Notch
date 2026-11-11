@@ -1154,6 +1154,7 @@
   "control.claude.limit5h": "5시간 한도",
   "control.claude.limitWeek": "주간 한도",
   "control.claude.resetsIn": "{0} 후 초기화",
+  "control.claude.limitBack": "{0} 다시 사용 가능",
   "control.claude.tokensTask": "작업",
   "control.claude.tokensChat": "채팅",
   "control.claude.tokensContext": "컨텍스트",

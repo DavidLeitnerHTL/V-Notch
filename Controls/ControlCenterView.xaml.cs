@@ -179,6 +179,7 @@ public partial class ControlCenterView : UserControl, IDisposable
         _refreshTimer.Stop();
         _clockTimer.Stop();
         _piTimer?.Stop();
+        StopLiveTexts();
         _legionTimer?.Stop();
         _legionLoops.StopAll();
         _homeLoops.StopAll();
@@ -210,6 +211,7 @@ public partial class ControlCenterView : UserControl, IDisposable
         {
             if (Page == ControlCenterPage.System) ForgetStaleHistory();
             Refresh();
+            StartLiveTexts();
             if (Page == ControlCenterPage.Claude)
             {
                 RefreshUsage(UsageViewMinAge);
@@ -240,6 +242,7 @@ public partial class ControlCenterView : UserControl, IDisposable
         {
             _refreshTimer.Stop();
             _clockTimer.Stop();
+            StopLiveTexts();
             StopRipples();
             StopClaudeLoops();
             StopTokenClock();
@@ -2040,7 +2043,7 @@ public partial class ControlCenterView : UserControl, IDisposable
         return namePanel;
     }
 
-    private void AddStatus(Grid row, string text, Brush foreground, FrameworkElement? toggle = null)
+    private TextBlock AddStatus(Grid row, string text, Brush foreground, FrameworkElement? toggle = null)
     {
         // A grid, not a stack, so long hints trim instead of running under the buttons.
         var panel = new Grid { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0) };
@@ -2057,6 +2060,7 @@ public partial class ControlCenterView : UserControl, IDisposable
         panel.Children.Add(label);
         Grid.SetColumn(panel, 1);
         row.Children.Add(panel);
+        return label;
     }
 
     private static void AddAction(Grid row, FrameworkElement action)

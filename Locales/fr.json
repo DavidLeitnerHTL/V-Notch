@@ -1154,6 +1154,7 @@
   "control.claude.limit5h": "Limite de 5 heures",
   "control.claude.limitWeek": "Limite hebdomadaire",
   "control.claude.resetsIn": "Réinitialisation dans {0}",
+  "control.claude.limitBack": "{0} de nouveau disponible",
   "control.claude.tokensTask": "Tâche",
   "control.claude.tokensChat": "Discussion",
   "control.claude.tokensContext": "Contexte",

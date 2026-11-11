@@ -45,6 +45,9 @@ public sealed partial class WeatherView : UserControl, IDisposable
     private readonly LoopSet _loops = new();
     private LoopSet _skyLoops = new();
     private readonly DispatcherTimer _refreshTimer;
+    // The forecast is read every 15 minutes; "rain in 20 min" counts down in between.
+    private readonly DispatcherTimer _nowcastTimer;
+    private TextBlock? _nowcastLabel;
     private Func<CancellationToken, Task<WeatherForecast?>>? _fetch;
     private Func<bool>? _canGoOnline;
     private WeatherForecast? _forecast;
@@ -70,6 +73,8 @@ public sealed partial class WeatherView : UserControl, IDisposable
 
         _refreshTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = RefreshEvery };
         _refreshTimer.Tick += (_, _) => LoadAsync().SafeFireAndForget("WEATHER");
+        _nowcastTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(20) };
+        _nowcastTimer.Tick += (_, _) => TickNowcast();
         IsVisibleChanged += OnIsVisibleChanged;
         Loc.LanguageChanged += OnLanguageChanged;
     }
@@ -95,6 +100,7 @@ public sealed partial class WeatherView : UserControl, IDisposable
         if (_disposed) return;
         _disposed = true;
         _refreshTimer.Stop();
+        _nowcastTimer.Stop();
         _loadCts?.Cancel();
         _loadCts?.Dispose();
         _loops.StopAll();
@@ -112,11 +118,14 @@ public sealed partial class WeatherView : UserControl, IDisposable
         {
             Render(entrance: true);
             _refreshTimer.Start();
+            _nowcastTimer.Start();
             if (_forecast == null || DateTime.Now - _forecast.FetchedAt > StaleAfter) LoadAsync().SafeFireAndForget("WEATHER");
         }
         else
         {
             _refreshTimer.Stop();
+            _nowcastTimer.Stop();
+            _nowcastLabel = null;
             _loops.StopAll();
             _skyLoops.StopAll();
             _sky = null;
@@ -453,6 +462,7 @@ public sealed partial class WeatherView : UserControl, IDisposable
         var label = Text(message, 11.5, Soft, trim: true);
         label.VerticalAlignment = VerticalAlignment.Center;
         label.Margin = new Thickness(4, 0, 8, 0);
+        _nowcastLabel = label;
         Grid.SetColumn(label, 1);
         grid.Children.Add(label);
 
@@ -532,6 +542,20 @@ public sealed partial class WeatherView : UserControl, IDisposable
     /// What the next hours bring, in words: "Rain in 20 min", "Rain stops in about 30 min", "Rain from about 18:00",
     /// or dry. Quarter hours when the source has them, hours otherwise.
     /// </summary>
+    private void TickNowcast()
+    {
+        if (_disposed || _forecast == null || _nowcastLabel == null) return;
+        try
+        {
+            string text = NowcastText(_forecast, DateTime.Now).Text;
+            if (text != _nowcastLabel.Text) _nowcastLabel.Text = text;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
+        {
+            // An odd forecast keeps the last text until the next read.
+        }
+    }
+
     internal static (string Text, bool Wet, bool Snow) NowcastText(WeatherForecast forecast, DateTime now)
     {
         const double WetQuarter = 0.1;  // mm in 15 minutes

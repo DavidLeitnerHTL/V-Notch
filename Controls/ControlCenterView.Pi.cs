@@ -242,7 +242,13 @@ public partial class ControlCenterView
             var left = deadline.Due - now;
             var row = NewRow("\uE916", deadline.Name);
             Brush urgency = left < TimeSpan.FromDays(1) ? DueToday : left < TimeSpan.FromDays(3) ? DueSoon : Muted;
-            AddStatus(row, $"{ShortCourse(deadline.Course)} · {DueText(deadline.Due, left)}", urgency);
+            var status = AddStatus(row, "", urgency);
+            LiveText(status, () =>
+            {
+                string due = $"{ShortCourse(deadline.Course)} · {DueText(deadline.Due, deadline.Due - DateTimeOffset.Now)}";
+                status.ToolTip = due;
+                return due;
+            });
             // Open the project or the WMC repo, fetch the task's files, hand maths photos in: like the dashboard's panel.
             if (deadline.Cmid > 0) AddAction(row, PiTaskActions(deadline, row));
             // Straight to the assignment's page, where it is handed in (a WMC task: its Moodle link to Classroom 50).
@@ -278,11 +284,17 @@ public partial class ControlCenterView
         const double Stroke = 7;
         double r = (HeroRing - Stroke) / 2, c = HeroRing / 2;
         var value = new Path { Stroke = _mood, StrokeThickness = Stroke, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round };
-        bool hours = left < TimeSpan.FromDays(1);
-        var number = MakeLabel(hours ? $"{Math.Max(0, (int)left.TotalHours)}" : $"{(int)Math.Ceiling(left.TotalDays)}", 20, VNotch.Services.UiPalette.PrimaryBrush);
+        var number = MakeLabel("", 20, VNotch.Services.UiPalette.PrimaryBrush);
         number.HorizontalAlignment = HorizontalAlignment.Center;
-        var unit = MakeLabel(Loc.Get(hours ? "school.hours" : "school.days"), 10, Muted);
+        var unit = MakeLabel("", 10, Muted);
         unit.HorizontalAlignment = HorizontalAlignment.Center;
+        // Days, then hours on the last day: counted on between the Pi's reads.
+        LiveText(number, () =>
+        {
+            var l = deadline.Due - DateTimeOffset.Now;
+            return l < TimeSpan.FromDays(1) ? $"{Math.Max(0, (int)l.TotalHours)}" : $"{(int)Math.Ceiling(l.TotalDays)}";
+        });
+        LiveText(unit, () => Loc.Get(deadline.Due - DateTimeOffset.Now < TimeSpan.FromDays(1) ? "school.hours" : "school.days"));
         var ring = new Grid
         {
             Width = HeroRing,

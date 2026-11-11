@@ -59,7 +59,11 @@ public partial class MainWindow
         ClaudeCenter.AttachSoundSwitch(() => _settings?.PlayClaudeSounds ?? false, SetClaudeSounds);
 
         _claudeSweepTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = ClaudeSweepInterval };
-        _claudeSweepTimer.Tick += (_, _) => _claudeTracker?.Sweep();
+        _claudeSweepTimer.Tick += (_, _) =>
+        {
+            _claudeTracker?.Sweep();
+            CheckClaudeLimitResets();
+        };
         _claudeSweepTimer.Start();
         // Asking Windows about notification access is a cross-apartment call that pumps messages: after startup.
         Dispatcher.BeginInvoke(DispatcherPriority.Background, InitializeAppNotifications);

@@ -1154,6 +1154,7 @@
   "control.claude.limit5h": "Limiet van 5 uur",
   "control.claude.limitWeek": "Weeklimiet",
   "control.claude.resetsIn": "Reset over {0}",
+  "control.claude.limitBack": "{0} is weer vrij",
   "control.claude.tokensTask": "Taak",
   "control.claude.tokensChat": "Chat",
   "control.claude.tokensContext": "Context",

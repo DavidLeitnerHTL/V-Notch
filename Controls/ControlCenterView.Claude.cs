@@ -854,15 +854,26 @@ public partial class ControlCenterView
         stack.Children.Add(bar);
         if (window.ResetsAt is { } resets)
         {
-            stack.Children.Add(new TextBlock
+            // Counts down on its own; once the window is over, the limits are read again (only read, nothing is sent
+            // to Claude, so no new window starts).
+            bool askedAfterReset = false;
+            stack.Children.Add(LiveText(new TextBlock
             {
-                Text = Loc.Get("control.claude.resetsIn", FormatDuration(resets - DateTimeOffset.UtcNow)),
                 FontFamily = ControlFont,
                 FontSize = 11,
                 FontWeight = FontWeights.SemiBold,
                 Foreground = ChipSoft,
                 TextTrimming = TextTrimming.CharacterEllipsis
-            });
+            }, () =>
+            {
+                var left = resets - DateTimeOffset.UtcNow;
+                if (left <= TimeSpan.Zero && !askedAfterReset)
+                {
+                    askedAfterReset = true;
+                    RefreshUsage(TimeSpan.Zero);
+                }
+                return Loc.Get("control.claude.resetsIn", FormatDuration(left));
+            }));
         }
 
         var limitBar = new LimitBar(key, used, grow, new WeatherTween { Step = v => percent.Text = $"{Math.Round(v)} %" });

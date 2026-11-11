@@ -1154,6 +1154,7 @@
   "control.claude.limit5h": "Batas 5 jam",
   "control.claude.limitWeek": "Batas mingguan",
   "control.claude.resetsIn": "Diatur ulang dalam {0}",
+  "control.claude.limitBack": "{0} tersedia lagi",
   "control.claude.tokensTask": "Tugas",
   "control.claude.tokensChat": "Obrolan",
   "control.claude.tokensContext": "Konteks",

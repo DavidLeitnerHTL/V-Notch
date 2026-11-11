@@ -1154,6 +1154,7 @@
   "control.claude.limit5h": "5 saatlik sınır",
   "control.claude.limitWeek": "Haftalık sınır",
   "control.claude.resetsIn": "{0} içinde sıfırlanır",
+  "control.claude.limitBack": "{0} yeniden kullanılabilir",
   "control.claude.tokensTask": "Görev",
   "control.claude.tokensChat": "Sohbet",
   "control.claude.tokensContext": "Bağlam",
