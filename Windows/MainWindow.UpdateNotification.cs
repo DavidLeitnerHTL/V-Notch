@@ -44,6 +44,16 @@ public partial class MainWindow
     {
         if (_isUpdateInstalling) return;
 
+        // The real service reads upstream's release feed. This fork takes upstream by merging, so installing
+        // that build would replace the fork: the notch never offers it.
+        if (_updateService is UpdateService)
+        {
+            _isUpdateAvailable = false;
+            _availableUpdate = null;
+            HideUpdateNotification();
+            return;
+        }
+
         if (updateInfo?.IsPrerelease == true && !_settings.IncludePrereleaseUpdates)
         {
             if (_availableUpdate?.IsPrerelease == true)

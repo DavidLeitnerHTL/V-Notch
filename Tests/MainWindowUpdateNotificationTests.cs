@@ -147,7 +147,11 @@ public sealed class MainWindowUpdateNotificationTests
                 settings.DisableMouseLeaveAutoClose = true;
                 settings.EnableDynamicIslandMode = island;
                 settings.ShowBatteryIndicator = true;
-            }, configureServices: services => services.AddSingleton<IMediaDetectionService>(new FakeMediaDetectionService()));
+            }, configureServices: services =>
+            {
+                services.AddSingleton<IMediaDetectionService>(new FakeMediaDetectionService());
+                services.AddSingleton<IUpdateService>(new PendingUpdateService());
+            });
         var window = fixture.Window;
         var coordinator = Field<VNotch.Controllers.NotchTransitionCoordinator>(window, "_transitionCoordinator");
         window.Show();
@@ -177,6 +181,19 @@ public sealed class MainWindowUpdateNotificationTests
     });
 
     private static UpdateInfo NewRelease(string version) => new() { Version = version, IsNewerVersion = true };
+
+    [Fact]
+    public void TheForkNeverOffersUpstreamReleasesFromTheRealFeed() => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        await using var fixture = new GreetingAcceptanceTests.MainWindowFixture("en", greeting: false,
+            configureSettings: settings => settings.EnableLocalOnlyMode = true,
+            configureServices: services => services.AddSingleton<IMediaDetectionService>(new FakeMediaDetectionService()));
+        var window = fixture.Window;
+        Assert.IsType<UpdateService>(Field<IUpdateService?>(window, "_updateService"));
+        window.SetAvailableUpdate(NewRelease("9.9.0"));
+        await WpfFrameWaiter.UntilAsync(() => window.UpdateNotificationButton.Visibility == Visibility.Collapsed, "no upstream update offered", ct);
+        Assert.False(Field<bool>(window, "_isUpdateAvailable"));
+    });
 
     [Fact]
     public void OptingOutIgnoresLateBetaEventsAndClearsBetaNotification() => SharedStaTestRunner.RunAsync(async ct =>
