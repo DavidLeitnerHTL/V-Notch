@@ -35,6 +35,7 @@ public partial class MainWindow
             _lastBackgroundThumbnail = null;
             _lastTrackId = null;
             HideMediaBackground();
+            CoverColorsFile.Clear();
             return;
         }
 
@@ -48,6 +49,8 @@ public partial class MainWindow
         var palette = DynamicIslandColorExtractor.GetDynamicIslandPalette(info.Thumbnail);
         var dominantColor = palette.Main;
         var subColor = palette.Sub;
+        // The Govee strip's music sync lights up in these.
+        CoverColorsFile.Publish(dominantColor, subColor);
 
         if (glass)
         {
