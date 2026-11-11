@@ -1102,7 +1102,9 @@ public partial class MainWindow
     private void StartTitleShimmer()
     {
         _shimmerWanted = true;
-        if (!AmbientAnimationsAllowed) return;
+        // The title is in the open music tab; while it is hidden the sweep would redraw the notch for nothing.
+        HookAmbientVisibility();
+        if (!AmbientAnimationsAllowed || !MediaPlayback.TrackTitle.IsVisible) return;
         if (_isShimmerActive) return;
         _isShimmerActive = true;
 
@@ -1128,7 +1130,7 @@ public partial class MainWindow
         {
             RepeatBehavior = RepeatBehavior.Forever
         };
-        Timeline.SetDesiredFrameRate(storyboard, VNotch.Services.AnimationConfig.TargetFps);
+        Timeline.SetDesiredFrameRate(storyboard, AmbientSweepFps);
 
         var anim0 = new DoubleAnimation
         {
@@ -1160,11 +1162,11 @@ public partial class MainWindow
         Storyboard.SetTargetProperty(anim2,
             new PropertyPath("(TextBlock.Foreground).(GradientBrush.GradientStops)[2].(GradientStop.Offset)", Array.Empty<object>()));
 
-        System.Windows.Media.Animation.Timeline.SetDesiredFrameRate(anim0, VNotch.Services.AnimationConfig.TargetFps);
+        System.Windows.Media.Animation.Timeline.SetDesiredFrameRate(anim0, AmbientSweepFps);
         storyboard.Children.Add(anim0);
-        System.Windows.Media.Animation.Timeline.SetDesiredFrameRate(anim1, VNotch.Services.AnimationConfig.TargetFps);
+        System.Windows.Media.Animation.Timeline.SetDesiredFrameRate(anim1, AmbientSweepFps);
         storyboard.Children.Add(anim1);
-        System.Windows.Media.Animation.Timeline.SetDesiredFrameRate(anim2, VNotch.Services.AnimationConfig.TargetFps);
+        System.Windows.Media.Animation.Timeline.SetDesiredFrameRate(anim2, AmbientSweepFps);
         storyboard.Children.Add(anim2);
 
         _titleShimmerStoryboard = storyboard;

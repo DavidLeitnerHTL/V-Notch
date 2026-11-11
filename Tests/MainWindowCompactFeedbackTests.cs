@@ -59,7 +59,8 @@ public sealed class MainWindowCompactFeedbackTests
             Invoke(window, "HandleBatteryUpdate", new BatteryInfo { Percentage = 60, IsPluggedIn = false });
             Invoke(window, "HandleBatteryUpdate", new BatteryInfo { Percentage = 60, IsCharging = true, IsPluggedIn = true });
             Assert.True(Field<bool>(window, "_chargingPulseWanted"));
-            Assert.NotNull(Field<object?>(window, "_chargingPulseStoryboard"));
+            // The battery sits in the open notch's status bar: the pulse waits until it is on screen, then runs.
+            Assert.Equal(window.BatteryFill.IsVisible, Field<object?>(window, "_chargingPulseStoryboard") != null);
             // Plugging in and out play in the orb beside the notch now, not as a glance in it.
             Assert.Equal("PlugIn", Field<object>(window, "_chargeMoment").ToString());
             Assert.False(Field<bool>(window, "_isChargingNotificationVisible"));

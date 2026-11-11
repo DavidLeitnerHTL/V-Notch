@@ -19,17 +19,32 @@ public partial class MainWindow
     private int _chargingGlanceToken = 0;
     private UiScheduledTimer? _chargingNotificationDismissTimer;
 
+    // A slow opacity pulse looks the same at 30 fps; a shimmer sweep at 60. Neither needs the display's 165-360 Hz.
+    private const int AmbientPulseFps = 30;
+    private static int AmbientSweepFps => Math.Min(AnimationConfig.TargetFps, 60);
+    private bool _ambientVisibilityHooked;
+
+    /// <summary>The pulse and the title shimmer live in the open notch; they start and stop with their element.</summary>
+    private void HookAmbientVisibility()
+    {
+        if (_ambientVisibilityHooked) return;
+        _ambientVisibilityHooked = true;
+        BatteryFill.IsVisibleChanged += (_, _) => RefreshAmbientAnimations();
+        MediaPlayback.TrackTitle.IsVisibleChanged += (_, _) => RefreshAmbientAnimations();
+    }
+
     private bool AmbientAnimationsAllowed =>
         !AnimationConfig.ReduceMotion && _isNotchVisible && !_isHiddenByFullscreen;
 
     private void RefreshAmbientAnimations()
     {
+        HookAmbientVisibility();
         bool allowed = AmbientAnimationsAllowed;
 
-        if (_chargingPulseWanted && allowed) StartChargingPulse();
+        if (_chargingPulseWanted && allowed && BatteryFill.IsVisible) StartChargingPulse();
         else StopChargingPulseInternal();
 
-        if (_shimmerWanted && allowed) StartTitleShimmer();
+        if (_shimmerWanted && allowed && MediaPlayback.TrackTitle.IsVisible) StartTitleShimmer();
         else StopTitleShimmerInternal();
 
         RefreshChargePulse();
@@ -386,14 +401,16 @@ public partial class MainWindow
     private void StartChargingPulse()
     {
         _chargingPulseWanted = true;
-        if (!AmbientAnimationsAllowed) return;
+        // The battery sits in the open notch's status bar: pulsing it while the notch is closed only redrew the
+        // window at the display rate for nothing. BatteryFill.IsVisibleChanged restarts it when it shows.
+        if (!AmbientAnimationsAllowed || !BatteryFill.IsVisible) return;
         if (_chargingPulseStoryboard != null) return;
 
         _chargingPulseStoryboard = new Storyboard
         {
             RepeatBehavior = RepeatBehavior.Forever
         };
-        Timeline.SetDesiredFrameRate(_chargingPulseStoryboard, VNotch.Services.AnimationConfig.TargetFps);
+        Timeline.SetDesiredFrameRate(_chargingPulseStoryboard, AmbientPulseFps);
 
         var pulseAnimation = new DoubleAnimation
         {
@@ -406,7 +423,7 @@ public partial class MainWindow
 
         Storyboard.SetTarget(pulseAnimation, BatteryFill);
         Storyboard.SetTargetProperty(pulseAnimation, new PropertyPath("Opacity", Array.Empty<object>()));
-        System.Windows.Media.Animation.Timeline.SetDesiredFrameRate(pulseAnimation, VNotch.Services.AnimationConfig.TargetFps);
+        System.Windows.Media.Animation.Timeline.SetDesiredFrameRate(pulseAnimation, AmbientPulseFps);
         _chargingPulseStoryboard.Children.Add(pulseAnimation);
 
         _chargingPulseStoryboard.Begin();
