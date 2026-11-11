@@ -96,7 +96,8 @@ public partial class MainWindow
         _pendingSwipeDirection = direction;
         Task.Run(() =>
         {
-            var devices = AudioMixerService.EnumerateOutputDevices();
+            // Only real speakers and headphones, not the virtual mixes (Wave Link) or hands-free profiles.
+            var devices = VNotch.Services.ControlCenter.OutputDevices.List(Array.Empty<string>());
             bool switched = false;
             if (devices.Count > 1)
             {

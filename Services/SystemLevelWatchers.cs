@@ -40,6 +40,18 @@ internal sealed class MasterVolumeWatcher : IDisposable
     /// <summary>Another speaker became the default; its volume and mute. Raised on a worker thread.</summary>
     public event Action<float, bool>? SpeakerSwitched;
 
+    /// <summary>A sound device (any direction) became usable (true) or went away (false). Raised on a worker thread.</summary>
+    public event Action<string, bool>? EndpointStateChanged;
+
+    /// <summary>The default speaker's volume 0..1 and mute, as last seen.</summary>
+    public (float Volume, bool Muted) Current
+    {
+        get
+        {
+            lock (_values) return (Math.Max(0f, _lastVolume), _lastMuted);
+        }
+    }
+
     public MasterVolumeWatcher()
     {
         _callback = new VolumeCallback(this);
@@ -201,7 +213,13 @@ internal sealed class MasterVolumeWatcher : IDisposable
 
     private sealed class DeviceEvents(MasterVolumeWatcher owner) : IMMNotificationClient
     {
-        public int OnDeviceStateChanged(string deviceId, int newState) => 0;
+        public int OnDeviceStateChanged(string deviceId, int newState)
+        {
+            // DEVICE_STATE_ACTIVE = 1. Off the audio thread, like the default change.
+            if (!Volatile.Read(ref owner._disposed))
+                Task.Run(() => owner.EndpointStateChanged?.Invoke(deviceId, newState == 1));
+            return 0;
+        }
         public int OnDeviceAdded(string deviceId) => 0;
         public int OnDeviceRemoved(string deviceId) => 0;
         public int OnPropertyValueChanged(string deviceId, PropertyKey key) => 0;

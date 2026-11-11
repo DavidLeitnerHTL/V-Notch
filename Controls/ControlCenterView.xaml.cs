@@ -115,6 +115,7 @@ public partial class ControlCenterView : UserControl, IDisposable
         ControlRoot.Children.Add(_networkSection);
         ControlRoot.Children.Add(_bluetoothSection);
         ControlRoot.Children.Add(_claudeSection);
+        ControlRoot.Children.Add(_appsSection);
 
         _refreshTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = RefreshInterval };
         _refreshTimer.Tick += (_, _) => Refresh();
@@ -180,6 +181,7 @@ public partial class ControlCenterView : UserControl, IDisposable
         _clockTimer.Stop();
         _piTimer?.Stop();
         StopLiveTexts();
+        DetachOutput();
         _legionTimer?.Stop();
         _legionLoops.StopAll();
         _homeLoops.StopAll();
@@ -243,6 +245,7 @@ public partial class ControlCenterView : UserControl, IDisposable
             _refreshTimer.Stop();
             _clockTimer.Stop();
             StopLiveTexts();
+            if (_outputOpen) SetOutputOpen(false);
             StopRipples();
             StopClaudeLoops();
             StopTokenClock();
@@ -387,6 +390,8 @@ public partial class ControlCenterView : UserControl, IDisposable
         public List<BluetoothDevice> Devices = new();
         public SystemStats? Stats;
         public List<ProcessLoad>? Top;
+        public List<OutputDevice>? Outputs;
+        public List<AudioSessionInfo>? Apps;
     }
 
     private Snapshot ReadSnapshot(bool? wifiOn, bool? bluetoothOn, bool rescanWifi, bool withStats, TopMode top)
@@ -404,6 +409,7 @@ public partial class ControlCenterView : UserControl, IDisposable
             }
         }
         if (bluetoothOn != false) s.Devices = BluetoothControl.Paired();
+        if (Page == ControlCenterPage.System && withStats) ReadSound(s);
         return s;
     }
 
@@ -427,6 +433,7 @@ public partial class ControlCenterView : UserControl, IDisposable
             _bluetoothKey = bluetoothKey;
             BuildBluetoothSection(s);
         }
+        if (Page == ControlCenterPage.System) ApplySound(s);
     }
 
     private string NetworkKey(Snapshot s)
@@ -472,7 +479,8 @@ public partial class ControlCenterView : UserControl, IDisposable
 
     private sealed class StatTiles
     {
-        public required StatTile Cpu, Gpu, Ram, Ping, Net;
+        // Ping and network made way for the sound output (AddStatTile still knows how to draw them).
+        public required StatTile Cpu, Gpu, Ram;
     }
 
     private StatTiles? _statsTiles;
@@ -490,7 +498,8 @@ public partial class ControlCenterView : UserControl, IDisposable
         if (!IsExpanded("system"))
         {
             // Collapsed: a placeholder so the section is not rebuilt on every refresh.
-            _statsTiles = new StatTiles { Cpu = Dummy(), Gpu = Dummy(), Ram = Dummy(), Ping = Dummy(), Net = Dummy() };
+            _statsTiles = new StatTiles { Cpu = Dummy(), Gpu = Dummy(), Ram = Dummy() };
+            _outputTile = null;
             return;
         }
 
@@ -501,11 +510,14 @@ public partial class ControlCenterView : UserControl, IDisposable
         {
             Cpu = AddStatTile(grid, 0, "CPU", "cpu", () => ToggleTop(TopMode.Cpu)),
             Gpu = AddStatTile(grid, 2, "GPU", "gpu", () => Launch("taskmgr.exe")),
-            Ram = AddStatTile(grid, 4, "RAM", "ram", () => ToggleTop(TopMode.Memory)),
-            Ping = AddStatTile(grid, 6, "Ping", null, null),
-            Net = AddStatTile(grid, 8, Loc.Get("control.network"), null, () => Launch("ms-settings:network-status"))
+            Ram = AddStatTile(grid, 4, "RAM", "ram", () => ToggleTop(TopMode.Memory))
         };
+        _outputTile = AddOutputTile(grid, 6, 3);
         _statsSection.Children.Add(grid);
+        _outputSection.Children.Clear();
+        _statsSection.Children.Add(_outputSection);
+        _outputSection.Children.Add(_outputDrawer);
+        if (_outputOpen) BuildOutputRow(animate: false);
         _topList.Children.Clear();
         _topRows.Clear();
         _topListShown = false;
@@ -631,15 +643,6 @@ public partial class ControlCenterView : UserControl, IDisposable
         SetLoad(tiles.Gpu, stats.GpuPercent);
         SetLoad(tiles.Ram, stats.RamPercent);
         tiles.Ram.Value.ToolTip = $"{stats.RamUsedGb:0.0} / {stats.RamTotalGb:0.0} GB";
-
-        tiles.Ping.Value.Text = stats.PingMs is { } ping ? $"{ping} ms" : "–";
-        tiles.Ping.Detail!.Text = "1.1.1.1";
-        if (tiles.Ping.Ping != null) Ping(tiles.Ping.Ping, stats.PingMs);
-
-        tiles.Net.Value.Text = FormatRate(stats.DownBytesPerSecond);
-        tiles.Net.Detail!.Text = FormatRate(stats.UpBytesPerSecond);
-        if (tiles.Net.Down != null && stats.DownBytesPerSecond >= 256 * 1024) Nudge(tiles.Net.Down, 1);
-        if (tiles.Net.Up != null && stats.UpBytesPerSecond >= 64 * 1024) Nudge(tiles.Net.Up, -1);
     }
 
     private void SetLoad(StatTile tile, double? percent)
@@ -1995,6 +1998,7 @@ public partial class ControlCenterView : UserControl, IDisposable
             case "legion.mode":
             case "legion.keys": ToggleLegionSection(section); return;
             case "system": _statsTiles = null; break;
+            case "apps": _appsKey = ""; break;
             case "claude": _claudeKey = ""; BuildClaudeSection(); return;
         }
         if (_snapshot != null) ApplySnapshot(_snapshot);

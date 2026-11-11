@@ -65,6 +65,7 @@ public partial class MainWindow
 
         InitializeWindowsOsdHider();
         InitializeOutputSwipe();
+        InitializeOutputAuto();
     }
 
     private void OnPowerModeChanged(int rawMode)

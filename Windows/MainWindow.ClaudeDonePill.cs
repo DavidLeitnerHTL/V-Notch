@@ -99,7 +99,7 @@ public partial class MainWindow
     /// <summary>A right-click pushes the done pill away without going to the session.</summary>
     private void NotchWrapper_DismissClaudeDone(object sender, MouseButtonEventArgs e)
     {
-        if (!IsClaudeDonePillShown) return;
+        if (!IsClaudeDonePillShown || IsSpeakerDragSwitch) return;
         e.Handled = true;
         ForgetClaudeDone(_claudeDoneShownId!);
         _claudeNotificationTimer?.Stop();
