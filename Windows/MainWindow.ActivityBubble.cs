@@ -87,6 +87,7 @@ public partial class MainWindow
         HookActivityBubble();
         bool surface = MusicCompactContent.IsVisible || CollapsedContent.IsVisible;
         LiveActivity want = !_cleanedUp && surface && !_isExpanded && !_isMusicExpanded && !_isAnimating
+                && !_spotlightMorphOwnsNotchVisibility
             ? _bubbleWanted
             : LiveActivity.None;
 
@@ -136,6 +137,18 @@ public partial class MainWindow
         if (!_bubbleShown) return;
         _bubbleShown = false;
         RetractBubble();
+    }
+
+    /// <summary>
+    /// Spotlight takes over the notch and hides it at once. The orb and the charge cable sit outside the notch,
+    /// so they leave at the same instant instead of sliding under a notch that is no longer there.
+    /// </summary>
+    private void HideBubbleForSpotlight()
+    {
+        if (!_bubbleShown) return;
+        _bubbleShown = false;
+        RetractBubble(instant: true);
+        ChargeCable.Visibility = Visibility.Collapsed;
     }
 
     /// <summary>Just right of the notch (and its ear), flush with its top.</summary>
@@ -319,7 +332,7 @@ public partial class MainWindow
     }
 
     /// <summary>Back in under the notch, quicker than it came: a short pull, then gone.</summary>
-    private void RetractBubble()
+    private void RetractBubble(bool instant = false)
     {
         int token = ++_bubbleToken;
         _bubbleCloseTimer?.Stop();
@@ -328,7 +341,7 @@ public partial class MainWindow
         if (_bubbleOpen && !_bubbleListMode) HideBubbleDetail(fast: true);
         _bubbleOpen = false;
 
-        if (AnimationConfig.ReduceMotion || !ActivityBubble.IsVisible)
+        if (instant || AnimationConfig.ReduceMotion || !ActivityBubble.IsVisible)
         {
             FinishRetract();
             return;

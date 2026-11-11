@@ -1340,6 +1340,7 @@ public partial class MainWindow : Window
                 _spotlightRestoreNotchHitTesting = NotchWrapper.IsHitTestVisible;
             }
             _spotlightMorphOwnsNotchVisibility = true;
+            HideBubbleForSpotlight();
 
             // Change the base underneath any return-handoff animation before
             NotchWrapper.Opacity = 0;
@@ -1376,6 +1377,7 @@ public partial class MainWindow : Window
         }
 
         _spotlightMorphOwnsNotchVisibility = false;
+        UpdateActivityBubble();
         CompleteSpotlightReturnScaleHandoff();
         _transitionCoordinator.CompleteSpotlightHandoff(_activeSpotlightSessionId, restorePreviousView: true);
         SyncLiquidGlassAfterSpotlightHandoff();
