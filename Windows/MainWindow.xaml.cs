@@ -410,6 +410,7 @@ public partial class MainWindow : Window
             {
                 InvalidateGlassDpiScale();
                 PositionAtTop();
+                ControlCenter.RefreshDisplaysOnDisplayChange();
             },
             HandleClipboardUpdated);
         _overlayWindow.TargetScreen = () => MonitorSelection.Resolve(_settings);

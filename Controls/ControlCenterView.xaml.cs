@@ -114,6 +114,8 @@ public partial class ControlCenterView : UserControl, IDisposable
         ControlRoot.Children.Add(_statsSection);
         ControlRoot.Children.Add(_networkSection);
         ControlRoot.Children.Add(_bluetoothSection);
+        ControlRoot.Children.Add(_displaysSection);
+        _expanded["displays"] = false;
         ControlRoot.Children.Add(_claudeSection);
         ControlRoot.Children.Add(_appsSection);
 
@@ -201,6 +203,11 @@ public partial class ControlCenterView : UserControl, IDisposable
         _disposed = true;
         _refreshTimer.Stop();
         _clockTimer.Stop();
+        _displayTimer?.Stop();
+        _expireDisplayChanges = true;
+        _displayChanges?.Tick();
+        _displayBrightness?.Dispose();
+        if (_displayApi is IDisposable displayApi) displayApi.Dispose();
         _piTimer?.Stop();
         StopLiveTexts();
         DetachOutput();
@@ -234,7 +241,11 @@ public partial class ControlCenterView : UserControl, IDisposable
         if (_disposed) return;
         if (IsVisible)
         {
-            if (Page == ControlCenterPage.System) ForgetStaleHistory();
+            if (Page == ControlCenterPage.System)
+            {
+                ForgetStaleHistory();
+                if (IsExpanded("displays")) BuildDisplaysSection();
+            }
             Refresh();
             StartLiveTexts();
             if (Page == ControlCenterPage.Claude)
@@ -456,7 +467,11 @@ public partial class ControlCenterView : UserControl, IDisposable
             _bluetoothKey = bluetoothKey;
             BuildBluetoothSection(s);
         }
-        if (Page == ControlCenterPage.System) ApplySound(s);
+        if (Page == ControlCenterPage.System)
+        {
+            if (_displaysSection.Children.Count == 0) BuildDisplaysSection();
+            ApplySound(s);
+        }
     }
 
     private string NetworkKey(Snapshot s)
@@ -2045,6 +2060,7 @@ public partial class ControlCenterView : UserControl, IDisposable
         {
             case "network": _networkKey = ""; break;
             case "bluetooth": _bluetoothKey = ""; break;
+            case "displays": BuildDisplaysSection(); return;
             case "pi.school":
             case "pi.exams":
             case "pi.todos": _piKey = ""; BuildPiPage(); return;
