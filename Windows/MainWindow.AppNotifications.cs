@@ -42,7 +42,11 @@ public partial class MainWindow
         if (_appNotificationsAllowed) _appNotificationTimer.Start();
     }
 
-    private void DisposeAppNotifications() => _appNotificationTimer?.Stop();
+    private void DisposeAppNotifications()
+    {
+        _appNotificationTimer?.Stop();
+        CancelAppPillImmediate();
+    }
 
     /// <summary>For the settings window: whether Windows grants access, and who notified lately.</summary>
     private AppNotificationState ReadAppNotificationState() =>
@@ -107,11 +111,7 @@ public partial class MainWindow
             // Several at once: the newest speaks for all of them.
             int others = shown - 1;
             ImageSource? logo = await LoadAppLogoAsync(latest);
-            string title = latest.AppName.Length > 0 ? latest.AppName : latest.Title;
-            string status = latest.AppName.Length > 0 ? latest.Title : latest.Body ?? "";
-            if (others > 0) status = $"{status}  +{others}";
-            string? appId = latest.AppUserModelId;
-            ShowNotchPill(title, status, logo, isClaude: false, tap: appId == null ? null : () => LaunchApp(appId));
+            ShowAppNotificationPill(latest, logo, others);
         }
         catch (Exception ex)
         {

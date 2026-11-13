@@ -1873,6 +1873,7 @@ public partial class MainWindow : Window
         }
         else
         {
+            if (TryHandleAppPillTap()) return;
             if (TryHandleNotificationTap()) return;
             ExpandNotch();
         }
