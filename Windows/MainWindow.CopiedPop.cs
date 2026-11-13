@@ -107,7 +107,7 @@ public partial class MainWindow
             SetCopiedPopOffset(follow);
             bool armed = x >= CopiedToClaudeDistance;
             if (_isCopiedPillShown)
-                ClaudeNotificationStatus.Text = armed ? Loc.Get("clipboard.toClaude") : _copiedPillStatus;
+                CrossFadeText(ClaudeNotificationStatus, armed ? Loc.Get("clipboard.toClaude") : _copiedPillStatus);
         }
         return true;
     }
@@ -136,7 +136,7 @@ public partial class MainWindow
             PlayCopiedPopLeaving();
             return;
         }
-        if (_isCopiedPillShown) ClaudeNotificationStatus.Text = _copiedPillStatus;
+        if (_isCopiedPillShown) CrossFadeText(ClaudeNotificationStatus, _copiedPillStatus);
         SpringCopiedPopBack();
         ResumeCopiedPop();
     }

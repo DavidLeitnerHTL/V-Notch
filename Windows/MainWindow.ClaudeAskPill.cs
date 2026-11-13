@@ -114,14 +114,14 @@ public partial class MainWindow
             double follow = reach < AskSwipeDistance ? reach * 0.6 : AskSwipeDistance * 0.6 + (reach - AskSwipeDistance) * 0.2;
             SetAskOffset(Math.Sign(x) * follow, 0);
             bool armed = reach >= AskSwipeDistance;
-            ClaudeNotificationStatus.Text = !armed ? _askStatus : Loc.Get(x > 0 ? "control.claude.allow" : "control.claude.deny");
+            CrossFadeText(ClaudeNotificationStatus, !armed ? _askStatus : Loc.Get(x > 0 ? "control.claude.allow" : "control.claude.deny"));
             ClaudeNotificationStatus.Foreground = !armed ? _askStatusBrush : x > 0 ? AskAllowBrush : AskDenyBrush;
         }
         else if (_askGesture == AskGesture.Pull)
         {
             double y = Math.Max(0, moved.Y);
             SetAskOffset(0, Math.Min(y * 0.35, 12));
-            ClaudeNotificationStatus.Text = y >= AskPullDistance ? Loc.Get("claude.pill.answer") : _askStatus;
+            CrossFadeText(ClaudeNotificationStatus, y >= AskPullDistance ? Loc.Get("claude.pill.answer") : _askStatus);
         }
         return true;
     }
@@ -160,7 +160,7 @@ public partial class MainWindow
     {
         _askGesture = AskGesture.None;
         if (NotchWrapper.IsMouseCaptured) NotchWrapper.ReleaseMouseCapture();
-        ClaudeNotificationStatus.Text = _askStatus;
+        CrossFadeText(ClaudeNotificationStatus, _askStatus);
         if (_askStatusBrush != null) ClaudeNotificationStatus.Foreground = _askStatusBrush;
         SpringAskBack();
     }
@@ -191,7 +191,7 @@ public partial class MainWindow
     private void PlayAskSettled(bool allowed)
     {
         _askRequest = null;
-        ClaudeNotificationStatus.Text = Loc.Get(allowed ? "claude.pill.allowed" : "claude.pill.denied");
+        CrossFadeText(ClaudeNotificationStatus, Loc.Get(allowed ? "claude.pill.allowed" : "claude.pill.denied"));
         ClaudeNotificationStatus.Foreground = allowed ? AskAllowBrush : AskDenyBrush;
         if (!AnimationConfig.ReduceMotion)
         {

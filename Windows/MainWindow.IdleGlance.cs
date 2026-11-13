@@ -24,6 +24,7 @@ public partial class MainWindow
     private DispatcherTimer? _idleClockTimer;
     private DispatcherTimer? _idleSettleTimer;
     private bool _idleGlanceShown;
+    private int _idleGlanceToken;
     private bool _idleGlanceHooked;
 
     /// <summary>Nothing live in the closed notch: no music, no Claude Code, no countdown.</summary>
@@ -71,10 +72,14 @@ public partial class MainWindow
         return timer;
     }
 
+    /// <summary>The idle clock slides away before live content takes its place.</summary>
     private void ShowIdleGlance(bool show)
     {
         if (show == _idleGlanceShown) return;
         _idleGlanceShown = show;
+        int token = ++_idleGlanceToken;
+        double opacity = IdleGlance.Opacity;
+        double shift = IdleGlanceShift.Y;
         IdleGlance.BeginAnimation(OpacityProperty, null);
         IdleGlanceShift.BeginAnimation(System.Windows.Media.TranslateTransform.YProperty, null);
         if (show)
@@ -82,6 +87,7 @@ public partial class MainWindow
             RefreshIdleClock(animate: false);
             UpdateIdleWeather();
             IdleGlance.Visibility = Visibility.Visible;
+            IdleGlanceShift.Y = 0;
             if (AnimationConfig.ReduceMotion)
             {
                 IdleGlance.Opacity = 1;
@@ -96,8 +102,23 @@ public partial class MainWindow
         else
         {
             // Out before the live content takes the space.
-            IdleGlance.Opacity = 0;
-            IdleGlance.Visibility = Visibility.Collapsed;
+            if (AnimationConfig.ReduceMotion)
+            {
+                IdleGlance.Opacity = 0;
+                IdleGlance.Visibility = Visibility.Collapsed;
+                return;
+            }
+            IdleGlance.Opacity = opacity;
+            var duration = TimeSpan.FromMilliseconds(160);
+            var fade = MakeAnim(opacity, 0d, duration, _easeQuadOut);
+            fade.Completed += (_, _) =>
+            {
+                if (token == _idleGlanceToken && !_idleGlanceShown)
+                    IdleGlance.Visibility = Visibility.Collapsed;
+            };
+            IdleGlance.BeginAnimation(OpacityProperty, fade);
+            IdleGlanceShift.BeginAnimation(System.Windows.Media.TranslateTransform.YProperty,
+                MakeAnim(shift, -4d, duration, _easeQuadOut));
         }
     }
 
