@@ -21,7 +21,8 @@ public partial class MainWindow
         SystemVolume,
         Brightness,
         // Lenovo's Fn+Q power mode: four steps, the mode's glyph and name, tinted in the mode's colour.
-        PowerMode
+        PowerMode,
+        MicMute
     }
 
     private const int PowerModeSteps = 4;
@@ -50,6 +51,8 @@ public partial class MainWindow
         _masterVolumeWatcher.Changed += (volume, muted) => Dispatcher.BeginInvoke(() =>
             OnSystemLevelChanged(LevelHudKind.SystemVolume, volume, muted));
         _masterVolumeWatcher.Start();
+
+        InitializeMicMuteHud();
 
         _brightnessWatcher = new BrightnessWatcher();
         _brightnessWatcher.Changed += percent => Dispatcher.BeginInvoke(() =>
@@ -85,6 +88,7 @@ public partial class MainWindow
 
     private void DisposeLevelHud()
     {
+        DisposeMicMuteHud();
         _powerModeWatcher?.Dispose();
         DisposeOutputSwipe();
         DisposeWindowsOsdHider();
@@ -144,7 +148,7 @@ public partial class MainWindow
     {
         LevelHudKind.Brightness => (BrightnessHudTint, true),
         LevelHudKind.PowerMode => (_powerModeLook.Glow, true),
-        LevelHudKind.SystemVolume when !_isMusicCompactMode => (Colors.White, false),
+        LevelHudKind.SystemVolume or LevelHudKind.MicMute when !_isMusicCompactMode => (Colors.White, false),
         _ => (_hasVolumeHudMediaTint ? _volumeHudMediaColor : Colors.White, _hasVolumeHudMediaTint)
     };
 
@@ -160,18 +164,32 @@ public partial class MainWindow
     {
         bool sun = _levelHudKind == LevelHudKind.Brightness;
         bool power = _levelHudKind == LevelHudKind.PowerMode;
-        var speaker = sun || power ? Visibility.Collapsed : Visibility.Visible;
+        bool mic = _levelHudKind == LevelHudKind.MicMute;
+        var speaker = sun || power || mic ? Visibility.Collapsed : Visibility.Visible;
         VolumeIndicatorSpeakerCone.Visibility = speaker;
         VolumeIndicatorWave1.Visibility = speaker;
         VolumeIndicatorWave2.Visibility = speaker;
         ApplyPowerModeGlyph(power);
-        if (sun || power)
+        if (sun || power || mic)
         {
             VolumeIndicatorMuteSlash.Visibility = Visibility.Collapsed;
             VolumeIndicatorMuteSlashGap.Visibility = Visibility.Collapsed;
         }
         VolumeIndicatorSun.Visibility = sun ? Visibility.Visible : Visibility.Collapsed;
         VolumeIndicatorSunRays.Visibility = sun ? Visibility.Visible : Visibility.Collapsed;
+        VolumeIndicatorMic.Visibility = mic ? Visibility.Visible : Visibility.Collapsed;
+        VolumeIndicatorMicWord.Visibility = mic ? Visibility.Visible : Visibility.Collapsed;
+        VolumeIndicatorTicksHost.Visibility = mic ? Visibility.Collapsed : Visibility.Visible;
+        VolumeIndicatorTicksRow.Height = new GridLength(mic ? 0 : 14);
+        VolumeIndicatorPercentText.Visibility = mic ? Visibility.Collapsed : Visibility.Visible;
+        VolumeIndicatorContainer.IsHitTestVisible = !mic;
+        if (mic)
+        {
+            VolumeIndicatorIconScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+            VolumeIndicatorIconScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+            VolumeIndicatorIconScale.ScaleX = VolumeIndicatorIconScale.ScaleY = 1;
+            ApplyMicMuteFace(_micMuteShown);
+        }
 
         var (tint, has) = EffectiveHudTint();
         Color glow = has ? tint : Colors.White;

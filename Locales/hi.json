@@ -1,4 +1,6 @@
 {
+  "levelHud.micMuted": "Muted",
+  "levelHud.micOn": "Mic on",
   "settings.accentColor": "एक्सेंट रंग",
   "settings.accentColor.hint": "पूरे ऐप में इस्तेमाल होने वाला हाइलाइट रंग चुनें।",
   "settings.accentColor.default": "डिफ़ॉल्ट",

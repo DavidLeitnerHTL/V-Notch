@@ -1,4 +1,6 @@
 {
+  "levelHud.micMuted": "Muted",
+  "levelHud.micOn": "Mic on",
   "settings.accentColor": "Warna aksen",
   "settings.accentColor.hint": "Pilih warna sorotan untuk seluruh aplikasi.",
   "settings.accentColor.default": "Default",

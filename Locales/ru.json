@@ -1,4 +1,6 @@
 {
+  "levelHud.micMuted": "Muted",
+  "levelHud.micOn": "Mic on",
   "settings.accentColor": "Цвет акцента",
   "settings.accentColor.hint": "Выберите цвет выделения для всего приложения.",
   "settings.accentColor.default": "По умолчанию",

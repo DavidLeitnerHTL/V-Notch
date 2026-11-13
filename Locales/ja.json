@@ -1,4 +1,6 @@
 {
+  "levelHud.micMuted": "Muted",
+  "levelHud.micOn": "Mic on",
   "settings.accentColor": "アクセントカラー",
   "settings.accentColor.hint": "アプリ全体で使用する強調色を選択します。",
   "settings.accentColor.default": "デフォルト",

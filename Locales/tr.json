@@ -1,4 +1,6 @@
 {
+  "levelHud.micMuted": "Muted",
+  "levelHud.micOn": "Mic on",
   "settings.accentColor": "Vurgu rengi",
   "settings.accentColor.hint": "Uygulama genelinde kullanılan vurgu rengini seçin.",
   "settings.accentColor.default": "Varsayılan",

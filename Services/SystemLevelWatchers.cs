@@ -8,14 +8,14 @@ using System.Threading.Tasks;
 namespace VNotch.Services;
 
 /// <summary>
-/// Hears the default speaker's master volume and mute change (volume keys, the Windows mixer, any app) and follows
+/// Hears the default speaker's (or capture endpoint's) master volume and mute change and follows
 /// the default device when it switches. Windows calls back; nothing polls. Writes made through
 /// <see cref="SetVolume"/> carry an own context and are not reported back.
 /// </summary>
 internal sealed class MasterVolumeWatcher : IDisposable
 {
-    private const string LogTag = "LEVEL-HUD";
     private const int DataFlowRender = 0;
+    private const int DataFlowCapture = 1;
     private const int RoleConsole = 0;
     private const int ClsCtxAll = 0x17;
     private static readonly Guid EndpointVolumeId = new("5CDF2C82-841E-4546-9722-0CF74078229A");
@@ -26,6 +26,7 @@ internal sealed class MasterVolumeWatcher : IDisposable
     // Bind and unbind run under this; callbacks never take it (unregistering waits for a running callback).
     private readonly object _gate = new();
     private readonly object _values = new();
+    private readonly bool _capture;
     private readonly VolumeCallback _callback;
     private readonly DeviceEvents _deviceEvents;
     private IMMDeviceEnumerator? _enumerator;
@@ -34,16 +35,19 @@ internal sealed class MasterVolumeWatcher : IDisposable
     private bool _lastMuted;
     private bool _disposed;
 
+    private string LogTag => _capture ? "MIC-MUTE" : "LEVEL-HUD";
+    private int DataFlow => _capture ? DataFlowCapture : DataFlowRender;
+
     /// <summary>Volume 0..1 and whether it is muted; raised on a Windows audio thread.</summary>
     public event Action<float, bool>? Changed;
 
-    /// <summary>Another speaker became the default; its volume and mute. Raised on a worker thread.</summary>
+    /// <summary>Another watched endpoint became the default (also initial capture binding); its volume and mute. Raised on a worker thread.</summary>
     public event Action<float, bool>? SpeakerSwitched;
 
     /// <summary>A sound device (any direction) became usable (true) or went away (false). Raised on a worker thread.</summary>
     public event Action<string, bool>? EndpointStateChanged;
 
-    /// <summary>The default speaker's volume 0..1 and mute, as last seen.</summary>
+    /// <summary>The watched default endpoint's volume 0..1 and mute, as last seen.</summary>
     public (float Volume, bool Muted) Current
     {
         get
@@ -52,11 +56,15 @@ internal sealed class MasterVolumeWatcher : IDisposable
         }
     }
 
-    public MasterVolumeWatcher()
+    public MasterVolumeWatcher(bool capture = false)
     {
+        _capture = capture;
         _callback = new VolumeCallback(this);
         _deviceEvents = new DeviceEvents(this);
     }
+
+    internal static bool WatchesDefaultChange(bool capture, int flow, int role) =>
+        flow == (capture ? DataFlowCapture : DataFlowRender) && role == RoleConsole;
 
     /// <summary>Everything lives on pool (MTA) threads, so the UI thread never marshals into the audio objects.</summary>
     public void Start() => Task.Run(() =>
@@ -70,6 +78,12 @@ internal sealed class MasterVolumeWatcher : IDisposable
                 int hr = _enumerator.RegisterEndpointNotificationCallback(_deviceEvents);
                 if (hr != 0) RuntimeLog.Warn(LogTag, $"Default speaker changes not heard (0x{hr:X8})");
                 BindDefault();
+                // Capture needs a quiet initial mute state before its first live change; render startup stays silent.
+                if (_capture && _endpoint != null)
+                {
+                    var (volume, muted) = Current;
+                    SpeakerSwitched?.Invoke(volume, muted);
+                }
             }
             catch (Exception ex) when (ex is COMException or InvalidCastException)
             {
@@ -82,7 +96,7 @@ internal sealed class MasterVolumeWatcher : IDisposable
     {
         lock (_gate)
         {
-            if (_disposed || _endpoint == null) return;
+            if (_capture || _disposed || _endpoint == null) return;
             var context = OwnContext;
             float level = Math.Clamp(volume, 0f, 1f);
             bool muted;
@@ -108,7 +122,7 @@ internal sealed class MasterVolumeWatcher : IDisposable
     {
         Unbind();
         if (_enumerator == null) return;
-        if (_enumerator.GetDefaultAudioEndpoint(DataFlowRender, RoleConsole, out IMMDevice? device) != 0 || device == null)
+        if (_enumerator.GetDefaultAudioEndpoint(DataFlow, RoleConsole, out IMMDevice? device) != 0 || device == null)
             return;
         var id = EndpointVolumeId;
         if (device.Activate(ref id, ClsCtxAll, IntPtr.Zero, out object endpoint) != 0) return;
@@ -155,7 +169,7 @@ internal sealed class MasterVolumeWatcher : IDisposable
 
     private void OnDefaultDeviceChanged(int flow, int role)
     {
-        if (flow != DataFlowRender || role != RoleConsole) return;
+        if (!WatchesDefaultChange(_capture, flow, role)) return;
         // Never call back into the audio API from inside its own callback.
         Task.Run(() =>
         {
@@ -206,7 +220,7 @@ internal sealed class MasterVolumeWatcher : IDisposable
         public int OnNotify(IntPtr notifyData)
         {
             try { owner.OnNotify(notifyData); }
-            catch (Exception ex) { RuntimeLog.Warn(LogTag, $"Volume change dropped: {ex.Message}"); }
+            catch (Exception ex) { RuntimeLog.Warn(owner.LogTag, $"Volume change dropped: {ex.Message}"); }
             return 0;
         }
     }

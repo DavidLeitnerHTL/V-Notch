@@ -1,4 +1,6 @@
 {
+  "levelHud.micMuted": "Muted",
+  "levelHud.micOn": "Mic on",
   "settings.accentColor": "Cor de destaque",
   "settings.accentColor.hint": "Escolha a cor de destaque de todo o aplicativo.",
   "settings.accentColor.default": "Padrão",

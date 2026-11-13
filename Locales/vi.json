@@ -1,4 +1,6 @@
 {
+  "levelHud.micMuted": "Muted",
+  "levelHud.micOn": "Mic on",
   "settings.accentColor": "Màu nhấn",
   "settings.accentColor.hint": "Chọn màu nhấn cho các nút và thành phần giao diện trong ứng dụng.",
   "settings.accentColor.default": "Mặc định",

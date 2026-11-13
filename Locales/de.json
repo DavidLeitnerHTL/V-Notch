@@ -1,4 +1,6 @@
 {
+  "levelHud.micMuted": "Stumm",
+  "levelHud.micOn": "Mikro an",
   "settings.accentColor": "Akzentfarbe",
   "settings.accentColor.hint": "Wähle die Hervorhebungsfarbe für die gesamte App.",
   "settings.accentColor.default": "Standard",

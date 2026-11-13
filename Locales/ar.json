@@ -1,4 +1,6 @@
 {
+  "levelHud.micMuted": "Muted",
+  "levelHud.micOn": "Mic on",
   "settings.accentColor": "لون التمييز",
   "settings.accentColor.hint": "اختر لون التمييز المستخدم في التطبيق بأكمله.",
   "settings.accentColor.default": "الافتراضي",

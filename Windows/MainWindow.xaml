@@ -1004,7 +1004,7 @@
                             <Grid VerticalAlignment="Center">
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="20"/>
-                                    <RowDefinition Height="14"/>
+                                    <RowDefinition x:Name="VolumeIndicatorTicksRow" Height="14"/>
                                 </Grid.RowDefinitions>
                                 <Grid Grid.Row="0" ClipToBounds="False">
                                     <Viewbox Width="17" Height="17" Stretch="Uniform"
@@ -1025,6 +1025,20 @@
                                                               RenderingBias="Performance"/>
                                         </Viewbox.Effect>
                                         <Canvas Width="24" Height="24">
+                                            <Canvas x:Name="VolumeIndicatorMic" Width="24" Height="24" Visibility="Collapsed">
+                                                <Canvas.RenderTransform>
+                                                    <TransformGroup>
+                                                        <ScaleTransform x:Name="VolumeIndicatorMicSquash" CenterX="12" CenterY="12" ScaleX="1" ScaleY="1"/>
+                                                        <TranslateTransform x:Name="VolumeIndicatorMicShift"/>
+                                                    </TransformGroup>
+                                                </Canvas.RenderTransform>
+                                                <Path Data="M 9,6 A 3,3 0 0 1 15,6 V 11 A 3,3 0 0 1 9,11 Z"
+                                                      Stroke="White" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                                <Path Data="M 6,10 V 11 A 6,6 0 0 0 18,11 V 10 M 12,17 V 21 M 8,21 H 16"
+                                                      Stroke="White" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                                <Path x:Name="VolumeIndicatorMicSlash" Data="M 3,3 L 21,21" Visibility="Collapsed"
+                                                      Stroke="White" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                            </Canvas>
                                             <Path x:Name="VolumeIndicatorSpeakerCone"
                                                   Data="M 3.6,8.8 H 6.6 Q 7.3,8.8 7.8,8.3 L 11.7,4.9 C 12.6,4.1 13.8,4.7 13.8,5.9 V 18.1 C 13.8,19.3 12.6,19.9 11.7,19.1 L 7.8,15.7 Q 7.3,15.2 6.6,15.2 H 3.6 C 2.6,15.2 2.0,14.6 2.0,13.6 V 10.4 C 2.0,9.4 2.6,8.8 3.6,8.8 Z"
                                                   Fill="#FAFFFFFF"
@@ -1110,6 +1124,11 @@
                                             </TransformGroup>
                                         </TextBlock.RenderTransform>
                                     </TextBlock>
+                                    <TextBlock x:Name="VolumeIndicatorMicWord"
+                                               Visibility="Collapsed" IsHitTestVisible="False"
+                                               Foreground="White" FontFamily="{StaticResource MainSystemFont}"
+                                               FontSize="12" FontWeight="Bold" Margin="30,1,0,0"
+                                               HorizontalAlignment="Left" VerticalAlignment="Center"/>
                                 </Grid>
                                 <Grid Grid.Row="1" Margin="0,3,0,0" VerticalAlignment="Center">
                                     <UniformGrid x:Name="VolumeIndicatorTicksHost"

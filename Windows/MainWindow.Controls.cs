@@ -520,6 +520,11 @@ public partial class MainWindow
 
     private unsafe void UpdateVolumeIndicatorHud(double volume, bool animate = false)
     {
+        if (_levelHudKind == LevelHudKind.MicMute)
+        {
+            ApplyMicMuteFace(_micMuteShown);
+            return;
+        }
         if (VolumeIndicatorTicksHost == null) return;
         EnsureVolumeIndicatorTicks();
         if (_volumeHudTickBorders == null || _volumeHudTickBrushes == null || _volumeHudTickScales == null) return;
@@ -865,6 +870,14 @@ public partial class MainWindow
 
         if (!_isVolumeIndicatorActive || kind != _levelHudKind)
         {
+            CancelMicDive();
+            if (kind == LevelHudKind.MicMute)
+            {
+                _isDraggingVolumeIndicator = false;
+                VolumeIndicatorContainer.ReleaseMouseCapture();
+                _levelHudLabelTimer?.Stop();
+                _levelHudLabelOverride = null;
+            }
             _levelHudKind = kind;
             ApplyLevelHudLook();
         }
@@ -875,7 +888,7 @@ public partial class MainWindow
             ++_volumeIndicatorExitVersion;
             int transitionVersion = ++_volumeIndicatorTransitionVersion;
             _isVolumeIndicatorExiting = false;
-            VolumeIndicatorContainer.IsHitTestVisible = true;
+            VolumeIndicatorContainer.IsHitTestVisible = kind != LevelHudKind.MicMute;
             int presentationToken = _volumeIndicatorToken;
 
             _hoverThumbnailDelayTimer.Stop();
@@ -1075,12 +1088,14 @@ public partial class MainWindow
             };
         }
         _volumeIndicatorHideTimer.Stop();
+        _volumeIndicatorHideTimer.Interval = TimeSpan.FromMilliseconds(kind == LevelHudKind.MicMute ? 1400 : 1200);
         _volumeIndicatorHideTimer.Start();
     }
     private void HideVolumeIndicator()
     {
         if (VolumeIndicatorContainer == null) return;
         if (!_isVolumeIndicatorActive || IsCompactSlotStale(_volumeIndicatorToken)) return;
+        CancelMicDive();
         ResetCompactVolumeWheelIntent();
         int token = _volumeIndicatorToken;
         int exitVersion = ++_volumeIndicatorExitVersion;
@@ -1254,6 +1269,7 @@ public partial class MainWindow
 
     private void DismissVolumeIndicatorImmediate(bool restoreMedia = false, bool animateExit = false)
     {
+        CancelMicDive();
         int exitVersion = ++_volumeIndicatorExitVersion;
         int transitionVersion = ++_volumeIndicatorTransitionVersion;
         _isVolumeIndicatorExiting = animateExit;
@@ -1345,6 +1361,7 @@ public partial class MainWindow
 
     private void VolumeIndicator_MouseDown(object sender, MouseButtonEventArgs e)
     {
+        if (_levelHudKind == LevelHudKind.MicMute) return;
         e.Handled = true;
         _isDraggingVolumeIndicator = true;
         VolumeIndicatorContainer.CaptureMouse();
@@ -1355,7 +1372,7 @@ public partial class MainWindow
 
     private void VolumeIndicator_MouseMove(object sender, MouseEventArgs e)
     {
-        if (!_isDraggingVolumeIndicator || e.LeftButton != MouseButtonState.Pressed) return;
+        if (_levelHudKind == LevelHudKind.MicMute || !_isDraggingVolumeIndicator || e.LeftButton != MouseButtonState.Pressed) return;
         e.Handled = true;
         SetVolumeFromIndicatorPosition(e);
     }
@@ -1373,6 +1390,7 @@ public partial class MainWindow
 
     private void SetVolumeFromIndicatorPosition(MouseEventArgs e)
     {
+        if (_levelHudKind == LevelHudKind.MicMute) return;
         _volumeInteractionVersion++;
         var pos = e.GetPosition(VolumeIndicatorContainer);
         double containerWidth = VolumeIndicatorContainer.ActualWidth;

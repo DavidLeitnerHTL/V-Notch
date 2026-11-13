@@ -1,4 +1,6 @@
 {
+  "levelHud.micMuted": "Muted",
+  "levelHud.micOn": "Mic on",
   "settings.accentColor": "强调色",
   "settings.accentColor.hint": "选择整个应用使用的强调色。",
   "settings.accentColor.default": "默认",
