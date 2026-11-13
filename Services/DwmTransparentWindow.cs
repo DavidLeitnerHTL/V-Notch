@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
@@ -14,19 +15,43 @@ namespace VNotch.Services;
 /// the notch's opening on a 360 Hz screen from about 150 to 190 frames a second, and Spotlight's morph moves a much
 /// bigger window. The window still carries WS_EX_LAYERED (constant alpha 255, set while it is created) because
 /// Windows only lets clicks fall through a layered window; a <see cref="ClickThroughController"/> decides where.
-/// VNOTCH_LAYERED=1 brings back WPF's layered windows.
+/// On a hybrid laptop whose screen hangs on the integrated GPU, DWM drew the window as a big white area
+/// (2026-11-13, laptop panel alone, Intel UHD + RTX 4070), so such a screen gets WPF's layered window instead.
+/// VNOTCH_LAYERED=1 forces the layered window, VNOTCH_LAYERED=0 forces DWM.
 /// </summary>
 internal static class DwmTransparentWindow
 {
-    internal static bool UseLayeredFallback => Environment.GetEnvironmentVariable("VNOTCH_LAYERED") == "1";
+    /// <summary>Whether this process uses WPF's layered windows (decided by the first window that applied it).</summary>
+    internal static bool? ActiveLayered { get; private set; }
+
+    /// <summary>Whether a window on the screen <paramref name="displayDevice"/> (such as DISPLAY1) needs the layered window.</summary>
+    internal static bool UseLayeredFallback(string? displayDevice) => Decide(
+        Environment.GetEnvironmentVariable("VNOTCH_LAYERED"), DisplayAdapters.AdapterOf(displayDevice), DisplayAdapters.All());
+
+    internal static bool Decide(string? forced, string? screenAdapter, IReadOnlyCollection<string> adapters)
+    {
+        if (forced == "1") return true;
+        if (forced == "0") return false;
+        // A lone integrated GPU draws everything itself and composes fine; the trouble is a screen on the
+        // integrated GPU while another GPU is in the machine.
+        return screenAdapter != null && IsIntegrated(screenAdapter)
+            && adapters.Any(name => !string.Equals(name, screenAdapter, StringComparison.OrdinalIgnoreCase));
+    }
+
+    internal static bool IsIntegrated(string adapter) =>
+        (adapter.Contains("Intel", StringComparison.OrdinalIgnoreCase) && !adapter.Contains("Arc", StringComparison.OrdinalIgnoreCase))
+        || adapter.Contains("Radeon(TM) Graphics", StringComparison.OrdinalIgnoreCase)
+        || adapter.Equals("AMD Radeon Graphics", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Must run before the window gets its handle (right after InitializeComponent). <paramref name="ready"/> gets
     /// the click-through controller once the handle exists; the window disposes it when it closes.
+    /// <paramref name="displayDevice"/> is the screen the window will live on.
     /// </summary>
-    internal static void Apply(Window window, Action<ClickThroughController>? ready = null)
+    internal static void Apply(Window window, string? displayDevice, Action<ClickThroughController>? ready = null)
     {
-        if (UseLayeredFallback)
+        bool layered = ActiveLayered ??= UseLayeredFallback(displayDevice);
+        if (layered)
         {
             window.AllowsTransparency = true;
             return;

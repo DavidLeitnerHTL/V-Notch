@@ -229,7 +229,7 @@ public partial class MainWindow : Window
         VNotch.Services.Clipboard.ClipboardHistoryStore? clipboardHistoryStore = null)
     {
         InitializeComponent();
-        InitializeTransparency();
+        InitializeTransparency(settingsService);
         SettingsButton.AddHandler(Mouse.PreviewMouseDownEvent, new MouseButtonEventHandler((sender, e) =>
         {
             if (e.ChangedButton == MouseButton.Left)
@@ -410,6 +410,7 @@ public partial class MainWindow : Window
             {
                 InvalidateGlassDpiScale();
                 PositionAtTop();
+                RestartIfTransparencyNoLongerFits();
             },
             HandleClipboardUpdated);
         _overlayWindow.TargetScreen = () => MonitorSelection.Resolve(_settings);

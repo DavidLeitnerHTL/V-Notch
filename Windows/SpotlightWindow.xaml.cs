@@ -107,7 +107,7 @@ public partial class SpotlightWindow : Window
         LocalizedPresentation.Apply(this);
         // See-through by DWM instead of a layered window: the morph out of the notch moves and resizes this big
         // window every frame, and the layered path copied each of those frames back from the GPU.
-        DwmTransparentWindow.Apply(this);
+        DwmTransparentWindow.Apply(this, System.Windows.Forms.Screen.PrimaryScreen?.DeviceName);
         if (settings != null) _settings = settings.Clone();
         _viewModel = viewModel;
         _viewModel.HistoryEnabled = _settings.EnableSpotlightHistory;
