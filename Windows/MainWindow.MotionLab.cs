@@ -16,17 +16,34 @@ namespace VNotch;
 /// the user's mouse; VNOTCH_INTERRUPT_MS=&lt;ms&gt; closes each opening again after that delay; VNOTCH_NO_MEDIA=1
 /// ignores every player, so the slim idle notch can be filmed while music plays; VNOTCH_RENDER_PROBE=1 logs every
 /// few seconds what keeps WPF drawing (Rendering handlers, running animation clocks), to find loops that burn CPU
-/// while nothing is on screen.
+/// while nothing is on screen; VNOTCH_FAKE_PLUG=&lt;ms&gt; plugs a pretend charger in and out at that interval (the
+/// real battery then no longer drives the charging orb), so the plug-in motion can be filmed without touching the cable.
 /// </summary>
 public partial class MainWindow
 {
     private static readonly bool MotionLabNoMedia = Environment.GetEnvironmentVariable("VNOTCH_NO_MEDIA") == "1";
+    private static readonly double MotionLabFakePlugMs =
+        double.TryParse(Environment.GetEnvironmentVariable("VNOTCH_FAKE_PLUG"), NumberStyles.Float, CultureInfo.InvariantCulture, out double ms) && ms >= 1000 ? ms : 0;
+    private static bool MotionLabFakesCharging => MotionLabFakePlugMs > 0;
 
     private DispatcherTimer? _autoToggleTimer;
     private DispatcherTimer? _renderProbeTimer;
+    private DispatcherTimer? _fakePlugTimer;
 
     private void StartMotionLab()
     {
+        if (MotionLabFakesCharging)
+        {
+            bool plugged = false;
+            UpdateChargeOrb(new Models.BatteryInfo { Percentage = 64 });
+            _fakePlugTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(MotionLabFakePlugMs) };
+            _fakePlugTimer.Tick += (_, _) =>
+            {
+                plugged = !plugged;
+                UpdateChargeOrb(new Models.BatteryInfo { Percentage = 64, IsPluggedIn = plugged, IsCharging = plugged });
+            };
+            _fakePlugTimer.Start();
+        }
         if (Environment.GetEnvironmentVariable("VNOTCH_RENDER_PROBE") == "1")
         {
             _renderProbeTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(5) };

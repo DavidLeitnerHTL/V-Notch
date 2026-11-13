@@ -123,7 +123,7 @@ public partial class MainWindow
         }
 
         // Plugging in and out now plays in the orb beside the notch (MainWindow.ChargeOrb), not as a glance in it.
-        UpdateChargeOrb(battery);
+        if (!MotionLabFakesCharging) UpdateChargeOrb(battery);
     }
 
     private BatteryInfo? _displayedBattery;

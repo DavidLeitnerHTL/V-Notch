@@ -790,13 +790,17 @@
                                 IsHitTestVisible="False"
                                 CornerRadius="0,0,20,20"/>
 
-                        <!-- Charging: the right edge glows a moment when the light from the cable arrives. -->
+                        <!-- Charging: where the cable's light arrives, the right side glows a moment, and a streak of
+                             it runs on along the rim. Both follow whatever shape the notch has right now. -->
                         <Border x:Name="ChargeNotchGlow"
-                                HorizontalAlignment="Right"
-                                Width="56"
                                 IsHitTestVisible="False"
                                 Opacity="0"
-                                CornerRadius="0,0,20,0"/>
+                                CornerRadius="{Binding CornerRadius, ElementName=NotchBorder}"/>
+                        <Border x:Name="ChargeNotchRim"
+                                IsHitTestVisible="False"
+                                Opacity="0"
+                                BorderThickness="1.6,0,1.6,1.6"
+                                CornerRadius="{Binding CornerRadius, ElementName=NotchBorder}"/>
 
                         <!-- Final rounded clip for material stack; kept outside blurred children
                              so post-effects cannot spread Touch Light into rectangular corners. -->

@@ -58,6 +58,11 @@ public partial class MainWindow
     private DispatcherTimer? _chargeMomentTimer;
     private DispatcherTimer? _chargePulseTimer;
     private DispatcherTimer? _chargeQuietTimer;
+    private readonly TranslateTransform _chargeRimShift = new(RimStreakBefore, 0);
+    // Where the rim streak's head is, in notch widths: just off the right edge, past the middle, past the left edge.
+    private const double RimStreakBefore = 0.6;
+    private const double RimStreakHalf = -0.3;
+    private const double RimStreakAll = -1.0;
     private readonly SolidColorBrush _chargeTint = new(ChargeTintFor(100));
     private readonly SolidColorBrush _chargeTrack = new(Colors.Transparent);
     private readonly SolidColorBrush _chargeCableBrush = new(ChargeCableGrey);
@@ -274,18 +279,28 @@ public partial class MainWindow
         Tint(_chargeSparkBrush, Mix(color, Colors.White, 0.35));
         Tint(_chargeHaloBrush, Color.FromArgb(0x8C, color.R, color.G, color.B));
 
+        // The glow spans the whole notch now, so its reach is a share of the width: about the right quarter.
         var glow = new RadialGradientBrush
         {
-            Center = new Point(1, 0.52),
-            GradientOrigin = new Point(1, 0.52),
-            RadiusX = 1,
-            RadiusY = 0.9
+            Center = new Point(1, 0.5),
+            GradientOrigin = new Point(1, 0.5),
+            RadiusX = 0.28,
+            RadiusY = 1.1
         };
-        glow.GradientStops.Add(new GradientStop(Color.FromArgb(0x8C, color.R, color.G, color.B), 0));
-        glow.GradientStops.Add(new GradientStop(Color.FromArgb(0x33, color.R, color.G, color.B), 0.45));
+        glow.GradientStops.Add(new GradientStop(Color.FromArgb(0x73, color.R, color.G, color.B), 0));
+        glow.GradientStops.Add(new GradientStop(Color.FromArgb(0x2B, color.R, color.G, color.B), 0.5));
         glow.GradientStops.Add(new GradientStop(Color.FromArgb(0x00, color.R, color.G, color.B), 1));
         glow.Freeze();
         ChargeNotchGlow.Background = glow;
+
+        // The streak on the rim: a bright head on its left (it travels right to left), a tail fading out behind.
+        // Moved by _chargeRimShift in units of the notch's width.
+        var rim = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(1, 0), RelativeTransform = _chargeRimShift };
+        rim.GradientStops.Add(new GradientStop(Color.FromArgb(0x00, color.R, color.G, color.B), 0.38));
+        rim.GradientStops.Add(new GradientStop(Mix(color, Colors.White, 0.2), 0.44));
+        rim.GradientStops.Add(new GradientStop(Color.FromArgb(0xA6, color.R, color.G, color.B), 0.6));
+        rim.GradientStops.Add(new GradientStop(Color.FromArgb(0x00, color.R, color.G, color.B), 0.94));
+        ChargeNotchRim.BorderBrush = rim;
 
         void Tint(SolidColorBrush brush, Color to)
         {
@@ -366,6 +381,7 @@ public partial class MainWindow
         Still(ChargeCheckScale, ScaleTransform.ScaleYProperty, 1);
         Still(ChargeGlint, OpacityProperty, 0);
         Still(ChargeNotchGlow, OpacityProperty, 0);
+        Still(ChargeNotchRim, OpacityProperty, 0);
         Still(this, ChargeRingLevelProperty, 0);
         Still(this, ChargeCableSagProperty, ChargeCableRestSag);
         Still(ChargeCableGrow, ScaleTransform.ScaleXProperty, 1);
@@ -397,6 +413,7 @@ public partial class MainWindow
         _chargeConnected = false;
         StopChargePulse();
         Still(ChargeNotchGlow, OpacityProperty, 0);
+        Still(ChargeNotchRim, OpacityProperty, 0);
         if (ChargeCable.Visibility != Visibility.Visible) return;
         if (AnimationConfig.ReduceMotion || !ChargeCable.IsVisible)
         {
@@ -518,7 +535,7 @@ public partial class MainWindow
         Fps(ring);
         BeginAnimation(ChargeRingLevelProperty, ring);
 
-        ChargeAfter(Ms(520), PlayChargePulse);
+        ChargeAfter(Ms(520), () => PlayChargePulse(alongTheRim: plugged));
         ChargeAfter(Ms(1400), RefreshChargePulse);
     }
 
@@ -552,8 +569,14 @@ public partial class MainWindow
         NotchShadowScale.BeginAnimation(ScaleTransform.ScaleYProperty, joltY);
     }
 
-    /// <summary>A light leaves the bolt, runs along the cable into the notch, and the notch's edge glows a moment.</summary>
-    private void PlayChargePulse()
+    /// <summary>
+    /// A light leaves the bolt, runs along the cable into the notch, the notch's right side glows a moment and a
+    /// streak of the light runs on along the rim. Just plugged in it goes round the whole rim; the pulses that
+    /// repeat while charging fade out halfway, so they stay quiet.
+    /// </summary>
+    private void PlayChargePulse() => PlayChargePulse(alongTheRim: false);
+
+    private void PlayChargePulse(bool alongTheRim)
     {
         if (AnimationConfig.ReduceMotion || !_chargeConnected || _cleanedUp) return;
 
@@ -571,8 +594,26 @@ public partial class MainWindow
         glow.KeyFrames.Add(new LinearDoubleKeyFrame(0, KeyTime.FromPercent(0)));
         glow.KeyFrames.Add(new EasingDoubleKeyFrame(1, KeyTime.FromPercent(0.3), new QuadraticEase { EasingMode = EasingMode.EaseOut }));
         glow.KeyFrames.Add(new EasingDoubleKeyFrame(0, KeyTime.FromPercent(1), new QuadraticEase { EasingMode = EasingMode.EaseInOut }));
-        Timeline.SetDesiredFrameRate(glow, ChargeGlowFps);
+        Timeline.SetDesiredFrameRate(glow, ChargeGlintFps);
         ChargeNotchGlow.BeginAnimation(OpacityProperty, glow);
+
+        // The streak leaves as the glow peaks, a little behind the light on the cable.
+        var streakLength = Ms(alongTheRim ? 1000 : 620);
+        var streak = new DoubleAnimation(RimStreakBefore, alongTheRim ? RimStreakAll : RimStreakHalf, new Duration(streakLength))
+        {
+            BeginTime = Ms(400),
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        };
+        Timeline.SetDesiredFrameRate(streak, ChargeGlintFps);
+        _chargeRimShift.BeginAnimation(TranslateTransform.XProperty, streak);
+        double strength = alongTheRim ? 1 : 0.55;
+        var rimLight = new DoubleAnimationUsingKeyFrames { Duration = new Duration(streakLength), BeginTime = Ms(400) };
+        rimLight.KeyFrames.Add(new LinearDoubleKeyFrame(0, KeyTime.FromPercent(0)));
+        rimLight.KeyFrames.Add(new EasingDoubleKeyFrame(strength, KeyTime.FromPercent(0.12), new QuadraticEase { EasingMode = EasingMode.EaseOut }));
+        rimLight.KeyFrames.Add(new LinearDoubleKeyFrame(strength, KeyTime.FromPercent(0.7)));
+        rimLight.KeyFrames.Add(new EasingDoubleKeyFrame(0, KeyTime.FromPercent(1), new QuadraticEase { EasingMode = EasingMode.EaseIn }));
+        Timeline.SetDesiredFrameRate(rimLight, ChargeGlintFps);
+        ChargeNotchRim.BeginAnimation(OpacityProperty, rimLight);
 
         static DoubleAnimationUsingKeyFrames Blink(TimeSpan duration, TimeSpan begin, int fps)
         {
