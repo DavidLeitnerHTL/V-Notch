@@ -81,6 +81,15 @@ internal sealed partial class SpotlightViewModel : ObservableObject, IDisposable
             return;
         }
 
+        if (SpotlightTodo.Parse(query) is { } todo)
+        {
+            IsSearching = false;
+            IsWindowsSearchUnavailable = false;
+            Publish([new SpotlightSearchItem("todo:" + todo, SpotlightResultKind.AddTodo,
+                Loc.Get("spotlight.addTodo"), todo, todo)]);
+            return;
+        }
+
         IsSearching = true;
         HasNoResults = false;
         try

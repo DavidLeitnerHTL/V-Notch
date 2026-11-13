@@ -416,6 +416,7 @@ public sealed class LiquidGlassDesktopIntegrationTests
         public ImageSource? CaptureSpotlightMorphVisual() => null;
         public void SetSpotlightMorphSessionActive(bool active) { }
         public void SetSpotlightMorphActive(bool active) { }
+        public Task<bool> AddPiTodoAsync(string text) => Task.FromResult(false);
         public void BeginSpotlightReturnHandoff(TimeSpan duration) { }
     }
 

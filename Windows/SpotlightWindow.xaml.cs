@@ -39,6 +39,7 @@ public partial class SpotlightWindow : Window
     private int _animationGeneration;
     private bool _launchInFlight;
     private string? _pendingLaunchQuery;
+    private string? _pendingTodo;
     private string? _lastDismissedQuery;
     private DateTime _lastDismissedAtUtc;
     private UiScheduledTimer? _searchingGraceTimer;
@@ -1538,6 +1539,13 @@ public partial class SpotlightWindow : Window
         }
         if (_launchInFlight) return;
 
+        if (selected.Kind == SpotlightResultKind.AddTodo)
+        {
+            _pendingTodo = selected.Target;
+            HideSpotlight();
+            return;
+        }
+
         if (selected.Kind == SpotlightResultKind.Calculation)
         {
             if (TryCopyToClipboard(selected.Target)) HideSpotlight();
@@ -3028,6 +3036,11 @@ public partial class SpotlightWindow : Window
         ResetMorphVisuals();
         ParkWindow();
         ReleaseMorphSession();
+        if (_pendingTodo is { } todo)
+        {
+            _pendingTodo = null;
+            GetMorphHost()?.AddPiTodoAsync(todo).SafeFireAndForget("PI-TODO");
+        }
     }
 
     private void ResetMorphVisuals()

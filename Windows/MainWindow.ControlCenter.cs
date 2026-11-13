@@ -276,7 +276,7 @@ public partial class MainWindow
     private const string NotificationBellGlyph = "";
 
     private void ShowNotchPill(string title, string status, ImageSource? appIcon, bool isClaude, Func<bool>? tap,
-        string? doneSessionId = null, string? glyph = null, TimeSpan? duration = null)
+        string? doneSessionId = null, string? glyph = null, TimeSpan? duration = null, Brush? accent = null)
     {
         if (_cleanedUp || _isGreetingActive || _isAnimating || _isExpanded || _isMusicExpanded || !CanShowClaudeAttention) return;
 
@@ -284,6 +284,8 @@ public partial class MainWindow
         _isCopiedPillShown = false;
         _askRequest = null;
         ClaudeNotificationTitle.Text = title;
+        ClaudeNotificationTitle.Foreground = accent ?? UiPalette.PrimaryBrush;
+        NotificationBellIcon.Foreground = accent ?? UiPalette.PrimaryBrush;
         ClaudeNotificationStatus.Text = status;
         NotificationClaudeIcon.Visibility = isClaude ? Visibility.Visible : Visibility.Collapsed;
         NotificationAppIcon.Source = appIcon;
