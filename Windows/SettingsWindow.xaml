@@ -1988,6 +1988,9 @@
                                     <StackPanel>
                                         <TextBlock x:Name="DisplayHeader" Text="DEVICES" Style="{StaticResource SectionHeader}" Visibility="Collapsed"/>
                                         <Border Style="{StaticResource SettingRowBorder}" Margin="0,0,0,4">
+                                            <CheckBox x:Name="ShowMutedMicGlyphCheck" Content="Show a small mic while muted" Checked="ShowMutedMicGlyphCheck_Changed" Unchecked="ShowMutedMicGlyphCheck_Changed"/>
+                                        </Border>
+                                        <Border Style="{StaticResource SettingRowBorder}" Margin="0,0,0,4">
                                             <StackPanel>
                                                 <TextBlock x:Name="MonitorLabel" Text="Active Monitor" Style="{StaticResource SettingTitleText}"/>
                                                 <TextBlock x:Name="MonitorHint" Text="Choose which screen anchors the notch."

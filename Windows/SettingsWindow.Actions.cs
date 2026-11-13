@@ -595,6 +595,7 @@ public partial class SettingsWindow
             snapshot.CameraDeviceId = selectedCamera.Id;
         if (VisualizerAudioCombo.SelectedItem is AudioDeviceItem selectedAudioDevice)
             snapshot.VisualizerAudioDeviceId = selectedAudioDevice.Id;
+        snapshot.ShowMutedMicGlyph = ShowMutedMicGlyphCheck.IsChecked ?? true;
         snapshot.AutoStart = AutoStartCheck.IsChecked ?? false;
         snapshot.StayBehindWindows = StayBehindWindowsCheck.IsChecked ?? false;
         snapshot.EnableHelloGreeting = HelloGreetingCheck.IsChecked ?? true;

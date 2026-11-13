@@ -1,4 +1,5 @@
 {
+  "settings.audio.showMutedMic": "Kleines Mikro zeigen, solange stumm",
   "levelHud.micMuted": "Stumm",
   "levelHud.micOn": "Mikro an",
   "settings.accentColor": "Akzentfarbe",

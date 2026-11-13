@@ -31,6 +31,9 @@ internal sealed class MasterVolumeWatcher : IDisposable
     private readonly DeviceEvents _deviceEvents;
     private IMMDeviceEnumerator? _enumerator;
     private IAudioEndpointVolume? _endpoint;
+    private string? _boundDeviceId;
+    public bool IsBoundDevice(string id) { lock (_gate) return string.Equals(_boundDeviceId, id, StringComparison.OrdinalIgnoreCase); }
+    public bool HasBoundDevice { get { lock (_gate) return _endpoint != null; } }
     private float _lastVolume = -1;
     private bool _lastMuted;
     private bool _disposed;
@@ -46,6 +49,7 @@ internal sealed class MasterVolumeWatcher : IDisposable
 
     /// <summary>A sound device (any direction) became usable (true) or went away (false). Raised on a worker thread.</summary>
     public event Action<string, bool>? EndpointStateChanged;
+    public event Action? DefaultUnavailable;
 
     /// <summary>The watched default endpoint's volume 0..1 and mute, as last seen.</summary>
     public (float Volume, bool Muted) Current
@@ -139,10 +143,12 @@ internal sealed class MasterVolumeWatcher : IDisposable
             return;
         }
         _endpoint = volume;
+        if (device.GetId(out string deviceId) == 0) _boundDeviceId = deviceId;
     }
 
     private void Unbind()
     {
+        _boundDeviceId = null;
         if (_endpoint == null) return;
         try { _endpoint.UnregisterControlChangeNotify(_callback); }
         catch (COMException) { }
@@ -184,7 +190,11 @@ internal sealed class MasterVolumeWatcher : IDisposable
                     RuntimeLog.Warn(LogTag, $"Speaker switch not followed: {ex.Message}");
                     return;
                 }
-                if (_endpoint == null) return;
+                if (_endpoint == null)
+                {
+                    DefaultUnavailable?.Invoke();
+                    return;
+                }
                 lock (_values)
                 {
                     volume = _lastVolume;
@@ -259,6 +269,8 @@ internal sealed class MasterVolumeWatcher : IDisposable
     private interface IMMDevice
     {
         [PreserveSig] int Activate(ref Guid id, int context, IntPtr parameters, [MarshalAs(UnmanagedType.IUnknown)] out object endpoint);
+        [PreserveSig] int OpenPropertyStore(int access, out IntPtr properties);
+        [PreserveSig] int GetId([MarshalAs(UnmanagedType.LPWStr)] out string id);
     }
 
     [ComImport, Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]

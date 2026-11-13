@@ -240,6 +240,7 @@ public partial class MainWindow
 
     private void ApplySettings(NotchSettings? oldSettings, bool animatePulse = false)
     {
+        UpdateMicRestGlyph();
         AccentTheme.Apply(_settings.AccentColor);
         InteractionSounds.Configure(_settings.EnableInteractionSounds, _settings.InteractionSoundVolume);
         _batteryModule.SelectSource(_settings.BatteryDeviceId);

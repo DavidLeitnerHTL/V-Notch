@@ -318,6 +318,7 @@ public partial class SettingsWindow : Window
 
         if (!IsDeferringBackgroundInitialization)
             LoadCameraDevices().SafeFireAndForget("SETTINGS-CAMERA-DEVICES");
+        ShowMutedMicGlyphCheck.IsChecked = _settings.ShowMutedMicGlyph;
         SetVisualizerAudioDevicePlaceholder();
 
         AutoStartCheck.IsChecked = _settingsAppService.IsAutoStartEnabled();
@@ -684,6 +685,7 @@ public partial class SettingsWindow : Window
 
         CameraLabel.Text = Loc.Get("settings.camera");
         CameraHint.Text = Loc.Get("settings.camera.hint");
+        ShowMutedMicGlyphCheck.Content = Loc.Get("settings.audio.showMutedMic");
         VisualizerAudioLabel.Text = Loc.Get("settings.visualizerAudio");
         VisualizerAudioHint.Text = Loc.Get("settings.visualizerAudio.hint");
         if (IsLoaded)

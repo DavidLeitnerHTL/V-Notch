@@ -24,6 +24,17 @@ public partial class MainWindow
         _captureVolumeWatcher = new MasterVolumeWatcher(capture: true);
         _captureVolumeWatcher.Changed += (volume, muted) => Dispatcher.BeginInvoke(() => OnCaptureLevelChanged(volume, muted));
         _captureVolumeWatcher.SpeakerSwitched += (volume, muted) => Dispatcher.BeginInvoke(() => OnCaptureDefaultChanged(volume, muted));
+        _captureVolumeWatcher.EndpointStateChanged += (id, active) =>
+        {
+            if (!active) Dispatcher.BeginInvoke(() =>
+            {
+                if (_captureVolumeWatcher?.IsBoundDevice(id) == true) OnCaptureEndpointGone();
+            });
+        };
+        _captureVolumeWatcher.DefaultUnavailable += () => Dispatcher.BeginInvoke(() =>
+        {
+            if (_captureVolumeWatcher?.HasBoundDevice == false) OnCaptureEndpointGone();
+        });
         _captureVolumeWatcher.Start();
     }
 
@@ -45,6 +56,7 @@ public partial class MainWindow
     {
         if (_cleanedUp || MotionLabFakesMicMute) return;
         _micMuteKnown = muted;
+        UpdateMicRestGlyph();
         _micMuteShown = muted;
         if (_isVolumeIndicatorActive && _levelHudKind == LevelHudKind.MicMute)
         {
@@ -57,6 +69,7 @@ public partial class MainWindow
     {
         bool? previous = _micMuteKnown;
         _micMuteKnown = muted;
+        UpdateMicRestGlyph();
         if (previous == muted) return;
         if (previous == null || _cleanedUp || _settings == null || _isGreetingActive || !CanShowClaudeAttention)
         {
@@ -71,6 +84,55 @@ public partial class MainWindow
         ShowLevelIndicator(0f, LevelHudKind.MicMute);
         if (_isVolumeIndicatorActive && _levelHudKind == LevelHudKind.MicMute) PlayMicDive(muted);
         else _micMuteShown = muted;
+    }
+
+    private int _micRestToken;
+    private bool _micRestShown;
+
+    private void OnCaptureEndpointGone()
+    {
+        if (_cleanedUp) return;
+        _micMuteKnown = null;
+        UpdateMicRestGlyph();
+    }
+
+    /// <summary>A small rose mic appears beside the idle clock while muted.</summary>
+    private void UpdateMicRestGlyph()
+    {
+        if (MicMutedRestGlyph == null) return;
+        bool show = MicMuteIsKnownMuted && !_micMutedShown && _settings?.ShowMutedMicGlyph == true;
+        if (show == _micRestShown) return;
+        _micRestShown = show;
+        int token = ++_micRestToken;
+        double opacity = MicMutedRestGlyph.Opacity;
+        double scale = MicMutedRestScale.ScaleX;
+        MicMutedRestGlyph.BeginAnimation(OpacityProperty, null);
+        MicMutedRestScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+        MicMutedRestScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        if (show) MicMutedRestGlyph.Visibility = Visibility.Visible;
+        // The clock makes room by gliding, in step with the glyph.
+        var clockMargin = show ? new Thickness(17, 0, 0, 0) : new Thickness(0);
+        if (AnimationConfig.ReduceMotion) { IdleClock.BeginAnimation(MarginProperty, null); IdleClock.Margin = clockMargin; }
+        else
+        {
+            var glide = new ThicknessAnimation(clockMargin, new Duration(TimeSpan.FromMilliseconds(180))) { EasingFunction = _easeQuadOut };
+            Timeline.SetDesiredFrameRate(glide, AnimationConfig.TargetFps);
+            IdleClock.BeginAnimation(MarginProperty, glide);
+        }
+        if (AnimationConfig.ReduceMotion || (!show && opacity <= 0))
+        {
+            MicMutedRestGlyph.Opacity = show ? 1 : 0;
+            MicMutedRestScale.ScaleX = MicMutedRestScale.ScaleY = show ? 1 : 0.6;
+            MicMutedRestGlyph.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            return;
+        }
+        var duration = TimeSpan.FromMilliseconds(180);
+        var fade = MakeAnim(show && opacity == 0 ? 0 : opacity, show ? 1 : 0, duration, _easeQuadOut);
+        fade.Completed += (_, _) => { if (token == _micRestToken && !_micRestShown) MicMutedRestGlyph.Visibility = Visibility.Collapsed; };
+        MicMutedRestGlyph.BeginAnimation(OpacityProperty, fade);
+        var pop = MakeAnim(show && opacity == 0 ? 0.6 : scale, show ? 1 : 0.6, duration, show ? _easeSoftSpring : _easeQuadOut);
+        MicMutedRestScale.BeginAnimation(ScaleTransform.ScaleXProperty, pop);
+        MicMutedRestScale.BeginAnimation(ScaleTransform.ScaleYProperty, pop);
     }
 
     private void ApplyMicMuteFace(bool muted)

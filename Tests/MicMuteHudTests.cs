@@ -141,6 +141,50 @@ public sealed class MicMuteHudTests
         AssertRest(window);
     });
 
+    [Fact]
+    public void RestGlyphShowsWhileMuted() => Run(async (window, ct) =>
+    {
+        Invoke(window, "OnMicMuteChanged", false);
+        Invoke(window, "OnMicMuteChanged", true);
+        await Task.Delay(300, ct);
+        var glyph = Element<FrameworkElement>(window, "MicMutedRestGlyph");
+        Assert.Equal(Visibility.Visible, glyph.Visibility);
+        Assert.Equal(1, glyph.Opacity, 2);
+    });
+
+    [Fact]
+    public void RestGlyphHidesWhenNoCaptureDevice() => Run(async (window, ct) =>
+    {
+        Invoke(window, "OnCaptureDefaultChanged", 0.3f, true);
+        Invoke(window, "OnCaptureEndpointGone");
+        await Task.Delay(250, ct);
+        Assert.Null(Get<bool?>(window, "_micMuteKnown"));
+        Assert.Equal(Visibility.Collapsed, Element<FrameworkElement>(window, "MicMutedRestGlyph").Visibility);
+        Invoke(window, "OnCaptureDefaultChanged", 0.3f, true);
+        await Task.Delay(250, ct);
+        Assert.Equal(Visibility.Visible, Element<FrameworkElement>(window, "MicMutedRestGlyph").Visibility);
+    });
+
+    [Fact]
+    public void CallWarningHidesRestGlyph() => Run(async (window, ct) =>
+    {
+        Invoke(window, "OnCaptureDefaultChanged", 0.3f, true);
+        Set(window, "_micMutedShown", true);
+        Invoke(window, "UpdateMicRestGlyph");
+        await Task.Delay(250, ct);
+        Assert.Equal(Visibility.Collapsed, Element<FrameworkElement>(window, "MicMutedRestGlyph").Visibility);
+    });
+
+    [Fact]
+    public void SettingOffHidesRestGlyph() => Run(async (window, ct) =>
+    {
+        Invoke(window, "OnCaptureDefaultChanged", 0.3f, true);
+        Get<VNotch.Models.NotchSettings>(window, "_settings").ShowMutedMicGlyph = false;
+        Invoke(window, "UpdateMicRestGlyph");
+        await Task.Delay(250, ct);
+        Assert.Equal(Visibility.Collapsed, Element<FrameworkElement>(window, "MicMutedRestGlyph").Visibility);
+    });
+
     private static void AssertRest(MainWindow window)
     {
         Assert.Equal(1, Element<Canvas>(window, "VolumeIndicatorMic").Opacity, 3);

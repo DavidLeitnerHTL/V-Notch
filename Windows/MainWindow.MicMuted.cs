@@ -110,6 +110,7 @@ public partial class MainWindow
             return;
         }
         _micMutedShown = shown;
+        UpdateMicRestGlyph();
         RuntimeLog.Log("MIC-MUTED", $"Muted in a call: {shown} (call {_micInCall}, Windows {_micMutedWindows}, Discord {_discordVoice?.IsMuted == true})");
         // The dot gives way to the struck-out mic, or comes back.
         SyncPrivacyDotVisibilityForCurrentView();

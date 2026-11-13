@@ -216,6 +216,7 @@ public partial class NotchSettings
     public string SchoolUntisUrl { get; set; } = "https://htl-leonding.webuntis.com/today";
     // Discord mute/deafen for the muted-mic warning: the id of the user's own Discord application ("Public
     // Client" on, redirect http://127.0.0.1/callback). Empty leaves Discord out.
+    public bool ShowMutedMicGlyph { get; set; } = true;
     public string DiscordClientId { get; set; } = "";
     // A short Windows sound when a Claude Code turn ends or a session waits for the user; never over fullscreen.
     public bool PlayClaudeSounds { get; set; } = true;

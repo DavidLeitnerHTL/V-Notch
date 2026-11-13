@@ -465,28 +465,15 @@ public partial class MainWindow
         bool hasWave1 = !isMuted && iconCodepoint >= 0xE993;
         bool hasWave2 = !isMuted && iconCodepoint >= 0xE995;
 
-        if (VolumeIndicatorMuteSlashGap != null)
-            VolumeIndicatorMuteSlashGap.Visibility = isMuted ? Visibility.Visible : Visibility.Collapsed;
+        AnimateSpeakerParts(isMuted, isMuted ? 0 : hasWave1 ? 1.0 : 0.22,
+            isMuted ? 0 : hasWave2 ? 1.0 : iconCodepoint == 0xE994 ? 0.32 : 0.15, animate);
         if (VolumeIndicatorMuteSlash != null)
         {
-            VolumeIndicatorMuteSlash.Visibility = isMuted ? Visibility.Visible : Visibility.Collapsed;
             if (VolumeIndicatorMuteSlash.Stroke is SolidColorBrush slashBrush && !slashBrush.IsFrozen)
                 slashBrush.Color = accentColor;
             else
                 VolumeIndicatorMuteSlash.Stroke = new SolidColorBrush(accentColor);
         }
-        if (VolumeIndicatorWave1 != null)
-        {
-            double wave1Opacity = hasWave1 ? 1.0 : 0.22;
-            VolumeIndicatorWave1.Opacity = isMuted ? 0.0 : wave1Opacity;
-        }
-        if (VolumeIndicatorWave2 != null)
-        {
-            double wave2Base = iconCodepoint == 0xE994 ? 0.32 : 0.15;
-            double wave2Opacity = hasWave2 ? 1.0 : wave2Base;
-            VolumeIndicatorWave2.Opacity = isMuted ? 0.0 : wave2Opacity;
-        }
-
         if (VolumeIndicatorSpeakerCone.Fill is SolidColorBrush coneBrush && !coneBrush.IsFrozen)
             coneBrush.Color = accentColor;
         else
@@ -507,6 +494,7 @@ public partial class MainWindow
         else if (VolumeIndicatorWave2 != null)
             VolumeIndicatorWave2.Stroke = new SolidColorBrush(accentColor);
 
+        // The whole speaker still gives its small hop on every step, as before the waves learned to fade.
         if (animate && !AnimationConfig.ReduceMotion && VolumeIndicatorIconScale != null)
         {
             var pop = new DoubleAnimationUsingKeyFrames();
@@ -516,6 +504,74 @@ public partial class MainWindow
             VolumeIndicatorIconScale.BeginAnimation(ScaleTransform.ScaleXProperty, pop);
             VolumeIndicatorIconScale.BeginAnimation(ScaleTransform.ScaleYProperty, pop);
         }
+    }
+
+    private bool? _speakerPartsMuted;
+    private int _speakerSlashToken;
+
+    /// <summary>The speaker waves fade with volume and the mute slash draws across the icon.</summary>
+    private void AnimateSpeakerParts(bool muted, double wave1, double wave2, bool animate)
+    {
+        bool motion = animate && !AnimationConfig.ReduceMotion;
+        AnimateSpeakerWave(VolumeIndicatorWave1, wave1, motion);
+        AnimateSpeakerWave(VolumeIndicatorWave2, wave2, motion);
+        if (_speakerPartsMuted == muted && motion) return;
+        _speakerPartsMuted = muted;
+        int token = ++_speakerSlashToken;
+        var slash = VolumeIndicatorMuteSlash;
+        var gap = VolumeIndicatorMuteSlashGap;
+        if (slash == null || gap == null) return;
+        if (!motion)
+        {
+            slash.BeginAnimation(System.Windows.Shapes.Shape.StrokeDashOffsetProperty, null);
+            gap.BeginAnimation(System.Windows.Shapes.Shape.StrokeDashOffsetProperty, null);
+            slash.StrokeDashOffset = gap.StrokeDashOffset = 0;
+            slash.Visibility = gap.Visibility = muted ? Visibility.Visible : Visibility.Collapsed;
+            return;
+        }
+        const double length = 30;
+        slash.BeginAnimation(System.Windows.Shapes.Shape.StrokeDashOffsetProperty, null);
+        gap.BeginAnimation(System.Windows.Shapes.Shape.StrokeDashOffsetProperty, null);
+        slash.StrokeDashOffset = gap.StrokeDashOffset = muted ? length : 0;
+        slash.Visibility = gap.Visibility = Visibility.Visible;
+        var duration = TimeSpan.FromMilliseconds(muted ? 180 : 160);
+        var stroke = MakeAnim(muted ? length : 0, muted ? 0 : -length, duration, _easeQuadOut);
+        stroke.Completed += (_, _) =>
+        {
+            if (token == _speakerSlashToken && !muted)
+                slash.Visibility = gap.Visibility = Visibility.Collapsed;
+        };
+        slash.BeginAnimation(System.Windows.Shapes.Shape.StrokeDashOffsetProperty, stroke);
+        gap.BeginAnimation(System.Windows.Shapes.Shape.StrokeDashOffsetProperty,
+            MakeAnim(muted ? length : 0, muted ? 0 : -length, duration, _easeQuadOut));
+    }
+
+    private void AnimateSpeakerWave(System.Windows.Shapes.Path wave, double target, bool animate)
+    {
+        if (wave == null) return;
+        double current = wave.Opacity;
+        wave.BeginAnimation(OpacityProperty, null);
+        wave.Opacity = animate ? current : target;
+        if (!animate)
+        {
+            if (wave.RenderTransform is ScaleTransform existingScale)
+            {
+                existingScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+                existingScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+                existingScale.ScaleX = existingScale.ScaleY = 1;
+            }
+            return;
+        }
+        wave.BeginAnimation(OpacityProperty, MakeAnim(current, target, TimeSpan.FromMilliseconds(140), _easeQuadOut));
+        if (target <= current || target < 1) return;
+        if (wave.RenderTransform is not ScaleTransform scale)
+        {
+            scale = new ScaleTransform(1, 1);
+            wave.RenderTransformOrigin = new Point(0.5, 0.5);
+            wave.RenderTransform = scale;
+        }
+        scale.BeginAnimation(ScaleTransform.ScaleXProperty, MakeAnim(0.85, 1, TimeSpan.FromMilliseconds(140), _easeQuadOut));
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty, MakeAnim(0.85, 1, TimeSpan.FromMilliseconds(140), _easeQuadOut));
     }
 
     private unsafe void UpdateVolumeIndicatorHud(double volume, bool animate = false)
