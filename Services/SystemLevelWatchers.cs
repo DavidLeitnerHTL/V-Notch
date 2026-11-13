@@ -372,23 +372,42 @@ internal sealed class BrightnessWatcher : IDisposable
     }
 
     /// <summary>Sets the built-in screen; the change it causes is not reported back.</summary>
-    public void SetBrightness(int percent)
+    public void SetBrightness(int percent) => TrySetBrightness(percent);
+
+    internal bool TrySetBrightness(int percent)
     {
+        if (Volatile.Read(ref _disposed)) return false;
         byte level = (byte)Math.Clamp(percent, 0, 100);
         Interlocked.Exchange(ref _last, level);
         try
         {
+            bool success = false;
             using var searcher = new ManagementObjectSearcher(new ManagementScope(WmiNamespace),
                 new SelectQuery("WmiMonitorBrightnessMethods"));
             using var screens = searcher.Get();
             foreach (ManagementObject screen in screens)
             {
-                using (screen) screen.InvokeMethod("WmiSetBrightness", new object[] { 1u, level });
+                using (screen)
+                {
+                    object? result = screen.InvokeMethod("WmiSetBrightness", new object[] { 1u, level });
+                    if (result != null && Convert.ToUInt32(result, CultureInfo.InvariantCulture) == 0) success = true;
+                }
             }
+            return success;
         }
         catch (Exception ex) when (ex is ManagementException or COMException or UnauthorizedAccessException)
         {
             RuntimeLog.Warn(LogTag, $"Brightness write failed: {ex.Message}");
+            return false;
+        }
+    }
+
+    internal static int? ReadCurrentBrightness()
+    {
+        try { return ReadBrightness(); }
+        catch (Exception ex) when (ex is ManagementException or COMException or UnauthorizedAccessException or InvalidCastException or FormatException)
+        {
+            return null;
         }
     }
 
