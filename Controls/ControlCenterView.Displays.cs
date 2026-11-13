@@ -101,14 +101,49 @@ public partial class ControlCenterView
         catch { return; }
         if (_disposed || revision != _displayRevision || !IsExpanded("displays") || value == null) return;
         var label = MakeLabel(Loc.Get("control.displays.brightness"), 11, _moodInk);
-        var slider = new Slider { Minimum = 0, Maximum = 100, Value = value.Value, Margin = new Thickness(0, 2, 0, 8), Name = "DisplaysBrightnessSlider" };
-        slider.ValueChanged += (_, _) =>
+        // The same thin mood bar as the app volumes: click or drag sets it, the wheel nudges it by 5.
+        var fill = new ScaleTransform(value.Value / 100.0, 1);
+        var number = MakeLabel($"{value.Value} %", 11, Muted);
+        number.Width = 38;
+        number.TextAlignment = TextAlignment.Right;
+        number.VerticalAlignment = VerticalAlignment.Center;
+        var track = new Grid
         {
-            int level = (int)Math.Round(slider.Value);
+            Height = 4,
+            VerticalAlignment = VerticalAlignment.Center,
+            Children =
+            {
+                new Border { Background = Track, CornerRadius = new CornerRadius(2) },
+                new Border { Background = MoodBar, CornerRadius = new CornerRadius(2), RenderTransform = fill, RenderTransformOrigin = new Point(0, 0.5) }
+            }
+        };
+        var hit = new Grid { Name = "DisplaysBrightnessSlider", Height = 18, Background = Brushes.Transparent, Cursor = Cursors.Hand, Children = { track } };
+        var bar = new DockPanel { Margin = new Thickness(0, 2, 10, 8) };
+        DockPanel.SetDock(number, Dock.Right);
+        bar.Children.Add(number);
+        bar.Children.Add(hit);
+        void SetLevel(int level)
+        {
+            level = Math.Clamp(level, 0, 100);
+            fill.ScaleX = level / 100.0;
+            number.Text = $"{level} %";
             DisplayBrightness.Set(id, level);
+        }
+        void SetFrom(MouseEventArgs e)
+        {
+            double w = track.ActualWidth;
+            if (w > 0) SetLevel((int)Math.Round(Math.Clamp(e.GetPosition(track).X / w, 0, 1) * 100));
+        }
+        hit.MouseLeftButtonDown += (_, e) => { e.Handled = true; hit.CaptureMouse(); SetFrom(e); };
+        hit.MouseMove += (_, e) => { if (hit.IsMouseCaptured) SetFrom(e); };
+        hit.MouseLeftButtonUp += (_, _) => hit.ReleaseMouseCapture();
+        hit.PreviewMouseWheel += (_, e) =>
+        {
+            e.Handled = true;
+            SetLevel((int)Math.Round(fill.ScaleX * 20) * 5 + Math.Sign(e.Delta) * 5);
         };
         host.Children.Add(label);
-        host.Children.Add(slider);
+        host.Children.Add(bar);
         host.Visibility = Visibility.Visible;
     }
 
