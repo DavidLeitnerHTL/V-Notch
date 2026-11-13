@@ -28,7 +28,7 @@ public partial class SpotlightWindow : Window
     private const double NotchShadowDepth = 4;
     private const int PageJump = 4;
     private const double StaleResultsOpacity = 0.55;
-    private static readonly TimeSpan MorphDuration = TimeSpan.FromMilliseconds(560);
+    private static readonly TimeSpan MorphDuration = TimeSpan.FromMilliseconds(420);
     private static readonly TimeSpan SearchingPanelGrace = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan QueryRestoreWindow = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan FailureDisplayTime = TimeSpan.FromMilliseconds(2800);
@@ -105,6 +105,9 @@ public partial class SpotlightWindow : Window
         _chatStore = chatStore ?? new SpotlightChatStore();
         InitializeComponent();
         LocalizedPresentation.Apply(this);
+        // See-through by DWM instead of a layered window: the morph out of the notch moves and resizes this big
+        // window every frame, and the layered path copied each of those frames back from the GPU.
+        DwmTransparentWindow.Apply(this);
         if (settings != null) _settings = settings.Clone();
         _viewModel = viewModel;
         _viewModel.HistoryEnabled = _settings.EnableSpotlightHistory;
@@ -2592,11 +2595,11 @@ public partial class SpotlightWindow : Window
         var corner = CreateAnimation(startBottomRadius, ExpandedCornerRadius, MorphDuration, morphEase, synchronizedMorph: true);
         var cornerTop = CreateAnimation(startTopRadius, ExpandedCornerRadius, MorphDuration, morphEase, synchronizedMorph: true);
 
-        var contentFade = CreateAnimation(0, 1, TimeSpan.FromMilliseconds(300), contentEase);
+        var contentFade = CreateAnimation(0, 1, TimeSpan.FromMilliseconds(240), contentEase);
         // The captured notch covers the short content delay. If capture is not
         double contentDelayMs = morphsFromNotch && !hasNotchSnapshot ? 0 : 60;
         contentFade.BeginTime = TimeSpan.FromMilliseconds(contentDelayMs);
-        var contentSlide = CreateAnimation(8, 0, TimeSpan.FromMilliseconds(340), contentEase);
+        var contentSlide = CreateAnimation(8, 0, TimeSpan.FromMilliseconds(280), contentEase);
         contentSlide.BeginTime = contentFade.BeginTime;
         DoubleAnimation? notchFade = hasNotchSnapshot
             ? CreateAnimation(1, 0, TimeSpan.FromMilliseconds(260),
@@ -3274,7 +3277,7 @@ public partial class SpotlightWindow : Window
     {
         var animation = new DoubleAnimation(from, to, duration) { EasingFunction = easing };
         Timeline.SetDesiredFrameRate(animation,
-            synchronizedMorph && !IsLiquidGlassEnabled ? Math.Min(60, AnimationConfig.TargetFps) : AnimationConfig.TargetFps);
+            AnimationConfig.TargetFps);
         return animation;
     }
 
