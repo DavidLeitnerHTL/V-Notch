@@ -20,6 +20,12 @@
   "control.displays.keepPrompt": "Keep these display settings?",
   "control.displays.keep": "Keep",
   "control.displays.backIn": "Back in {0} s",
+  "control.keepAwake.off": "Keep awake: off",
+  "control.keepAwake.auto": "Keep awake: automatic",
+  "control.keepAwake.always": "Keep awake: always",
+  "control.keepAwake.claude": "Awake · Claude is working",
+  "control.keepAwake.download": "Awake · download running",
+  "control.keepAwake.timer": "Awake · timer running",
   "settings.audio.showMutedMic": "Show a small mic while muted",
   "levelHud.micMuted": "Muted",
   "levelHud.micOn": "Mic on",
@@ -1098,7 +1104,6 @@
   "clipboard.personalPasscode": "Private PIN",
   "clipboard.unlockPersonal": "Unlock Private",
   "clipboard.partialImport": "Saved {0}/{1} items ({2} unavailable or locked).",
-  "clipboard.fileCount": "{0} files",
   "settings.trayAdvanced": "File Tray",
   "settings.trayAdvanced.hint": "Choose what to save automatically. You can still drag items into File Tray. Your existing history is kept.",
   "settings.trayCaptureText": "Automatically save copied text and links",
@@ -1306,11 +1311,5 @@
   "settings.autoDismissNotify.hint": "Close the notification banner automatically after the timer runs out.",
   "settings.notificationDuration": "Notification duration",
   "settings.notificationDuration.hint": "How long each notification stays visible on the notch.",
-  "tooltip.autoDismissNotify": "Automatically hide notifications after the configured time.",
-  "control.keepAwake.off": "Keep awake: off",
-  "control.keepAwake.auto": "Keep awake: automatic",
-  "control.keepAwake.always": "Keep awake: always",
-  "control.keepAwake.claude": "Awake · Claude is working",
-  "control.keepAwake.download": "Awake · download running",
-  "control.keepAwake.timer": "Awake · timer running"
+  "tooltip.autoDismissNotify": "Automatically hide notifications after the configured time."
 }

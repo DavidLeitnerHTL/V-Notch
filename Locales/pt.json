@@ -20,6 +20,12 @@
   "control.displays.keepPrompt": "Manter estas definições de ecrã?",
   "control.displays.keep": "Manter",
   "control.displays.backIn": "Reverter em {0} s",
+  "control.keepAwake.off": "Keep awake: off",
+  "control.keepAwake.auto": "Keep awake: automatic",
+  "control.keepAwake.always": "Keep awake: always",
+  "control.keepAwake.claude": "Awake · Claude is working",
+  "control.keepAwake.download": "Awake · download running",
+  "control.keepAwake.timer": "Awake · timer running",
   "settings.audio.showMutedMic": "Show a small mic while muted",
   "levelHud.micMuted": "Muted",
   "levelHud.micOn": "Mic on",
@@ -1098,7 +1104,6 @@
   "clipboard.personalPasscode": "PIN de Privado",
   "clipboard.unlockPersonal": "Desbloquear Privado",
   "clipboard.partialImport": "{0}/{1} itens salvos ({2} indisponíveis ou bloqueados).",
-  "clipboard.fileCount": "{0} arquivos",
   "settings.trayAdvanced": "Bandeja de arquivos",
   "settings.trayAdvanced.hint": "Escolha o que salvar automaticamente. Você ainda pode arrastar itens para a bandeja de arquivos. O histórico existente será mantido.",
   "settings.trayCaptureText": "Salvar automaticamente textos e links copiados",
@@ -1306,11 +1311,5 @@
   "settings.autoDismissNotify.hint": "Fecha o banner de notificação automaticamente após o tempo definido.",
   "settings.notificationDuration": "Duração da notificação",
   "settings.notificationDuration.hint": "Por quanto tempo cada notificação fica visível no notch.",
-  "tooltip.autoDismissNotify": "Oculta as notificações automaticamente após o tempo configurado.",
-  "control.keepAwake.off": "Keep awake: off",
-  "control.keepAwake.auto": "Keep awake: automatic",
-  "control.keepAwake.always": "Keep awake: always",
-  "control.keepAwake.claude": "Awake · Claude is working",
-  "control.keepAwake.download": "Awake · download running",
-  "control.keepAwake.timer": "Awake · timer running"
+  "tooltip.autoDismissNotify": "Oculta as notificações automaticamente após o tempo configurado."
 }

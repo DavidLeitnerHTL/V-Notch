@@ -46,7 +46,7 @@ public partial class MainWindow
         IsCompactPillForPrivacyIndicator,
         _isAudioView,
         _isVolumeIndicatorActive,
-        _isBluetoothNotificationVisible || _isClaudeNotificationVisible,
+        _isBluetoothNotificationVisible || _isClaudeNotificationVisible || _appPillToken != 0,
         _isClipboardPeekActive);
 
     // A muted mic in a call takes the dot's place.

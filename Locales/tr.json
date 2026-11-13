@@ -20,6 +20,12 @@
   "control.displays.keepPrompt": "Bu ekran ayarları korunsun mu?",
   "control.displays.keep": "Koru",
   "control.displays.backIn": "{0} sn içinde geri dön",
+  "control.keepAwake.off": "Keep awake: off",
+  "control.keepAwake.auto": "Keep awake: automatic",
+  "control.keepAwake.always": "Keep awake: always",
+  "control.keepAwake.claude": "Awake · Claude is working",
+  "control.keepAwake.download": "Awake · download running",
+  "control.keepAwake.timer": "Awake · timer running",
   "settings.audio.showMutedMic": "Show a small mic while muted",
   "levelHud.micMuted": "Muted",
   "levelHud.micOn": "Mic on",
@@ -1098,7 +1104,6 @@
   "clipboard.personalPasscode": "Özel PIN",
   "clipboard.unlockPersonal": "Özel’in kilidini aç",
   "clipboard.partialImport": "{0}/{1} öğe kaydedildi ({2} kullanılamıyor veya kilitli).",
-  "clipboard.fileCount": "{0} dosya",
   "settings.trayAdvanced": "Dosya tepsisi",
   "settings.trayAdvanced.hint": "Otomatik kaydedilecek içeriği seçin. Öğeleri dosya tepsisine sürükleyip bırakmaya devam edebilirsiniz. Mevcut geçmiş korunur.",
   "settings.trayCaptureText": "Kopyalanan metin ve bağlantıları otomatik kaydet",
@@ -1306,11 +1311,5 @@
   "settings.autoDismissNotify.hint": "Belirlenen süre dolduğunda bildirim başlığını otomatik olarak kapatır.",
   "settings.notificationDuration": "Bildirim süresi",
   "settings.notificationDuration.hint": "Her bildirimin çentikte ne kadar süre görünür kalacağı.",
-  "tooltip.autoDismissNotify": "Ayarlanan süreden sonra bildirimleri otomatik olarak gizler.",
-  "control.keepAwake.off": "Keep awake: off",
-  "control.keepAwake.auto": "Keep awake: automatic",
-  "control.keepAwake.always": "Keep awake: always",
-  "control.keepAwake.claude": "Awake · Claude is working",
-  "control.keepAwake.download": "Awake · download running",
-  "control.keepAwake.timer": "Awake · timer running"
+  "tooltip.autoDismissNotify": "Ayarlanan süreden sonra bildirimleri otomatik olarak gizler."
 }

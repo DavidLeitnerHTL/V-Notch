@@ -20,6 +20,12 @@
   "control.displays.keepPrompt": "Giữ các cài đặt màn hình này?",
   "control.displays.keep": "Giữ",
   "control.displays.backIn": "Hoàn tác sau {0} giây",
+  "control.keepAwake.off": "Keep awake: off",
+  "control.keepAwake.auto": "Keep awake: automatic",
+  "control.keepAwake.always": "Keep awake: always",
+  "control.keepAwake.claude": "Awake · Claude is working",
+  "control.keepAwake.download": "Awake · download running",
+  "control.keepAwake.timer": "Awake · timer running",
   "settings.audio.showMutedMic": "Show a small mic while muted",
   "levelHud.micMuted": "Muted",
   "levelHud.micOn": "Mic on",
@@ -1098,7 +1104,6 @@
   "clipboard.personalPasscode": "Mã PIN của mục Riêng tư",
   "clipboard.unlockPersonal": "Mở khóa mục Riêng tư",
   "clipboard.partialImport": "Đã lưu {0}/{1} mục ({2} mục không truy cập được hoặc bị khóa).",
-  "clipboard.fileCount": "{0} tệp",
   "settings.trayAdvanced": "Khay tệp",
   "settings.trayAdvanced.hint": "Chọn loại nội dung được tự động lưu. Bạn vẫn có thể kéo thả vào Khay tệp. Lịch sử hiện có sẽ được giữ lại.",
   "settings.trayCaptureText": "Tự động lưu văn bản và liên kết đã sao chép",
@@ -1306,11 +1311,5 @@
   "settings.autoDismissNotify.hint": "Tự thu gọn thông báo trên notch sau khoảng thời gian đã chọn.",
   "settings.notificationDuration": "Thời gian hiện thông báo",
   "settings.notificationDuration.hint": "Khoảng thời gian mỗi thông báo hiển thị trên notch trước khi tự ẩn.",
-  "tooltip.autoDismissNotify": "Tự động đóng thông báo sau thời gian đã thiết lập.",
-  "control.keepAwake.off": "Keep awake: off",
-  "control.keepAwake.auto": "Keep awake: automatic",
-  "control.keepAwake.always": "Keep awake: always",
-  "control.keepAwake.claude": "Awake · Claude is working",
-  "control.keepAwake.download": "Awake · download running",
-  "control.keepAwake.timer": "Awake · timer running"
+  "tooltip.autoDismissNotify": "Tự động đóng thông báo sau thời gian đã thiết lập."
 }

@@ -20,6 +20,12 @@
   "control.displays.keepPrompt": "Diese Anzeigeeinstellungen behalten?",
   "control.displays.keep": "Behalten",
   "control.displays.backIn": "Zurück in {0} s",
+  "control.keepAwake.off": "Wach halten: aus",
+  "control.keepAwake.auto": "Wach halten: automatisch",
+  "control.keepAwake.always": "Wach halten: immer",
+  "control.keepAwake.claude": "Wach · Claude arbeitet",
+  "control.keepAwake.download": "Wach · Download läuft",
+  "control.keepAwake.timer": "Wach · Timer läuft",
   "settings.audio.showMutedMic": "Kleines Mikro zeigen, solange stumm",
   "levelHud.micMuted": "Stumm",
   "levelHud.micOn": "Mikro an",
@@ -1098,7 +1104,6 @@
   "clipboard.personalPasscode": "PIN für Privat",
   "clipboard.unlockPersonal": "Privat entsperren",
   "clipboard.partialImport": "{0}/{1} Elemente gespeichert ({2} nicht verfügbar oder gesperrt).",
-  "clipboard.fileCount": "{0} Dateien",
   "settings.trayAdvanced": "Dateiablage",
   "settings.trayAdvanced.hint": "Wählen Sie aus, was automatisch gespeichert wird. Sie können weiterhin Elemente in die Dateiablage ziehen. Der bisherige Verlauf bleibt erhalten.",
   "settings.trayCaptureText": "Kopierte Texte und Links automatisch speichern",
@@ -1306,11 +1311,5 @@
   "settings.autoDismissNotify.hint": "Schließt das Benachrichtigungsbanner nach Ablauf der Zeit automatisch.",
   "settings.notificationDuration": "Anzeigedauer der Benachrichtigung",
   "settings.notificationDuration.hint": "Wie lange jede Benachrichtigung in der Notch sichtbar bleibt.",
-  "tooltip.autoDismissNotify": "Benachrichtigungen nach der festgelegten Zeit automatisch ausblenden.",
-  "control.keepAwake.off": "Wach halten: aus",
-  "control.keepAwake.auto": "Wach halten: automatisch",
-  "control.keepAwake.always": "Wach halten: immer",
-  "control.keepAwake.claude": "Wach · Claude arbeitet",
-  "control.keepAwake.download": "Wach · Download läuft",
-  "control.keepAwake.timer": "Wach · Timer läuft"
+  "tooltip.autoDismissNotify": "Benachrichtigungen nach der festgelegten Zeit automatisch ausblenden."
 }

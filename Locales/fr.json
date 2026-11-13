@@ -20,6 +20,12 @@
   "control.displays.keepPrompt": "Conserver ces paramètres d’affichage ?",
   "control.displays.keep": "Conserver",
   "control.displays.backIn": "Retour dans {0} s",
+  "control.keepAwake.off": "Keep awake: off",
+  "control.keepAwake.auto": "Keep awake: automatic",
+  "control.keepAwake.always": "Keep awake: always",
+  "control.keepAwake.claude": "Awake · Claude is working",
+  "control.keepAwake.download": "Awake · download running",
+  "control.keepAwake.timer": "Awake · timer running",
   "settings.audio.showMutedMic": "Show a small mic while muted",
   "levelHud.micMuted": "Muted",
   "levelHud.micOn": "Mic on",
@@ -1098,7 +1104,6 @@
   "clipboard.personalPasscode": "Code PIN de Privé",
   "clipboard.unlockPersonal": "Déverrouiller Privé",
   "clipboard.partialImport": "{0}/{1} éléments enregistrés ({2} indisponibles ou verrouillés).",
-  "clipboard.fileCount": "{0} fichiers",
   "settings.trayAdvanced": "Bac à fichiers",
   "settings.trayAdvanced.hint": "Choisissez les éléments à enregistrer automatiquement. Vous pouvez toujours les glisser dans le bac à fichiers. L’historique existant est conservé.",
   "settings.trayCaptureText": "Enregistrer automatiquement les textes et liens copiés",
@@ -1306,11 +1311,5 @@
   "settings.autoDismissNotify.hint": "Ferme la bannière de notification automatiquement à la fin du délai.",
   "settings.notificationDuration": "Durée d'affichage des notifications",
   "settings.notificationDuration.hint": "Durée pendant laquelle chaque notification reste visible sur l'encoche.",
-  "tooltip.autoDismissNotify": "Masquer automatiquement les notifications après le délai défini.",
-  "control.keepAwake.off": "Keep awake: off",
-  "control.keepAwake.auto": "Keep awake: automatic",
-  "control.keepAwake.always": "Keep awake: always",
-  "control.keepAwake.claude": "Awake · Claude is working",
-  "control.keepAwake.download": "Awake · download running",
-  "control.keepAwake.timer": "Awake · timer running"
+  "tooltip.autoDismissNotify": "Masquer automatiquement les notifications après le délai défini."
 }

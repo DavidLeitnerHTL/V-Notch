@@ -39,6 +39,7 @@ public partial class SpotlightWindow : Window
     private int _animationGeneration;
     private bool _launchInFlight;
     private string? _pendingLaunchQuery;
+    private string? _pendingTodo;
     private string? _lastDismissedQuery;
     private DateTime _lastDismissedAtUtc;
     private UiScheduledTimer? _searchingGraceTimer;
@@ -107,7 +108,7 @@ public partial class SpotlightWindow : Window
         LocalizedPresentation.Apply(this);
         // See-through by DWM instead of a layered window: the morph out of the notch moves and resizes this big
         // window every frame, and the layered path copied each of those frames back from the GPU.
-        DwmTransparentWindow.Apply(this);
+        DwmTransparentWindow.Apply(this, System.Windows.Forms.Screen.PrimaryScreen?.DeviceName);
         if (settings != null) _settings = settings.Clone();
         _viewModel = viewModel;
         _viewModel.HistoryEnabled = _settings.EnableSpotlightHistory;
@@ -1537,6 +1538,13 @@ public partial class SpotlightWindow : Window
             return;
         }
         if (_launchInFlight) return;
+
+        if (selected.Kind == SpotlightResultKind.AddTodo)
+        {
+            _pendingTodo = selected.Target;
+            HideSpotlight();
+            return;
+        }
 
         if (selected.Kind == SpotlightResultKind.Calculation)
         {
@@ -3028,6 +3036,11 @@ public partial class SpotlightWindow : Window
         ResetMorphVisuals();
         ParkWindow();
         ReleaseMorphSession();
+        if (_pendingTodo is { } todo)
+        {
+            _pendingTodo = null;
+            GetMorphHost()?.AddPiTodoAsync(todo).SafeFireAndForget("PI-TODO");
+        }
     }
 
     private void ResetMorphVisuals()

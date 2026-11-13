@@ -192,7 +192,11 @@ public partial class MainWindow
                 MediaPlayback.UpdateTitleText(result.DisplayText.Title);
                 MediaPlayback.UpdateArtistText(result.DisplayText.Artist);
             }
-            CompactTitleMarquee.SetCurrentValue(TextBlock.TextProperty, result.DisplayText.Title);
+            // A new song's title cross-fades in the closed notch instead of jumping.
+            if (result.IsNewTrack && CompactTitleMarquee.IsVisible)
+                CrossFadeText(CompactTitleMarquee, result.DisplayText.Title, 180);
+            else
+                CompactTitleMarquee.SetCurrentValue(TextBlock.TextProperty, result.DisplayText.Title);
         }
         UpdatePictureInPictureBadge(info.IsPictureInPicture && (result.HasRealTrack || info.IsAnyMediaPlaying));
 
@@ -864,7 +868,7 @@ public partial class MainWindow
 
         if (!_isExpanded)
         {
-            if (_isBluetoothNotificationVisible || _isChargingNotificationVisible || _isClaudeNotificationVisible || _isAppNotificationBannerVisible || _isGreetingActive || _isAnimating)
+            if (_isBluetoothNotificationVisible || _isChargingNotificationVisible || _isClaudeNotificationVisible || _appPillToken != 0 || _isAppNotificationBannerVisible || _isGreetingActive || _isAnimating)
             {
                 return;
             }

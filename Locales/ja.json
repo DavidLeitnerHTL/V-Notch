@@ -20,6 +20,12 @@
   "control.displays.keepPrompt": "このディスプレイ設定を維持しますか？",
   "control.displays.keep": "維持",
   "control.displays.backIn": "{0} 秒後に元に戻す",
+  "control.keepAwake.off": "Keep awake: off",
+  "control.keepAwake.auto": "Keep awake: automatic",
+  "control.keepAwake.always": "Keep awake: always",
+  "control.keepAwake.claude": "Awake · Claude is working",
+  "control.keepAwake.download": "Awake · download running",
+  "control.keepAwake.timer": "Awake · timer running",
   "settings.audio.showMutedMic": "Show a small mic while muted",
   "levelHud.micMuted": "Muted",
   "levelHud.micOn": "Mic on",
@@ -1098,7 +1104,6 @@
   "clipboard.personalPasscode": "プライベートのPIN",
   "clipboard.unlockPersonal": "プライベートのロックを解除",
   "clipboard.partialImport": "{0}/{1} 件を保存しました（{2} 件は利用不可またはロック中）。",
-  "clipboard.fileCount": "{0} ファイル",
   "settings.trayAdvanced": "ファイルトレイ",
   "settings.trayAdvanced.hint": "自動保存する内容を選びます。ファイルトレイへのドラッグ＆ドロップは引き続き利用できます。既存の履歴は保持されます。",
   "settings.trayCaptureText": "コピーしたテキストとリンクを自動保存",
@@ -1306,11 +1311,5 @@
   "settings.autoDismissNotify.hint": "指定した時間が経過すると通知バナーを自動で閉じます。",
   "settings.notificationDuration": "通知の表示時間",
   "settings.notificationDuration.hint": "各通知がノッチに表示され続ける時間です。",
-  "tooltip.autoDismissNotify": "設定した時間の経過後に通知を自動で非表示にします。",
-  "control.keepAwake.off": "Keep awake: off",
-  "control.keepAwake.auto": "Keep awake: automatic",
-  "control.keepAwake.always": "Keep awake: always",
-  "control.keepAwake.claude": "Awake · Claude is working",
-  "control.keepAwake.download": "Awake · download running",
-  "control.keepAwake.timer": "Awake · timer running"
+  "tooltip.autoDismissNotify": "設定した時間の経過後に通知を自動で非表示にします。"
 }

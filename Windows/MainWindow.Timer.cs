@@ -905,10 +905,11 @@ public partial class MainWindow
 
     private void StartCountdownCompleteTextFlash()
     {
+        // Three blinks to catch the eye, then it stays lit: a forever-flash repainted the whole notch until dismissed.
         var flash = new DoubleAnimation(1, 0.2, new Duration(TimeSpan.FromMilliseconds(500)))
         {
             AutoReverse = true,
-            RepeatBehavior = RepeatBehavior.Forever
+            RepeatBehavior = new RepeatBehavior(3)
         };
         Timeline.SetDesiredFrameRate(flash, VNotch.Services.AnimationConfig.TargetFps);
         CountdownCompleteText.BeginAnimation(OpacityProperty, flash);

@@ -189,6 +189,9 @@ internal sealed class PiDashboardClient : IDisposable
 
     public Task<bool> AddTodoAsync(string text) => PostAsync("/api/todos", new JsonObject { ["text"] = text });
 
+    /// <summary>Sends copied text to the phone through the dashboard.</summary>
+    public Task<bool> SendToPhoneAsync(string text) => PostAsync("/api/notch/handy", new JsonObject { ["text"] = text });
+
     public Task<bool> SetTodoDoneAsync(string id, bool done) =>
         PostAsync($"/api/todos/{Uri.EscapeDataString(id)}", new JsonObject { ["done"] = done });
 

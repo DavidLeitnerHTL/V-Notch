@@ -229,7 +229,7 @@ public partial class MainWindow : Window
         VNotch.Services.Clipboard.ClipboardHistoryStore? clipboardHistoryStore = null)
     {
         InitializeComponent();
-        InitializeTransparency();
+        InitializeTransparency(settingsService);
         SettingsButton.AddHandler(Mouse.PreviewMouseDownEvent, new MouseButtonEventHandler((sender, e) =>
         {
             if (e.ChangedButton == MouseButton.Left)
@@ -411,6 +411,7 @@ public partial class MainWindow : Window
                 InvalidateGlassDpiScale();
                 PositionAtTop();
                 ControlCenter.RefreshDisplaysOnDisplayChange();
+                RestartIfTransparencyNoLongerFits();
             },
             HandleClipboardUpdated);
         _overlayWindow.TargetScreen = () => MonitorSelection.Resolve(_settings);
@@ -1628,6 +1629,7 @@ public partial class MainWindow : Window
 
     private void RefreshNotchLocalization()
     {
+        LocalizeAppPillCodeChip();
         _clipboardTrayView?.ApplyLocalization();
         LocalizedPresentation.Apply(this);
         RefreshAccessibleNames();
@@ -1874,6 +1876,7 @@ public partial class MainWindow : Window
         }
         else
         {
+            if (TryHandleAppPillTap()) return;
             if (TryHandleNotificationTap()) return;
             ExpandNotch();
         }
