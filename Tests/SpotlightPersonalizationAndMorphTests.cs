@@ -364,6 +364,7 @@ public sealed class SpotlightPersonalizationAndMorphTests
         }
         public void SetSpotlightMorphSessionActive(bool active) => SessionActive = active;
         public void SetSpotlightMorphActive(bool active) => MorphActive = active;
+        public Task<bool> AddPiTodoAsync(string text) => Task.FromResult(false);
         public void BeginSpotlightReturnHandoff(TimeSpan duration) => Handoffs.Add(duration);
     }
 
