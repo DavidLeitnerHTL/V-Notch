@@ -1285,5 +1285,11 @@
   "settings.autoDismissNotify.hint": "在设定时间结束后自动收起通知横幅。",
   "settings.notificationDuration": "通知显示时长",
   "settings.notificationDuration.hint": "每条通知在刘海区域保持可见的时间。",
-  "tooltip.autoDismissNotify": "在设定时间后自动隐藏通知。"
+  "tooltip.autoDismissNotify": "在设定时间后自动隐藏通知。",
+  "control.keepAwake.off": "Keep awake: off",
+  "control.keepAwake.auto": "Keep awake: automatic",
+  "control.keepAwake.always": "Keep awake: always",
+  "control.keepAwake.claude": "Awake · Claude is working",
+  "control.keepAwake.download": "Awake · download running",
+  "control.keepAwake.timer": "Awake · timer running"
 }

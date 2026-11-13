@@ -516,7 +516,10 @@ public partial class ControlCenterView : UserControl, IDisposable
     private void BuildStatsSection()
     {
         _statsSection.Children.Clear();
-        _statsSection.Children.Add(BuildSectionHeader("system", Loc.Get("control.system"), "", null, topMargin: 0));
+        var header = BuildSectionHeader("system", Loc.Get("control.system"), _keepAwakeLabel?.Invoke() ?? "",
+            _cycleKeepAwake == null ? null : () => _cycleKeepAwake(), topMargin: 0);
+        _keepAwakeText = header is Panel headerPanel ? headerPanel.Children.OfType<TextBlock>().LastOrDefault(t => Grid.GetColumn(t) == 2) : null;
+        _statsSection.Children.Add(header);
         _statsTiles = null;
         if (!IsExpanded("system"))
         {
@@ -1215,6 +1218,38 @@ public partial class ControlCenterView : UserControl, IDisposable
     private Action<bool>? _setSounds;
 
     /// <summary>The Claude page's speaker button reads and flips the sound setting the shell owns.</summary>
+    private Func<string>? _keepAwakeLabel;
+    private Action? _cycleKeepAwake;
+    private TextBlock? _keepAwakeText;
+
+    /// <summary>The "System" header's right side: keep-awake mode or the reason it holds the PC awake; a tap steps the mode.</summary>
+    internal void AttachKeepAwake(Func<string> label, Action cycle)
+    {
+        _keepAwakeLabel = label;
+        _cycleKeepAwake = cycle;
+        RefreshKeepAwake();
+    }
+
+    /// <summary>New words in the header label, swapped with a short fade.</summary>
+    internal void RefreshKeepAwake()
+    {
+        if (_keepAwakeText is not { } label || _keepAwakeLabel == null) return;
+        string text = _keepAwakeLabel();
+        if (label.Text == text) return;
+        if (AnimationConfig.ReduceMotion || !label.IsVisible)
+        {
+            label.Text = text;
+            return;
+        }
+        var fadeOut = WeatherMotion.To(label.Opacity, 0, 70, WeatherMotion.Out);
+        fadeOut.Completed += (_, _) =>
+        {
+            label.Text = text;
+            label.BeginAnimation(OpacityProperty, WeatherMotion.To(0, 1, 110, WeatherMotion.Out));
+        };
+        label.BeginAnimation(OpacityProperty, fadeOut);
+    }
+
     internal void AttachSoundSwitch(Func<bool> soundsOn, Action<bool> setSounds)
     {
         _soundsOn = soundsOn;

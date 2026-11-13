@@ -1285,5 +1285,11 @@
   "settings.autoDismissNotify.hint": "Cierra el banner de notificación automáticamente al terminar el tiempo.",
   "settings.notificationDuration": "Duración de la notificación",
   "settings.notificationDuration.hint": "Tiempo que permanece visible cada notificación en el notch.",
-  "tooltip.autoDismissNotify": "Oculta las notificaciones automáticamente tras el tiempo configurado."
+  "tooltip.autoDismissNotify": "Oculta las notificaciones automáticamente tras el tiempo configurado.",
+  "control.keepAwake.off": "Keep awake: off",
+  "control.keepAwake.auto": "Keep awake: automatic",
+  "control.keepAwake.always": "Keep awake: always",
+  "control.keepAwake.claude": "Awake · Claude is working",
+  "control.keepAwake.download": "Awake · download running",
+  "control.keepAwake.timer": "Awake · timer running"
 }

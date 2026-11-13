@@ -1285,5 +1285,11 @@
   "settings.autoDismissNotify.hint": "指定した時間が経過すると通知バナーを自動で閉じます。",
   "settings.notificationDuration": "通知の表示時間",
   "settings.notificationDuration.hint": "各通知がノッチに表示され続ける時間です。",
-  "tooltip.autoDismissNotify": "設定した時間の経過後に通知を自動で非表示にします。"
+  "tooltip.autoDismissNotify": "設定した時間の経過後に通知を自動で非表示にします。",
+  "control.keepAwake.off": "Keep awake: off",
+  "control.keepAwake.auto": "Keep awake: automatic",
+  "control.keepAwake.always": "Keep awake: always",
+  "control.keepAwake.claude": "Awake · Claude is working",
+  "control.keepAwake.download": "Awake · download running",
+  "control.keepAwake.timer": "Awake · timer running"
 }

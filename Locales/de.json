@@ -1285,5 +1285,11 @@
   "settings.autoDismissNotify.hint": "Schließt das Benachrichtigungsbanner nach Ablauf der Zeit automatisch.",
   "settings.notificationDuration": "Anzeigedauer der Benachrichtigung",
   "settings.notificationDuration.hint": "Wie lange jede Benachrichtigung in der Notch sichtbar bleibt.",
-  "tooltip.autoDismissNotify": "Benachrichtigungen nach der festgelegten Zeit automatisch ausblenden."
+  "tooltip.autoDismissNotify": "Benachrichtigungen nach der festgelegten Zeit automatisch ausblenden.",
+  "control.keepAwake.off": "Wach halten: aus",
+  "control.keepAwake.auto": "Wach halten: automatisch",
+  "control.keepAwake.always": "Wach halten: immer",
+  "control.keepAwake.claude": "Wach · Claude arbeitet",
+  "control.keepAwake.download": "Wach · Download läuft",
+  "control.keepAwake.timer": "Wach · Timer läuft"
 }

@@ -1285,5 +1285,11 @@
   "settings.autoDismissNotify.hint": "지정한 시간이 지나면 알림 배너를 자동으로 닫습니다.",
   "settings.notificationDuration": "알림 표시 시간",
   "settings.notificationDuration.hint": "각 알림이 노치에 표시되는 시간입니다.",
-  "tooltip.autoDismissNotify": "설정한 시간 후 알림을 자동으로 숨깁니다."
+  "tooltip.autoDismissNotify": "설정한 시간 후 알림을 자동으로 숨깁니다.",
+  "control.keepAwake.off": "Keep awake: off",
+  "control.keepAwake.auto": "Keep awake: automatic",
+  "control.keepAwake.always": "Keep awake: always",
+  "control.keepAwake.claude": "Awake · Claude is working",
+  "control.keepAwake.download": "Awake · download running",
+  "control.keepAwake.timer": "Awake · timer running"
 }

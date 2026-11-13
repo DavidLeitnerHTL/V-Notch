@@ -1285,5 +1285,11 @@
   "settings.autoDismissNotify.hint": "Sluit de meldingsbanner automatisch zodra de tijd is verstreken.",
   "settings.notificationDuration": "Weergaveduur van melding",
   "settings.notificationDuration.hint": "Hoe lang elke melding zichtbaar blijft op de notch.",
-  "tooltip.autoDismissNotify": "Verberg meldingen automatisch na de ingestelde tijd."
+  "tooltip.autoDismissNotify": "Verberg meldingen automatisch na de ingestelde tijd.",
+  "control.keepAwake.off": "Keep awake: off",
+  "control.keepAwake.auto": "Keep awake: automatic",
+  "control.keepAwake.always": "Keep awake: always",
+  "control.keepAwake.claude": "Awake · Claude is working",
+  "control.keepAwake.download": "Awake · download running",
+  "control.keepAwake.timer": "Awake · timer running"
 }

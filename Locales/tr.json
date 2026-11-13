@@ -1285,5 +1285,11 @@
   "settings.autoDismissNotify.hint": "Belirlenen süre dolduğunda bildirim başlığını otomatik olarak kapatır.",
   "settings.notificationDuration": "Bildirim süresi",
   "settings.notificationDuration.hint": "Her bildirimin çentikte ne kadar süre görünür kalacağı.",
-  "tooltip.autoDismissNotify": "Ayarlanan süreden sonra bildirimleri otomatik olarak gizler."
+  "tooltip.autoDismissNotify": "Ayarlanan süreden sonra bildirimleri otomatik olarak gizler.",
+  "control.keepAwake.off": "Keep awake: off",
+  "control.keepAwake.auto": "Keep awake: automatic",
+  "control.keepAwake.always": "Keep awake: always",
+  "control.keepAwake.claude": "Awake · Claude is working",
+  "control.keepAwake.download": "Awake · download running",
+  "control.keepAwake.timer": "Awake · timer running"
 }

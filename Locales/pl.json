@@ -1285,5 +1285,11 @@
   "settings.autoDismissNotify.hint": "Zamknij baner powiadomienia automatycznie po upływie wybranego czasu.",
   "settings.notificationDuration": "Czas wyświetlania powiadomienia",
   "settings.notificationDuration.hint": "Jak długo każde powiadomienie pozostaje widoczne na notchu.",
-  "tooltip.autoDismissNotify": "Automatycznie ukrywaj powiadomienia po ustalonym czasie."
+  "tooltip.autoDismissNotify": "Automatycznie ukrywaj powiadomienia po ustalonym czasie.",
+  "control.keepAwake.off": "Keep awake: off",
+  "control.keepAwake.auto": "Keep awake: automatic",
+  "control.keepAwake.always": "Keep awake: always",
+  "control.keepAwake.claude": "Awake · Claude is working",
+  "control.keepAwake.download": "Awake · download running",
+  "control.keepAwake.timer": "Awake · timer running"
 }

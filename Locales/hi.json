@@ -1285,5 +1285,11 @@
   "settings.autoDismissNotify.hint": "निर्धारित समय पूरा होने पर सूचना बैनर को अपने आप बंद करें।",
   "settings.notificationDuration": "सूचना दिखाने की अवधि",
   "settings.notificationDuration.hint": "नॉच पर प्रत्येक सूचना कितने समय तक दिखाई देगी।",
-  "tooltip.autoDismissNotify": "तय समय के बाद सूचनाओं को अपने आप छिपाएं।"
+  "tooltip.autoDismissNotify": "तय समय के बाद सूचनाओं को अपने आप छिपाएं।",
+  "control.keepAwake.off": "Keep awake: off",
+  "control.keepAwake.auto": "Keep awake: automatic",
+  "control.keepAwake.always": "Keep awake: always",
+  "control.keepAwake.claude": "Awake · Claude is working",
+  "control.keepAwake.download": "Awake · download running",
+  "control.keepAwake.timer": "Awake · timer running"
 }

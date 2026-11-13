@@ -1285,5 +1285,11 @@
   "settings.autoDismissNotify.hint": "Ferme la bannière de notification automatiquement à la fin du délai.",
   "settings.notificationDuration": "Durée d'affichage des notifications",
   "settings.notificationDuration.hint": "Durée pendant laquelle chaque notification reste visible sur l'encoche.",
-  "tooltip.autoDismissNotify": "Masquer automatiquement les notifications après le délai défini."
+  "tooltip.autoDismissNotify": "Masquer automatiquement les notifications après le délai défini.",
+  "control.keepAwake.off": "Keep awake: off",
+  "control.keepAwake.auto": "Keep awake: automatic",
+  "control.keepAwake.always": "Keep awake: always",
+  "control.keepAwake.claude": "Awake · Claude is working",
+  "control.keepAwake.download": "Awake · download running",
+  "control.keepAwake.timer": "Awake · timer running"
 }

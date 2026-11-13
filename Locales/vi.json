@@ -1285,5 +1285,11 @@
   "settings.autoDismissNotify.hint": "Tự thu gọn thông báo trên notch sau khoảng thời gian đã chọn.",
   "settings.notificationDuration": "Thời gian hiện thông báo",
   "settings.notificationDuration.hint": "Khoảng thời gian mỗi thông báo hiển thị trên notch trước khi tự ẩn.",
-  "tooltip.autoDismissNotify": "Tự động đóng thông báo sau thời gian đã thiết lập."
+  "tooltip.autoDismissNotify": "Tự động đóng thông báo sau thời gian đã thiết lập.",
+  "control.keepAwake.off": "Keep awake: off",
+  "control.keepAwake.auto": "Keep awake: automatic",
+  "control.keepAwake.always": "Keep awake: always",
+  "control.keepAwake.claude": "Awake · Claude is working",
+  "control.keepAwake.download": "Awake · download running",
+  "control.keepAwake.timer": "Awake · timer running"
 }

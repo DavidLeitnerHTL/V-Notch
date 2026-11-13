@@ -77,6 +77,8 @@ public partial class MainWindow
             }
         }
         _bubbleWanted = bubble;
+        // Claude, downloads and the timer all pass through here, so the keep-awake reason follows them.
+        UpdateKeepAwake();
         UpdateActivityBubble();
         UpdateIdleShape();
     }

@@ -1285,5 +1285,11 @@
   "settings.autoDismissNotify.hint": "إغلاق شريط الإشعار تلقائياً بعد انتهاء المهلة المحددة.",
   "settings.notificationDuration": "مدة عرض الإشعار",
   "settings.notificationDuration.hint": "المدة التي يبقى فيها كل إشعار ظاهراً على النوتش.",
-  "tooltip.autoDismissNotify": "إخفاء الإشعارات تلقائياً بعد الوقت المحدد."
+  "tooltip.autoDismissNotify": "إخفاء الإشعارات تلقائياً بعد الوقت المحدد.",
+  "control.keepAwake.off": "Keep awake: off",
+  "control.keepAwake.auto": "Keep awake: automatic",
+  "control.keepAwake.always": "Keep awake: always",
+  "control.keepAwake.claude": "Awake · Claude is working",
+  "control.keepAwake.download": "Awake · download running",
+  "control.keepAwake.timer": "Awake · timer running"
 }

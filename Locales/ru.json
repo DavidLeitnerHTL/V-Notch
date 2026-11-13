@@ -1285,5 +1285,11 @@
   "settings.autoDismissNotify.hint": "Автоматически закрывать баннер уведомления по истечении времени.",
   "settings.notificationDuration": "Время показа уведомления",
   "settings.notificationDuration.hint": "Как долго каждое уведомление остается видимым в вырезе.",
-  "tooltip.autoDismissNotify": "Автоматически скрывать уведомления через заданное время."
+  "tooltip.autoDismissNotify": "Автоматически скрывать уведомления через заданное время.",
+  "control.keepAwake.off": "Keep awake: off",
+  "control.keepAwake.auto": "Keep awake: automatic",
+  "control.keepAwake.always": "Keep awake: always",
+  "control.keepAwake.claude": "Awake · Claude is working",
+  "control.keepAwake.download": "Awake · download running",
+  "control.keepAwake.timer": "Awake · timer running"
 }

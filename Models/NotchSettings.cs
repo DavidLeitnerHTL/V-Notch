@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.Json.Serialization;
+using VNotch.Services;
 
 namespace VNotch.Models;
 
@@ -214,9 +215,12 @@ public partial class NotchSettings
     // Where the Pi tab's school rows lead: an assignment to its Moodle page, lessons and exams to Untis.
     public string SchoolMoodleUrl { get; set; } = "https://edufs.edu.htl-leonding.ac.at/moodle";
     public string SchoolUntisUrl { get; set; } = "https://htl-leonding.webuntis.com/today";
+    // While the default mic is muted, a small rose mic sits beside the idle clock.
+    public bool ShowMutedMicGlyph { get; set; } = true;
+    // Keeps the PC from sleeping: off, while Claude Code works / a download runs / a timer counts (automatic), always.
+    public KeepAwakeMode KeepAwake { get; set; } = KeepAwakeMode.Automatic;
     // Discord mute/deafen for the muted-mic warning: the id of the user's own Discord application ("Public
     // Client" on, redirect http://127.0.0.1/callback). Empty leaves Discord out.
-    public bool ShowMutedMicGlyph { get; set; } = true;
     public string DiscordClientId { get; set; } = "";
     // A short Windows sound when a Claude Code turn ends or a session waits for the user; never over fullscreen.
     public bool PlayClaudeSounds { get; set; } = true;

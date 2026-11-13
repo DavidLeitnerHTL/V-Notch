@@ -72,6 +72,7 @@ public partial class MainWindow
         InitializeMicMuted();
         InitializeDownloads();
         InitializeLevelHud();
+        InitializeKeepAwake();
         SchedulePrefetch();
     }
 
@@ -86,6 +87,7 @@ public partial class MainWindow
         DisposeMicMuted();
         DisposeDownloads();
         DisposeLevelHud();
+        DisposeKeepAwake();
         ClaudeCenter.AttentionRequested -= OpenClaudeTabForAttention;
         ClaudeCenter.ContentHeightChanged -= OnClaudeContentHeightChanged;
         ClaudeCenter.SessionOpened -= OnClaudeSessionOpened;

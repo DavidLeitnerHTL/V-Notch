@@ -58,7 +58,11 @@ public sealed class MicMuteHudTests
         Invoke(window, "OnMicMuteChanged", true);
         await Task.Delay(100, ct);
         Invoke(window, "OnMicMuteChanged", false);
-        await Task.Delay(600, ct);
+        // Wait for the dive to settle rather than a fixed time: under load the last frames can land late.
+        await WpfFrameWaiter.UntilAsync(() =>
+            Math.Abs(Element<Canvas>(window, "VolumeIndicatorMic").Opacity - 1) < 0.001 &&
+            Math.Abs(Get<ScaleTransform>(window, "VolumeIndicatorMicSquash").ScaleY - 1) < 0.001 &&
+            Math.Abs(Get<TranslateTransform>(window, "VolumeIndicatorMicShift").Y) < 0.001, "mic dive settled", ct);
         Assert.Equal(Visibility.Collapsed, Element<Path>(window, "VolumeIndicatorMicSlash").Visibility);
         Assert.Equal(Loc.Get("levelHud.micOn"), Element<TextBlock>(window, "VolumeIndicatorMicWord").Text);
         AssertRest(window);

@@ -1285,5 +1285,11 @@
   "settings.autoDismissNotify.hint": "Sembunyikan banner notifikasi secara otomatis setelah waktu habis.",
   "settings.notificationDuration": "Durasi notifikasi",
   "settings.notificationDuration.hint": "Berapa lama setiap notifikasi tampil di notch.",
-  "tooltip.autoDismissNotify": "Sembunyikan notifikasi secara otomatis setelah durasi yang diatur."
+  "tooltip.autoDismissNotify": "Sembunyikan notifikasi secara otomatis setelah durasi yang diatur.",
+  "control.keepAwake.off": "Keep awake: off",
+  "control.keepAwake.auto": "Keep awake: automatic",
+  "control.keepAwake.always": "Keep awake: always",
+  "control.keepAwake.claude": "Awake · Claude is working",
+  "control.keepAwake.download": "Awake · download running",
+  "control.keepAwake.timer": "Awake · timer running"
 }
