@@ -105,6 +105,7 @@ public partial class SettingsWindow
 
         _settings = ReadSettingsFromUi();
         ApplyPreview(_settings);
+        SyncAppNotificationRestore(_settings);
         await _settingsAppService.ApplyAsync(_settings, ct);
         _editSession.Commit(_settings);
     }
@@ -707,6 +708,7 @@ public partial class SettingsWindow
 
     internal async Task SaveAsync(NotchSettings snapshot, CancellationToken ct = default)
     {
+        SyncAppNotificationRestore(snapshot);
         await _settingsAppService.ApplyAsync(snapshot, ct);
         _editSession.Commit(snapshot);
     }

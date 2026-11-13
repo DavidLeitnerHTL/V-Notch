@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
@@ -29,6 +30,8 @@ public partial class MainWindow
 
     /// <summary>Opens the app a notification came from; a test can swap it out.</summary>
     internal Func<string, bool> AppLauncher { get; set; } = LaunchApp;
+    internal Action<string> AppPillClipboardWriter { get; set; } = Clipboard.SetText;
+    private string? _appPillCode;
 
     /// <summary>Shows the sender and two message lines in the closed notch.</summary>
     private void ShowAppNotificationPill(WindowsNotification toast, ImageSource? logo, int othersWaiting)
@@ -38,12 +41,19 @@ public partial class MainWindow
         {
             // The open message stays until it is read; the newcomer waits and the sender line counts it.
             _appPillQueue.Enqueue((toast, logo));
-            if (_appPillToast != null) AppPillSender.Text = SenderLine(_appPillToast, _appPillQueue.Count);
+            if (_appPillToast != null) CrossFadeText(AppPillSender, SenderLine(_appPillToast, _appPillQueue.Count));
             return;
         }
         if (_appPillToken == 0 && !TryAcquireCompactSlot(CompactPillSlot.AppNotification, out _appPillToken)) return;
 
         _appPillToast = toast;
+        _appPillCode = OneTimeCode.Find(toast.Title, toast.Lines);
+        AppPillCodeText.Text = _appPillCode ?? "";
+        AppPillCodeChip.Visibility = _appPillCode == null ? Visibility.Collapsed : Visibility.Visible;
+        LocalizeAppPillCodeChip();
+        AppPillCodeTick.BeginAnimation(System.Windows.Shapes.Shape.StrokeDashOffsetProperty, null);
+        AppPillCodeTick.StrokeDashOffset = 17;
+        AppPillCodeTick.Visibility = Visibility.Hidden;
         _appPillExpanded = false;
         AppPillBody.Visibility = Visibility.Visible;
         AppPillSender.Text = SenderLine(toast, othersWaiting);
@@ -76,6 +86,57 @@ public partial class MainWindow
 
     private static string SenderLine(WindowsNotification toast, int othersWaiting) =>
         (toast.Title.Length > 0 ? toast.Title : toast.AppName) + (othersWaiting > 0 ? $"  +{othersWaiting}" : "");
+
+    private void AppPillCodeChip_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        CopyAppPillCode();
+    }
+
+    private void AppPillCodeChip_MouseLeftButtonUp(object sender, MouseButtonEventArgs e) => e.Handled = true;
+
+    private void LocalizeAppPillCodeChip()
+    {
+        AppPillCodeChip.ToolTip = Loc.Get("notifications.copyCode");
+        System.Windows.Automation.AutomationProperties.SetName(AppPillCodeChip, Loc.Get("notifications.copyCode"));
+    }
+
+    private void AppPillCodeChip_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key is not (Key.Enter or Key.Space)) return;
+        e.Handled = true;
+        CopyAppPillCode();
+    }
+
+    /// <summary>The chip gives a little under the finger and springs back, like the control center's buttons.</summary>
+    private void SquishAppPillCodeChip()
+    {
+        if (AnimationConfig.ReduceMotion) return;
+        if (AppPillCodeChip.RenderTransform is not ScaleTransform scale || scale.IsFrozen)
+        {
+            AppPillCodeChip.RenderTransformOrigin = new Point(0.5, 0.5);
+            AppPillCodeChip.RenderTransform = scale = new ScaleTransform(1, 1);
+        }
+        var squish = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromMilliseconds(260) };
+        squish.KeyFrames.Add(new EasingDoubleKeyFrame(0.9, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(80)), _easeQuadOut));
+        squish.KeyFrames.Add(new EasingDoubleKeyFrame(1, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(260)), _easeSoftSpring));
+        scale.BeginAnimation(ScaleTransform.ScaleXProperty, squish);
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty, squish);
+    }
+
+    private void CopyAppPillCode()
+    {
+        if (_appPillCode == null) return;
+        try { AppPillClipboardWriter(_appPillCode); }
+        catch (System.Runtime.InteropServices.ExternalException) { return; }
+        AppPillCodeTick.Visibility = Visibility.Visible;
+        AppPillCodeTick.BeginAnimation(System.Windows.Shapes.Shape.StrokeDashOffsetProperty, null);
+        AppPillCodeTick.StrokeDashOffset = 0;
+        SquishAppPillCodeChip();
+        if (!AnimationConfig.ReduceMotion)
+            AppPillCodeTick.BeginAnimation(System.Windows.Shapes.Shape.StrokeDashOffsetProperty,
+                new DoubleAnimation(17, 0, TimeSpan.FromMilliseconds(160)));
+    }
 
     /// <summary>
     /// A tap on the app message: the first opens it up to the whole text (and its picture), the second opens the
@@ -135,13 +196,15 @@ public partial class MainWindow
         AppPillExpandedBody.BeginAnimation(OpacityProperty, null);
         AppPillExpandedBody.Visibility = Visibility.Collapsed;
         AppPillBody.Visibility = Visibility.Visible;
+        if (!AnimationConfig.ReduceMotion)
+            AppPillBody.BeginAnimation(OpacityProperty, MakeAnim(0, 1, TimeSpan.FromMilliseconds(200), _easeQuadOut, TimeSpan.FromMilliseconds(60)));
         if (_appPillQueue.Count > 0)
         {
             var (next, logo) = _appPillQueue.Dequeue();
             ShowAppNotificationPill(next, logo, _appPillQueue.Count);
             return;
         }
-        if (_appPillToast != null) AppPillSender.Text = SenderLine(_appPillToast, 0);
+        if (_appPillToast != null) CrossFadeText(AppPillSender, SenderLine(_appPillToast, 0));
         ResizeAppPill(Math.Max(_collapsedWidth, Math.Min(PillMaxWidth, 380)), AppPillCompactHeight, 260);
         _appPillDismissTimer?.Stop();
         _appPillDismissTimer?.Start();
@@ -278,6 +341,9 @@ public partial class MainWindow
         _appPillToken = 0;
         _appPillExpanded = false;
         _appPillToast = null;
+        _appPillCode = null;
+        AppPillCodeChip.Visibility = Visibility.Collapsed;
+        AppPillCodeTick.BeginAnimation(System.Windows.Shapes.Shape.StrokeDashOffsetProperty, null);
         _appPillQueue.Clear();
         NotchBorder.BeginAnimation(WidthProperty, null);
         NotchBorder.BeginAnimation(HeightProperty, null);

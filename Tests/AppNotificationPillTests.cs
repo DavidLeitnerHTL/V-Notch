@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using Microsoft.Extensions.DependencyInjection;
 using VNotch.Models;
 using VNotch.Services;
@@ -14,6 +15,76 @@ namespace VNotch.Tests;
 public sealed class AppNotificationPillTests
 {
     private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
+
+    [Fact]
+    public void CodeChipCopiesAndDoesNotExpand() => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        await using var fixture = Create();
+        var window = fixture.Window;
+        await ShowAsync(window, ct);
+        string? copied = null;
+        int launches = 0;
+        window.AppPillClipboardWriter = code => copied = code;
+        window.AppLauncher = _ => { launches++; return true; };
+        ShowPill(window, Toast("Messages", "Your code is 482193"));
+        var chip = Element<FrameworkElement>(window, "AppPillCodeChip");
+        var text = Element<TextBlock>(window, "AppPillCodeText");
+        var tick = Element<System.Windows.Shapes.Path>(window, "AppPillCodeTick");
+        Assert.Equal(Visibility.Visible, chip.Visibility);
+        Assert.Equal("482193", text.Text);
+        Assert.Equal(Visibility.Hidden, tick.Visibility);
+
+        void TapCode()
+        {
+            var down = new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left)
+                { RoutedEvent = Mouse.MouseDownEvent };
+            text.RaiseEvent(down);
+            Assert.True(down.Handled);
+            var up = new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left)
+                { RoutedEvent = Mouse.MouseUpEvent };
+            text.RaiseEvent(up);
+            Assert.True(up.Handled);
+        }
+
+        TapCode();
+        Assert.Equal("482193", copied);
+        Assert.False(Get<bool>(window, "_appPillExpanded"));
+        Assert.Equal(0, launches);
+        Assert.Equal(Visibility.Visible, tick.Visibility);
+        await WpfFrameWaiter.UntilAsync(() => Math.Abs(tick.StrokeDashOffset) < .005, "tick drawn", ct);
+
+        Tap(window);
+        copied = null;
+        TapCode();
+        Assert.Equal("482193", copied);
+        Assert.True(Get<bool>(window, "_appPillExpanded"));
+        Assert.Equal(Visibility.Visible, chip.Visibility);
+        Assert.Equal(0, launches);
+
+        Invoke(window, "CollapseAppPill");
+        ShowPill(window, Toast("Messages", "PIN: 1234"));
+        Assert.Equal(Visibility.Hidden, tick.Visibility);
+        window.AppPillClipboardWriter = _ => throw new System.Runtime.InteropServices.COMException("Clipboard busy");
+        TapCode();
+        Assert.Equal(Visibility.Hidden, tick.Visibility);
+        Assert.False(Get<bool>(window, "_appPillExpanded"));
+
+        bool oldReduceMotion = AnimationConfig.ReduceMotion;
+        try
+        {
+            AnimationConfig.SetReduceMotion(true);
+            window.AppPillClipboardWriter = code => copied = code;
+            TapCode();
+            Assert.Equal("1234", copied);
+            Assert.Equal(0, tick.StrokeDashOffset);
+            Assert.False(tick.HasAnimatedProperties);
+            Assert.False(Get<bool>(window, "_appPillExpanded"));
+        }
+        finally { AnimationConfig.SetReduceMotion(oldReduceMotion); }
+
+        ShowPill(window, Toast("Shop", "Bestellung 4711 versendet"));
+        Assert.Equal(Visibility.Collapsed, chip.Visibility);
+    });
 
     [Fact]
     public void CompactShowsSenderAndTwoLines() => SharedStaTestRunner.RunAsync(async ct =>
@@ -142,11 +213,11 @@ public sealed class AppNotificationPillTests
         ShowPill(window, Toast("Anna", "one"));
         Tap(window);
         ShowPill(window, Toast("Ben", "two"));
+        // The "+1" cross-fades in (60 ms out, 60 ms in).
+        await WpfFrameWaiter.UntilAsync(() => Element<TextBlock>(window, "AppPillSender").Text.EndsWith("+1"), "+1 faded in", ct);
         Assert.StartsWith("Anna", Element<TextBlock>(window, "AppPillSender").Text);
-        Assert.EndsWith("+1", Element<TextBlock>(window, "AppPillSender").Text);
         Invoke(window, "CollapseAppPill");
         Assert.StartsWith("Ben", Element<TextBlock>(window, "AppPillSender").Text);
-        await Task.CompletedTask;
     });
 
     private static bool Tap(MainWindow window) =>

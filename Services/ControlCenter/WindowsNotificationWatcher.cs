@@ -12,7 +12,10 @@ namespace VNotch.Services.ControlCenter;
 public sealed record NotificationApp(string Key, string Name);
 
 /// <summary>What the settings window lists: whether Windows grants access, and the apps that notified lately.</summary>
-public sealed record AppNotificationState(bool Allowed, IReadOnlyList<NotificationApp> Recent);
+public sealed record AppNotificationState(bool Allowed, IReadOnlyList<NotificationApp> Recent)
+{
+    public IReadOnlyDictionary<string, int?>? BannerRestore { get; init; }
+}
 
 /// <summary>A toast another app showed: who sent it, its text and any available artwork.</summary>
 internal sealed record WindowsNotification(uint Id, string AppName, string? AppUserModelId, string Title, string? Body,

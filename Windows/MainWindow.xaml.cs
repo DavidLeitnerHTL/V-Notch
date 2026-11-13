@@ -1627,6 +1627,7 @@ public partial class MainWindow : Window
 
     private void RefreshNotchLocalization()
     {
+        LocalizeAppPillCodeChip();
         _clipboardTrayView?.ApplyLocalization();
         LocalizedPresentation.Apply(this);
         RefreshAccessibleNames();

@@ -87,6 +87,8 @@ public partial class MainWindow
         string oldSubtitlePriority = oldSettings.SubtitlePriority ?? "";
 
         _settings = newSettings.Clone();
+        // Restore metadata belongs to this PC and may have changed while the settings window was open.
+        _settings.BannerRestore = new(oldSettings.BannerRestore, StringComparer.OrdinalIgnoreCase);
         _clipboardHotkey?.Apply(_settings.ClipboardHotkey);
         _clipboardHistory?.ApplySettings(_settings);
         if (_settings.HideCamera && IsCameraPreviewLifecycleActive) StopCameraPreviewForViewExit();
@@ -247,6 +249,7 @@ public partial class MainWindow
             ApplyPrivacyIndicatorSettings();
         if (oldSettings == null || oldSettings.ShowAppNotifications != _settings.ShowAppNotifications)
             ApplyAppNotificationSetting();
+        ApplyNotificationBannerSetting();
         _mediaService.KeepPinnedOnTrackChange = _settings.KeepMediaPinnedOnTrackChange;
         if (oldSettings == null || oldSettings.AnimationFps != _settings.AnimationFps ||
             oldSettings.AutoAnimationFps != _settings.AutoAnimationFps)

@@ -1877,6 +1877,7 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="28"/>
                             <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <Grid Width="28" Height="28" VerticalAlignment="Top">
                             <Image x:Name="AppPillLogo" Width="28" Height="28" Stretch="Uniform"
@@ -1900,6 +1901,21 @@
                                        TextTrimming="CharacterEllipsis" Foreground="{x:Static svc:UiPalette.SecondaryBrush}"/>
                             <Image x:Name="AppPillImage" Visibility="Collapsed" MaxHeight="120" Stretch="Uniform"/>
                         </StackPanel>
+                        <Border x:Name="AppPillCodeChip" Grid.Column="2" Visibility="Collapsed"
+                                VerticalAlignment="Top" Margin="8,0,0,0" Padding="8,4" CornerRadius="8"
+                                Background="{x:Static svc:UiPalette.NotificationIndigoBrush}" Focusable="True"
+                                MouseLeftButtonDown="AppPillCodeChip_MouseLeftButtonDown"
+                                MouseLeftButtonUp="AppPillCodeChip_MouseLeftButtonUp" KeyDown="AppPillCodeChip_KeyDown">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="AppPillCodeText" FontSize="12" FontWeight="SemiBold"
+                                           FontFamily="{StaticResource MainSystemFont}" Foreground="#15131D"/>
+                                <Path x:Name="AppPillCodeTick" Visibility="Hidden" Width="12" Height="12"
+                                      Margin="6,0,0,0" VerticalAlignment="Center" Data="M1,6 L4,9 L11,1"
+                                      Stroke="#15131D" StrokeThickness="1.5" StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                      StrokeDashArray="17 17" StrokeDashOffset="17"/>
+                            </StackPanel>
+                        </Border>
                     </Grid>
 
                     <Grid x:Name="ChargingNotification"
