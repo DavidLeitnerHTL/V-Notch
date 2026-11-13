@@ -1628,6 +1628,7 @@ public partial class MainWindow : Window
 
     private void RefreshNotchLocalization()
     {
+        LocalizeAppPillCodeChip();
         _clipboardTrayView?.ApplyLocalization();
         LocalizedPresentation.Apply(this);
         RefreshAccessibleNames();
@@ -1874,6 +1875,7 @@ public partial class MainWindow : Window
         }
         else
         {
+            if (TryHandleAppPillTap()) return;
             if (TryHandleNotificationTap()) return;
             ExpandNotch();
         }

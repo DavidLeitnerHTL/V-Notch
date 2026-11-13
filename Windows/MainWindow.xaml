@@ -1875,6 +1875,55 @@
                         </StackPanel>
                     </Grid>
 
+                    <Grid x:Name="AppNotificationPill" Visibility="Collapsed" Opacity="0"
+                          Margin="14,5,14,7" Background="Transparent" Cursor="Hand">
+                        <Grid.RenderTransform>
+                            <TranslateTransform x:Name="AppPillTranslate"/>
+                        </Grid.RenderTransform>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="28"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid Width="28" Height="28" VerticalAlignment="Top">
+                            <Image x:Name="AppPillLogo" Width="28" Height="28" Stretch="Uniform"
+                                   RenderOptions.BitmapScalingMode="HighQuality"/>
+                            <TextBlock x:Name="AppPillBell" Text="&#xEA8F;" FontSize="20"
+                                       FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                       Foreground="{x:Static svc:UiPalette.PrimaryBrush}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Grid>
+                        <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                            <TextBlock x:Name="AppPillSender" FontSize="12" FontWeight="SemiBold"
+                                       FontFamily="{StaticResource MainSystemFont}" TextTrimming="CharacterEllipsis"
+                                       Foreground="{x:Static svc:UiPalette.PrimaryBrush}"/>
+                            <TextBlock x:Name="AppPillBody" FontSize="11" LineHeight="14" MaxHeight="28"
+                                       FontFamily="{StaticResource MainSystemFont}" LineStackingStrategy="BlockLineHeight"
+                                       TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
+                                       Foreground="{x:Static svc:UiPalette.SecondaryBrush}"/>
+                            <TextBlock x:Name="AppPillExpandedBody" Visibility="Collapsed" FontSize="12"
+                                       LineHeight="16" MaxHeight="96" LineStackingStrategy="BlockLineHeight"
+                                       FontFamily="{StaticResource MainSystemFont}" TextWrapping="Wrap"
+                                       TextTrimming="CharacterEllipsis" Foreground="{x:Static svc:UiPalette.SecondaryBrush}"/>
+                            <Image x:Name="AppPillImage" Visibility="Collapsed" MaxHeight="120" Stretch="Uniform"/>
+                        </StackPanel>
+                        <Border x:Name="AppPillCodeChip" Grid.Column="2" Visibility="Collapsed"
+                                VerticalAlignment="Top" Margin="8,0,0,0" Padding="8,4" CornerRadius="8"
+                                Background="{x:Static svc:UiPalette.NotificationIndigoBrush}" Focusable="True"
+                                MouseLeftButtonDown="AppPillCodeChip_MouseLeftButtonDown"
+                                MouseLeftButtonUp="AppPillCodeChip_MouseLeftButtonUp" KeyDown="AppPillCodeChip_KeyDown">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="AppPillCodeText" FontSize="12" FontWeight="SemiBold"
+                                           FontFamily="{StaticResource MainSystemFont}" Foreground="#15131D"/>
+                                <Path x:Name="AppPillCodeTick" Visibility="Hidden" Width="12" Height="12"
+                                      Margin="6,0,0,0" VerticalAlignment="Center" Data="M1,6 L4,9 L11,1"
+                                      Stroke="#15131D" StrokeThickness="1.5" StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                      StrokeDashArray="17 17" StrokeDashOffset="17"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
                     <Grid x:Name="ChargingNotification"
                           Opacity="0"
                           Visibility="Collapsed"

@@ -210,6 +210,13 @@ public partial class NotchSettings
     // Windows notifications mirrored as a pill in the closed notch; apps listed here ("|"-separated app ids) stay out.
     public bool ShowAppNotifications { get; set; } = true;
     public string MutedNotificationApps { get; set; } = "";
+    public bool HideWindowsBanners { get; set; }
+    private Dictionary<string, int?> _bannerRestore = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, int?> BannerRestore
+    {
+        get => _bannerRestore;
+        set => _bannerRestore = value == null ? new(StringComparer.OrdinalIgnoreCase) : new(value, StringComparer.OrdinalIgnoreCase);
+    }
     // The user's Raspberry Pi dashboard (e.g. http://100.x.y.z:4000 over Tailscale); empty hides its data.
     public string PiDashboardUrl { get; set; } = "";
     // Where the Pi tab's school rows lead: an assignment to its Moodle page, lessons and exams to Untis.
@@ -287,7 +294,7 @@ public partial class NotchSettings
         for (int i = 0; i < _cloneableProperties.Length; i++)
         {
             var prop = _cloneableProperties[i];
-            if (prop.PropertyType == typeof(LiquidGlassConfig))
+            if (prop.PropertyType == typeof(LiquidGlassConfig) || prop.Name == nameof(BannerRestore))
                 continue;
 
             var p1 = Expression.Property(left, prop);
@@ -332,6 +339,7 @@ public partial class NotchSettings
         clone.IsDirty = false;
         clone.LiquidGlass = LiquidGlass?.Clone() ?? new LiquidGlassConfig();
         clone.LiquidGlassCustom = LiquidGlassCustom?.Clone();
+        clone.BannerRestore = new(BannerRestore ?? new(), StringComparer.OrdinalIgnoreCase);
         return clone;
     }
 
@@ -341,6 +349,10 @@ public partial class NotchSettings
         if (other is null) return false;
 
         if (!_scalarValueEquals(this, other))
+            return false;
+
+        if (BannerRestore.Count != other.BannerRestore.Count ||
+            BannerRestore.Any(entry => !other.BannerRestore.TryGetValue(entry.Key, out var value) || value != entry.Value))
             return false;
 
         if ((LiquidGlass == null) != (other.LiquidGlass == null))

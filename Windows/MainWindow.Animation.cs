@@ -470,6 +470,7 @@ public partial class MainWindow
             _isBluetoothNotificationVisible = false;
         }
         CancelClaudeNotificationImmediate();
+        CancelAppPillImmediate();
         _compactPillArbiter.ForceClear();
 
         if (_isCompactThumbnailHovered)
@@ -2062,6 +2063,7 @@ public partial class MainWindow
             _isBluetoothNotificationVisible = false;
         }
         CancelClaudeNotificationImmediate();
+        CancelAppPillImmediate();
         _compactPillArbiter.ForceClear();
 
         NavIconsPanel.BeginAnimation(OpacityProperty, null);

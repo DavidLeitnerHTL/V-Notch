@@ -868,7 +868,7 @@ public partial class MainWindow
 
         if (!_isExpanded)
         {
-            if (_isBluetoothNotificationVisible || _isChargingNotificationVisible || _isClaudeNotificationVisible || _isAppNotificationBannerVisible || _isGreetingActive || _isAnimating)
+            if (_isBluetoothNotificationVisible || _isChargingNotificationVisible || _isClaudeNotificationVisible || _appPillToken != 0 || _isAppNotificationBannerVisible || _isGreetingActive || _isAnimating)
             {
                 return;
             }
