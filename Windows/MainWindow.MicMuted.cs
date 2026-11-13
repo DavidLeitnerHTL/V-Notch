@@ -8,6 +8,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using VNotch.Services;
 using VNotch.Services.ControlCenter;
+using static VNotch.Services.AnimationPrimitives;
 
 namespace VNotch;
 
@@ -32,6 +33,7 @@ public partial class MainWindow
     private bool _micMutedWindows;
     private bool _micMutedShown;
     private bool _micMutedGlyphShown;
+    private int _micMutedGlyphToken;
     private bool _micMutedTabShown;
 
     private void InitializeMicMuted()
@@ -121,14 +123,35 @@ public partial class MainWindow
         SetMicMutedTab(_micMutedShown && !notchShown);
     }
 
+    /// <summary>The call warning pops in once and fades smaller when the mic is back.</summary>
     private void SetMicMutedGlyph(bool show)
     {
         if (show == _micMutedGlyphShown) return;
         _micMutedGlyphShown = show;
+        int token = ++_micMutedGlyphToken;
+        double opacity = MicMutedGlyph.Opacity;
+        double scaleX = MicMutedGlyphScale.ScaleX;
+        double scaleY = MicMutedGlyphScale.ScaleY;
         MicMutedGlyph.BeginAnimation(OpacityProperty, null);
+        MicMutedGlyphScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+        MicMutedGlyphScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
         if (!show)
         {
-            MicMutedGlyph.Visibility = Visibility.Collapsed;
+            if (AnimationConfig.ReduceMotion)
+            {
+                MicMutedGlyph.Visibility = Visibility.Collapsed;
+                return;
+            }
+            var duration = TimeSpan.FromMilliseconds(180);
+            var fade = MakeAnim(opacity, 0d, duration, _easeQuadOut);
+            fade.Completed += (_, _) =>
+            {
+                if (token == _micMutedGlyphToken && !_micMutedGlyphShown)
+                    MicMutedGlyph.Visibility = Visibility.Collapsed;
+            };
+            MicMutedGlyph.BeginAnimation(OpacityProperty, fade);
+            MicMutedGlyphScale.BeginAnimation(ScaleTransform.ScaleXProperty, MakeAnim(scaleX, 0.6, duration, _easeQuadOut));
+            MicMutedGlyphScale.BeginAnimation(ScaleTransform.ScaleYProperty, MakeAnim(scaleY, 0.6, duration, _easeQuadOut));
             return;
         }
         // Sits where the dot does, a little bigger.
@@ -136,6 +159,7 @@ public partial class MainWindow
         MicMutedGlyph.Margin = new Thickness(0, Math.Max(0, dot.Top - 2), Math.Max(0, dot.Right - 2), 0);
         MicMutedGlyph.Visibility = Visibility.Visible;
         MicMutedGlyph.Opacity = 1;
+        MicMutedGlyphScale.ScaleX = MicMutedGlyphScale.ScaleY = 1;
         if (AnimationConfig.ReduceMotion) return;
         // One pop to catch the eye, then still.
         var pop = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromMilliseconds(320) };
