@@ -9,12 +9,6 @@
   "notch.todoAdded": "To-do added",
   "notch.todoFailed": "To-do not added",
   "settings.audio.showMutedMic": "Show a small mic while muted",
-  "control.keepAwake.off": "Keep awake: off",
-  "control.keepAwake.auto": "Keep awake: automatic",
-  "control.keepAwake.always": "Keep awake: always",
-  "control.keepAwake.claude": "Awake · Claude is working",
-  "control.keepAwake.download": "Awake · download running",
-  "control.keepAwake.timer": "Awake · timer running",
   "notifications.copyCode": "Copy code",
   "settings.notifications.hideBanners": "Hide Windows' own notification pop-ups",
   "settings.notifications.hideBannersHint": "They still collect in the notification centre.",
@@ -1098,7 +1092,6 @@
   "clipboard.personalPasscode": "Pincode voor Privé",
   "clipboard.unlockPersonal": "Privé ontgrendelen",
   "clipboard.partialImport": "{0}/{1} items opgeslagen ({2} niet beschikbaar of vergrendeld).",
-  "clipboard.fileCount": "{0} bestanden",
   "settings.trayAdvanced": "Bestandslade",
   "settings.trayAdvanced.hint": "Kies wat automatisch wordt opgeslagen. Je kunt nog steeds items naar de bestandslade slepen. Je bestaande geschiedenis blijft behouden.",
   "settings.trayCaptureText": "Gekopieerde tekst en links automatisch opslaan",
@@ -1306,11 +1299,5 @@
   "settings.autoDismissNotify.hint": "Sluit de meldingsbanner automatisch zodra de tijd is verstreken.",
   "settings.notificationDuration": "Weergaveduur van melding",
   "settings.notificationDuration.hint": "Hoe lang elke melding zichtbaar blijft op de notch.",
-  "tooltip.autoDismissNotify": "Verberg meldingen automatisch na de ingestelde tijd.",
-  "control.keepAwake.off": "Keep awake: off",
-  "control.keepAwake.auto": "Keep awake: automatic",
-  "control.keepAwake.always": "Keep awake: always",
-  "control.keepAwake.claude": "Awake · Claude is working",
-  "control.keepAwake.download": "Awake · download running",
-  "control.keepAwake.timer": "Awake · timer running"
+  "tooltip.autoDismissNotify": "Verberg meldingen automatisch na de ingestelde tijd."
 }

@@ -9,12 +9,6 @@
   "notch.todoAdded": "To-do added",
   "notch.todoFailed": "To-do not added",
   "settings.audio.showMutedMic": "Show a small mic while muted",
-  "control.keepAwake.off": "Keep awake: off",
-  "control.keepAwake.auto": "Keep awake: automatic",
-  "control.keepAwake.always": "Keep awake: always",
-  "control.keepAwake.claude": "Awake · Claude is working",
-  "control.keepAwake.download": "Awake · download running",
-  "control.keepAwake.timer": "Awake · timer running",
   "notifications.copyCode": "Copy code",
   "settings.notifications.hideBanners": "Hide Windows' own notification pop-ups",
   "settings.notifications.hideBannersHint": "They still collect in the notification centre.",
@@ -1098,7 +1092,6 @@
   "clipboard.personalPasscode": "رمز PIN للخاص",
   "clipboard.unlockPersonal": "فتح الخاص",
   "clipboard.partialImport": "تم حفظ {0}/{1} عنصر ({2} غير متاح أو مقفل).",
-  "clipboard.fileCount": "{0} ملفات",
   "settings.trayAdvanced": "صينية الملفات",
   "settings.trayAdvanced.hint": "اختر المحتوى الذي يُحفظ تلقائيًا. يمكنك مواصلة سحب العناصر وإفلاتها في صينية الملفات، وسيُحتفظ بالسجل الحالي.",
   "settings.trayCaptureText": "حفظ النصوص والروابط المنسوخة تلقائيًا",
@@ -1306,11 +1299,5 @@
   "settings.autoDismissNotify.hint": "إغلاق شريط الإشعار تلقائياً بعد انتهاء المهلة المحددة.",
   "settings.notificationDuration": "مدة عرض الإشعار",
   "settings.notificationDuration.hint": "المدة التي يبقى فيها كل إشعار ظاهراً على النوتش.",
-  "tooltip.autoDismissNotify": "إخفاء الإشعارات تلقائياً بعد الوقت المحدد.",
-  "control.keepAwake.off": "Keep awake: off",
-  "control.keepAwake.auto": "Keep awake: automatic",
-  "control.keepAwake.always": "Keep awake: always",
-  "control.keepAwake.claude": "Awake · Claude is working",
-  "control.keepAwake.download": "Awake · download running",
-  "control.keepAwake.timer": "Awake · timer running"
+  "tooltip.autoDismissNotify": "إخفاء الإشعارات تلقائياً بعد الوقت المحدد."
 }

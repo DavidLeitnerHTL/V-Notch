@@ -9,12 +9,6 @@
   "notch.todoAdded": "To-do added",
   "notch.todoFailed": "To-do not added",
   "settings.audio.showMutedMic": "Show a small mic while muted",
-  "control.keepAwake.off": "Keep awake: off",
-  "control.keepAwake.auto": "Keep awake: automatic",
-  "control.keepAwake.always": "Keep awake: always",
-  "control.keepAwake.claude": "Awake · Claude is working",
-  "control.keepAwake.download": "Awake · download running",
-  "control.keepAwake.timer": "Awake · timer running",
   "notifications.copyCode": "Copy code",
   "settings.notifications.hideBanners": "Hide Windows' own notification pop-ups",
   "settings.notifications.hideBannersHint": "They still collect in the notification centre.",
@@ -1098,7 +1092,6 @@
   "clipboard.personalPasscode": "PIN Pribadi",
   "clipboard.unlockPersonal": "Buka kunci Pribadi",
   "clipboard.partialImport": "{0}/{1} item disimpan ({2} tidak tersedia atau terkunci).",
-  "clipboard.fileCount": "{0} file",
   "settings.trayAdvanced": "Baki berkas",
   "settings.trayAdvanced.hint": "Pilih konten yang akan disimpan otomatis. Anda tetap dapat menyeret item ke baki berkas. Riwayat yang ada tetap tersimpan.",
   "settings.trayCaptureText": "Simpan teks dan tautan yang disalin secara otomatis",
@@ -1306,11 +1299,5 @@
   "settings.autoDismissNotify.hint": "Sembunyikan banner notifikasi secara otomatis setelah waktu habis.",
   "settings.notificationDuration": "Durasi notifikasi",
   "settings.notificationDuration.hint": "Berapa lama setiap notifikasi tampil di notch.",
-  "tooltip.autoDismissNotify": "Sembunyikan notifikasi secara otomatis setelah durasi yang diatur.",
-  "control.keepAwake.off": "Keep awake: off",
-  "control.keepAwake.auto": "Keep awake: automatic",
-  "control.keepAwake.always": "Keep awake: always",
-  "control.keepAwake.claude": "Awake · Claude is working",
-  "control.keepAwake.download": "Awake · download running",
-  "control.keepAwake.timer": "Awake · timer running"
+  "tooltip.autoDismissNotify": "Sembunyikan notifikasi secara otomatis setelah durasi yang diatur."
 }

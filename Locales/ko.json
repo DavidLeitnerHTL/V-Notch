@@ -9,12 +9,6 @@
   "notch.todoAdded": "To-do added",
   "notch.todoFailed": "To-do not added",
   "settings.audio.showMutedMic": "Show a small mic while muted",
-  "control.keepAwake.off": "Keep awake: off",
-  "control.keepAwake.auto": "Keep awake: automatic",
-  "control.keepAwake.always": "Keep awake: always",
-  "control.keepAwake.claude": "Awake · Claude is working",
-  "control.keepAwake.download": "Awake · download running",
-  "control.keepAwake.timer": "Awake · timer running",
   "notifications.copyCode": "Copy code",
   "settings.notifications.hideBanners": "Hide Windows' own notification pop-ups",
   "settings.notifications.hideBannersHint": "They still collect in the notification centre.",
@@ -1098,7 +1092,6 @@
   "clipboard.personalPasscode": "비공개 PIN",
   "clipboard.unlockPersonal": "비공개 잠금 해제",
   "clipboard.partialImport": "{0}/{1}개 저장됨 ({2}개 사용 불가 또는 잠김).",
-  "clipboard.fileCount": "파일 {0}개",
   "settings.trayAdvanced": "파일 트레이",
   "settings.trayAdvanced.hint": "자동으로 저장할 내용을 선택하세요. 파일 트레이에 항목을 끌어다 놓는 기능은 계속 사용할 수 있습니다. 기존 기록은 유지됩니다.",
   "settings.trayCaptureText": "복사한 텍스트와 링크 자동 저장",
@@ -1306,11 +1299,5 @@
   "settings.autoDismissNotify.hint": "지정한 시간이 지나면 알림 배너를 자동으로 닫습니다.",
   "settings.notificationDuration": "알림 표시 시간",
   "settings.notificationDuration.hint": "각 알림이 노치에 표시되는 시간입니다.",
-  "tooltip.autoDismissNotify": "설정한 시간 후 알림을 자동으로 숨깁니다.",
-  "control.keepAwake.off": "Keep awake: off",
-  "control.keepAwake.auto": "Keep awake: automatic",
-  "control.keepAwake.always": "Keep awake: always",
-  "control.keepAwake.claude": "Awake · Claude is working",
-  "control.keepAwake.download": "Awake · download running",
-  "control.keepAwake.timer": "Awake · timer running"
+  "tooltip.autoDismissNotify": "설정한 시간 후 알림을 자동으로 숨깁니다."
 }

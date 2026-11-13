@@ -9,12 +9,6 @@
   "notch.todoAdded": "To-do added",
   "notch.todoFailed": "To-do not added",
   "settings.audio.showMutedMic": "Show a small mic while muted",
-  "control.keepAwake.off": "Keep awake: off",
-  "control.keepAwake.auto": "Keep awake: automatic",
-  "control.keepAwake.always": "Keep awake: always",
-  "control.keepAwake.claude": "Awake · Claude is working",
-  "control.keepAwake.download": "Awake · download running",
-  "control.keepAwake.timer": "Awake · timer running",
   "notifications.copyCode": "Copy code",
   "settings.notifications.hideBanners": "Hide Windows' own notification pop-ups",
   "settings.notifications.hideBannersHint": "They still collect in the notification centre.",
@@ -1098,7 +1092,6 @@
   "clipboard.personalPasscode": "私人 PIN",
   "clipboard.unlockPersonal": "解锁私人",
   "clipboard.partialImport": "已保存 {0}/{1} 项（{2} 项不可用或已锁定）。",
-  "clipboard.fileCount": "{0} 个文件",
   "settings.trayAdvanced": "文件托盘",
   "settings.trayAdvanced.hint": "选择要自动保存的内容。你仍可将项目拖放到文件托盘中，现有历史记录会保留。",
   "settings.trayCaptureText": "自动保存复制的文本和链接",
@@ -1306,11 +1299,5 @@
   "settings.autoDismissNotify.hint": "在设定时间结束后自动收起通知横幅。",
   "settings.notificationDuration": "通知显示时长",
   "settings.notificationDuration.hint": "每条通知在刘海区域保持可见的时间。",
-  "tooltip.autoDismissNotify": "在设定时间后自动隐藏通知。",
-  "control.keepAwake.off": "Keep awake: off",
-  "control.keepAwake.auto": "Keep awake: automatic",
-  "control.keepAwake.always": "Keep awake: always",
-  "control.keepAwake.claude": "Awake · Claude is working",
-  "control.keepAwake.download": "Awake · download running",
-  "control.keepAwake.timer": "Awake · timer running"
+  "tooltip.autoDismissNotify": "在设定时间后自动隐藏通知。"
 }

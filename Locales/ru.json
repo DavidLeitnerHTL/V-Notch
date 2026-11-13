@@ -9,12 +9,6 @@
   "notch.todoAdded": "To-do added",
   "notch.todoFailed": "To-do not added",
   "settings.audio.showMutedMic": "Show a small mic while muted",
-  "control.keepAwake.off": "Keep awake: off",
-  "control.keepAwake.auto": "Keep awake: automatic",
-  "control.keepAwake.always": "Keep awake: always",
-  "control.keepAwake.claude": "Awake · Claude is working",
-  "control.keepAwake.download": "Awake · download running",
-  "control.keepAwake.timer": "Awake · timer running",
   "notifications.copyCode": "Copy code",
   "settings.notifications.hideBanners": "Hide Windows' own notification pop-ups",
   "settings.notifications.hideBannersHint": "They still collect in the notification centre.",
@@ -1098,7 +1092,6 @@
   "clipboard.personalPasscode": "PIN для Приватного",
   "clipboard.unlockPersonal": "Разблокировать Приватное",
   "clipboard.partialImport": "Сохранено {0}/{1} элементов ({2} недоступны или заблокированы).",
-  "clipboard.fileCount": "{0} файлов",
   "settings.trayAdvanced": "Лоток файлов",
   "settings.trayAdvanced.hint": "Выберите, что сохранять автоматически. Вы по-прежнему можете перетаскивать элементы в лоток файлов. Существующая история сохранится.",
   "settings.trayCaptureText": "Автоматически сохранять скопированный текст и ссылки",
@@ -1306,11 +1299,5 @@
   "settings.autoDismissNotify.hint": "Автоматически закрывать баннер уведомления по истечении времени.",
   "settings.notificationDuration": "Время показа уведомления",
   "settings.notificationDuration.hint": "Как долго каждое уведомление остается видимым в вырезе.",
-  "tooltip.autoDismissNotify": "Автоматически скрывать уведомления через заданное время.",
-  "control.keepAwake.off": "Keep awake: off",
-  "control.keepAwake.auto": "Keep awake: automatic",
-  "control.keepAwake.always": "Keep awake: always",
-  "control.keepAwake.claude": "Awake · Claude is working",
-  "control.keepAwake.download": "Awake · download running",
-  "control.keepAwake.timer": "Awake · timer running"
+  "tooltip.autoDismissNotify": "Автоматически скрывать уведомления через заданное время."
 }

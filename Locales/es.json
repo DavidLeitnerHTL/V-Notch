@@ -9,12 +9,6 @@
   "notch.todoAdded": "To-do added",
   "notch.todoFailed": "To-do not added",
   "settings.audio.showMutedMic": "Show a small mic while muted",
-  "control.keepAwake.off": "Keep awake: off",
-  "control.keepAwake.auto": "Keep awake: automatic",
-  "control.keepAwake.always": "Keep awake: always",
-  "control.keepAwake.claude": "Awake · Claude is working",
-  "control.keepAwake.download": "Awake · download running",
-  "control.keepAwake.timer": "Awake · timer running",
   "notifications.copyCode": "Copy code",
   "settings.notifications.hideBanners": "Hide Windows' own notification pop-ups",
   "settings.notifications.hideBannersHint": "They still collect in the notification centre.",
@@ -1098,7 +1092,6 @@
   "clipboard.personalPasscode": "PIN de Privado",
   "clipboard.unlockPersonal": "Desbloquear Privado",
   "clipboard.partialImport": "Se guardaron {0}/{1} elementos ({2} no disponibles o bloqueados).",
-  "clipboard.fileCount": "{0} archivos",
   "settings.trayAdvanced": "Bandeja de archivos",
   "settings.trayAdvanced.hint": "Elige qué guardar automáticamente. Puedes seguir arrastrando elementos a la bandeja de archivos. El historial existente se conserva.",
   "settings.trayCaptureText": "Guardar automáticamente textos y enlaces copiados",
@@ -1306,11 +1299,5 @@
   "settings.autoDismissNotify.hint": "Cierra el banner de notificación automáticamente al terminar el tiempo.",
   "settings.notificationDuration": "Duración de la notificación",
   "settings.notificationDuration.hint": "Tiempo que permanece visible cada notificación en el notch.",
-  "tooltip.autoDismissNotify": "Oculta las notificaciones automáticamente tras el tiempo configurado.",
-  "control.keepAwake.off": "Keep awake: off",
-  "control.keepAwake.auto": "Keep awake: automatic",
-  "control.keepAwake.always": "Keep awake: always",
-  "control.keepAwake.claude": "Awake · Claude is working",
-  "control.keepAwake.download": "Awake · download running",
-  "control.keepAwake.timer": "Awake · timer running"
+  "tooltip.autoDismissNotify": "Oculta las notificaciones automáticamente tras el tiempo configurado."
 }

@@ -9,12 +9,6 @@
   "notch.todoAdded": "To-do added",
   "notch.todoFailed": "To-do not added",
   "settings.audio.showMutedMic": "Show a small mic while muted",
-  "control.keepAwake.off": "Keep awake: off",
-  "control.keepAwake.auto": "Keep awake: automatic",
-  "control.keepAwake.always": "Keep awake: always",
-  "control.keepAwake.claude": "Awake · Claude is working",
-  "control.keepAwake.download": "Awake · download running",
-  "control.keepAwake.timer": "Awake · timer running",
   "notifications.copyCode": "Copy code",
   "settings.notifications.hideBanners": "Hide Windows' own notification pop-ups",
   "settings.notifications.hideBannersHint": "They still collect in the notification centre.",
@@ -1098,7 +1092,6 @@
   "clipboard.personalPasscode": "निजी श्रेणी का PIN",
   "clipboard.unlockPersonal": "निजी श्रेणी अनलॉक करें",
   "clipboard.partialImport": "{0}/{1} आइटम सहेजे गए ({2} अनुपलब्ध या लॉक हैं)।",
-  "clipboard.fileCount": "{0} फ़ाइलें",
   "settings.trayAdvanced": "फ़ाइल ट्रे",
   "settings.trayAdvanced.hint": "चुनें कि कौन-सी सामग्री अपने आप सहेजी जाए। आप अब भी आइटम खींचकर फ़ाइल ट्रे में जोड़ सकते हैं। पुराना इतिहास बना रहेगा।",
   "settings.trayCaptureText": "कॉपी किए गए पाठ और लिंक अपने आप सहेजें",
@@ -1306,11 +1299,5 @@
   "settings.autoDismissNotify.hint": "निर्धारित समय पूरा होने पर सूचना बैनर को अपने आप बंद करें।",
   "settings.notificationDuration": "सूचना दिखाने की अवधि",
   "settings.notificationDuration.hint": "नॉच पर प्रत्येक सूचना कितने समय तक दिखाई देगी।",
-  "tooltip.autoDismissNotify": "तय समय के बाद सूचनाओं को अपने आप छिपाएं।",
-  "control.keepAwake.off": "Keep awake: off",
-  "control.keepAwake.auto": "Keep awake: automatic",
-  "control.keepAwake.always": "Keep awake: always",
-  "control.keepAwake.claude": "Awake · Claude is working",
-  "control.keepAwake.download": "Awake · download running",
-  "control.keepAwake.timer": "Awake · timer running"
+  "tooltip.autoDismissNotify": "तय समय के बाद सूचनाओं को अपने आप छिपाएं।"
 }
