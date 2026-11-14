@@ -86,7 +86,9 @@ public partial class ControlCenterView
             if (emptyKey == _homeKey) return;
             _homeKey = emptyKey;
             ClearHome();
-            _homeLightSection.Children.Add(NewRow(Glyph(0xE7BA), Loc.Get(text), muted: true));
+            _homeLightSection.Children.Add(text is "pi.loading" or "pi.unreachable"
+                ? new SkeletonPlaceholder(!_piReachable, Loc.Get(text), 82, 56, 48, 34)
+                : NewRow(Glyph(0xE7BA), Loc.Get(text), muted: true));
             return;
         }
 
@@ -98,6 +100,7 @@ public partial class ControlCenterView
             UpdateHome(home);
             return;
         }
+        bool arriving = _homeKey.StartsWith("empty|", StringComparison.Ordinal);
         _homeKey = key;
         ClearHome();
         _accent = _mood;
@@ -106,6 +109,7 @@ public partial class ControlCenterView
         BuildPlugs(home);
         BuildScenes(home);
         BuildPiLine(home);
+        if (arriving && IsVisible) RevealRows(TimeSpan.Zero);
     }
 
     private void ClearHome()

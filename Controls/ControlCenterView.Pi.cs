@@ -152,9 +152,11 @@ public partial class ControlCenterView
         if (key == _piKey) return;
         _piKey = key;
 
+        bool arriving = _piSchoolSection.Children.OfType<SkeletonPlaceholder>().Any() && _piSchool != null;
         BuildPiSchool();
         BuildPiExams();
         BuildPiTodos();
+        if (arriving && IsVisible) RevealRows(TimeSpan.Zero);
         ContentHeightChanged?.Invoke();
     }
 
@@ -216,7 +218,8 @@ public partial class ControlCenterView
         }
         if (_piSchool is not { } school)
         {
-            _piSchoolSection.Children.Add(NewRow("\uE7BA", Loc.Get(_piReachable ? "pi.loading" : "pi.unreachable"), muted: true));
+            _piSchoolSection.Children.Add(new SkeletonPlaceholder(!_piReachable,
+                Loc.Get(_piReachable ? "pi.loading" : "pi.unreachable"), 108, 34, 34, 34));
             return;
         }
 
