@@ -310,6 +310,7 @@ public partial class MainWindow : Window
             _volumeSynced = false;
         };
         InitializeControlCenter();
+        InitializePhone();
         _isExpandedCheck = () => _isExpanded || _isMusicExpanded;
         _viewModel.IsExpandedCheck = _isExpandedCheck;
         _viewModel.MediaInfoUpdated += ViewModel_MediaInfoUpdated;
@@ -719,6 +720,7 @@ public partial class MainWindow : Window
 
         _clipboardTrayView?.Dispose();
         DisposeControlCenter();
+        DisposePhone();
         if (_clipboardHistory != null) _clipboardHistory.DropImported -= PlayClipboardDropFeedback;
         _clipboardShutdown = _clipboardHistory?.DisposeAsync().AsTask() ?? Task.CompletedTask;
         _clipboardShutdown.SafeFireAndForget("CLIPBOARD-SHUTDOWN");
