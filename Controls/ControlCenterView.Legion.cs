@@ -166,7 +166,10 @@ public partial class ControlCenterView
         _legionModeSection.Children.Add(BuildSectionHeader("legion.mode", Loc.Get("legion.mode"), "", null, topMargin: 14));
         if (!ready)
         {
-            _legionModeSection.Children.Add(NewRow("", Loc.Get(_legionReachable ? "pi.loading" : "legion.setupHint"), muted: true));
+            _legionWasReady = false;
+            _legionModeSection.Children.Add(_legionReachable
+                ? new SkeletonPlaceholder(false, Loc.Get("pi.loading"), 78)
+                : NewRow("", Loc.Get("legion.setupHint"), muted: true));
             if (!_legionReachable) _legionModeSection.Children.Add(LegionSetupTile());
             return;
         }

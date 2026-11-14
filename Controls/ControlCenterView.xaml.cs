@@ -201,6 +201,9 @@ public partial class ControlCenterView : UserControl, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        foreach (var panel in new[] { _homeLightSection, _piSchoolSection, _legionModeSection })
+            foreach (UIElement child in panel.Children)
+                if (child is SkeletonPlaceholder skeleton) skeleton.Dispose();
         _refreshTimer.Stop();
         _clockTimer.Stop();
         _displayTimer?.Stop();
@@ -2468,6 +2471,8 @@ public partial class ControlCenterView : UserControl, IDisposable
 
     private static void RevealElement(FrameworkElement row, TimeSpan delay)
     {
+        // Placeholders own their motion and keep their dimmed offline opacity.
+        if (row is SkeletonPlaceholder) return;
         var shift = new TranslateTransform(0, 8);
         row.RenderTransform = shift;
         var fade = new DoubleAnimation(0, 1, new Duration(TimeSpan.FromMilliseconds(280))) { BeginTime = delay, EasingFunction = RowRevealEase };
