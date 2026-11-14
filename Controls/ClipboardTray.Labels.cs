@@ -214,9 +214,9 @@ public sealed partial class ClipboardTray
 
         bool fresh = entering && !scale.HasAnimatedProperties && !translate.HasAnimatedProperties;
         var spring = entering ? Motion.Tile : Motion.Exit;
-        Motion.To(scale, ScaleTransform.ScaleXProperty, entering ? 1 : Motion.ExitToScale, spring,
+        Motion.To(scale, ScaleTransform.ScaleXProperty, entering ? 1 : Motion.ExitToScale, entering ? Motion.TileScale : spring,
             from: fresh ? Motion.TileFromScale : null);
-        Motion.To(scale, ScaleTransform.ScaleYProperty, entering ? 1 : Motion.ExitToScale, spring,
+        Motion.To(scale, ScaleTransform.ScaleYProperty, entering ? 1 : Motion.ExitToScale, entering ? Motion.TileScale : spring,
             from: fresh ? Motion.TileFromScale : null);
         Motion.To(translate, TranslateTransform.YProperty, entering ? 0 : 6, spring, from: fresh ? 10 : null);
     }

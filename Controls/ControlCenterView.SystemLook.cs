@@ -379,8 +379,8 @@ public partial class ControlCenterView
                 part.Opacity = 1;
             };
             part.BeginAnimation(OpacityProperty, fade);
-            Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.Tile, from: Motion.TileFromScale, delay: TimeSpan.FromMilliseconds(delay));
-            Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.Tile, from: Motion.TileFromScale, delay: TimeSpan.FromMilliseconds(delay));
+            Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale, from: Motion.TileFromScale, delay: TimeSpan.FromMilliseconds(delay));
+            Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale, from: Motion.TileFromScale, delay: TimeSpan.FromMilliseconds(delay));
         }
     }
 

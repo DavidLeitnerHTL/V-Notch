@@ -274,9 +274,9 @@ public sealed partial class ClipboardTray
         }
         var wait = TimeSpan.FromMilliseconds(Math.Min(Math.Max(delay, 0), Motion.StaggerCapMs));
         var spring = entering ? Motion.Tile : Motion.Exit;
-        Motion.To(scale, ScaleTransform.ScaleXProperty, entering ? 1 : Motion.ExitToScale, spring,
+        Motion.To(scale, ScaleTransform.ScaleXProperty, entering ? 1 : Motion.ExitToScale, entering ? Motion.TileScale : spring,
             from: fresh ? Motion.TileFromScale : null, delay: wait);
-        Motion.To(scale, ScaleTransform.ScaleYProperty, entering ? 1 : Motion.ExitToScale, spring,
+        Motion.To(scale, ScaleTransform.ScaleYProperty, entering ? 1 : Motion.ExitToScale, entering ? Motion.TileScale : spring,
             from: fresh ? Motion.TileFromScale : null, delay: wait);
         Motion.To(translate, TranslateTransform.XProperty, 0, spring, from: fresh ? 0 : null, delay: wait);
         Motion.To(translate, TranslateTransform.YProperty, entering ? 0 : driftY, spring,

@@ -674,8 +674,8 @@ public partial class ControlCenterView
         tick.RenderTransform = new TransformGroup { Children = { scale, turn } };
         tick.Opacity = 0;
         tick.BeginAnimation(OpacityProperty, WeatherMotion.To(0, 1, 220, WeatherMotion.Out, delayMs));
-        Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.Tile, from: Motion.TileFromScale, delay: TimeSpan.FromMilliseconds(delayMs));
-        Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.Tile, from: Motion.TileFromScale, delay: TimeSpan.FromMilliseconds(delayMs));
+        Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale, from: Motion.TileFromScale, delay: TimeSpan.FromMilliseconds(delayMs));
+        Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale, from: Motion.TileFromScale, delay: TimeSpan.FromMilliseconds(delayMs));
         Motion.To(turn, RotateTransform.AngleProperty, 0, Motion.Press, from: -30, delay: TimeSpan.FromMilliseconds(delayMs));
     }
 
@@ -924,8 +924,8 @@ public partial class ControlCenterView
         element.BeginAnimation(OpacityProperty, fade);
         var delay = TimeSpan.FromMilliseconds(delayMs);
         Motion.To(shift, TranslateTransform.YProperty, 0, Motion.Tile, from: -8, delay: delay, fps: fps);
-        Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.Tile, from: Motion.TileFromScale, delay: delay, fps: fps);
-        Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.Tile, from: Motion.TileFromScale, delay: delay, fps: fps);
+        Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale, from: Motion.TileFromScale, delay: delay, fps: fps);
+        Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale, from: Motion.TileFromScale, delay: delay, fps: fps);
     }
 
     /// <summary>When the tab opens: the hero, then the chips, then the strip glide in; the bars fill from empty.</summary>

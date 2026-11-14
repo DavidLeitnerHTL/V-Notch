@@ -244,8 +244,8 @@ public partial class MainWindow
                 return;
             }
             Motion.To(IdleWeather, OpacityProperty, 1, Motion.Tile, from: wasShown ? null : 0);
-            Motion.To(_idleWeatherScale, ScaleTransform.ScaleXProperty, 1, Motion.Tile, from: wasShown ? null : Motion.TileFromScale);
-            Motion.To(_idleWeatherScale, ScaleTransform.ScaleYProperty, 1, Motion.Tile, from: wasShown ? null : Motion.TileFromScale);
+            Motion.To(_idleWeatherScale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale, from: wasShown ? null : Motion.TileFromScale);
+            Motion.To(_idleWeatherScale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale, from: wasShown ? null : Motion.TileFromScale);
         }
         if (wasShown && _idleWeatherKey != key && IdleWeather.IsVisible)
             Motion.To(IdleWeather, OpacityProperty, 0, Motion.Exit, done: Reveal);

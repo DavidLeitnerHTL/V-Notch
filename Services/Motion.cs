@@ -30,6 +30,9 @@ internal static partial class Motion
     // Tile: content arriving, staggered by StaggerMs from TileFromScale.
     public static readonly SpringMotion Tile = Ms(450, 0.50);
     public const double TileFromScale = 0.5;
+    // The same arrival for the scale of a card: a bounce in scale is a bounce in pixels on a wide card, and
+    // Tile's would push its edges 8 % past the clip of its tab. The lively part stays in the drift.
+    public static readonly SpringMotion TileScale = Ms(450, 0.22);
     public const int StaggerMs = 38;
     public const int StaggerCapMs = 300;
 

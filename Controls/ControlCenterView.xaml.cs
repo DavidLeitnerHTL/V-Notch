@@ -2448,8 +2448,8 @@ public partial class ControlCenterView : UserControl, IDisposable
         container.RenderTransformOrigin = new Point(0.5, 0);
         container.RenderTransform = new TransformGroup { Children = { grow, slide } };
         container.BeginAnimation(OpacityProperty, WeatherMotion.To(0, 1, 150, WeatherMotion.Out));
-        Motion.To(grow, ScaleTransform.ScaleXProperty, 1, Motion.Tile, from: Motion.TileFromScale);
-        Motion.To(grow, ScaleTransform.ScaleYProperty, 1, Motion.Tile, from: Motion.TileFromScale);
+        Motion.To(grow, ScaleTransform.ScaleXProperty, 1, Motion.TileScale, from: Motion.TileFromScale);
+        Motion.To(grow, ScaleTransform.ScaleYProperty, 1, Motion.TileScale, from: Motion.TileFromScale);
         Motion.To(slide, TranslateTransform.YProperty, 0, Motion.Tile, from: -6);
         for (int i = 0; i < list.Children.Count; i++)
             WeatherMotion.Rise(list.Children[i], Motion.Stagger(i).TotalMilliseconds, dy: -6, ms: 320);

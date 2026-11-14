@@ -1464,8 +1464,8 @@ public partial class MainWindow
         Motion.To(element, OpacityProperty, 1, Motion.Tile, from: continuing ? null : 0, delay: delay);
         if (scale != null)
         {
-            Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.Tile, from: continuing ? null : Motion.TileFromScale, delay: delay);
-            Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.Tile, from: continuing ? null : Motion.TileFromScale, delay: delay);
+            Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale, from: continuing ? null : Motion.TileFromScale, delay: delay);
+            Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale, from: continuing ? null : Motion.TileFromScale, delay: delay);
             element.RenderTransformOrigin = new Point(.5, .5);
         }
         if (translate != null)
@@ -2148,9 +2148,9 @@ public partial class MainWindow
 
         contentToShow.Visibility = Visibility.Visible;
         Motion.To(contentToShow, OpacityProperty, 1, Motion.Tile, from: compactWasVisible ? null : 0);
-        Motion.To(showScale, ScaleTransform.ScaleXProperty, 1, Motion.Tile,
+        Motion.To(showScale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale,
             from: compactWasVisible || skipContentZoom ? null : Motion.TileFromScale);
-        Motion.To(showScale, ScaleTransform.ScaleYProperty, 1, Motion.Tile,
+        Motion.To(showScale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale,
             from: compactWasVisible || skipContentZoom ? null : Motion.TileFromScale);
 
         var compactBlurTarget = _isMusicCompactMode ? MusicCompactContentBlur : CollapsedContentBlur;

@@ -362,8 +362,8 @@ public partial class ControlCenterView
             parts.Pill.BeginAnimation(OpacityProperty, WeatherMotion.To(parts.Pill.Opacity, 1, 160, WeatherMotion.Out));
             if (!AnimationConfig.ReduceMotion)
             {
-                Motion.To(parts.PillScale, ScaleTransform.ScaleXProperty, 1, Motion.Tile, from: Motion.TileFromScale);
-                Motion.To(parts.PillScale, ScaleTransform.ScaleYProperty, 1, Motion.Tile, from: Motion.TileFromScale);
+                Motion.To(parts.PillScale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale, from: Motion.TileFromScale);
+                Motion.To(parts.PillScale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale, from: Motion.TileFromScale);
             }
         }
         else

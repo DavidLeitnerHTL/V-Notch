@@ -226,8 +226,8 @@ public partial class ControlCenterView
         if (AnimationConfig.ReduceMotion) Motion.Stop(tile, OpacityProperty, 1);
         else tile.BeginAnimation(OpacityProperty, WeatherMotion.To(moving ? tile.Opacity : 0, 1, 180, WeatherMotion.Out, delayMs));
         if (!moving && !AnimationConfig.ReduceMotion) tile.SetCurrentValue(OpacityProperty, 0d);
-        Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.Tile, from: moving ? null : fromScale, delay: delay);
-        Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.Tile, from: moving ? null : fromScale, delay: delay);
+        Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale, from: moving ? null : fromScale, delay: delay);
+        Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale, from: moving ? null : fromScale, delay: delay);
         tile.IsVisibleChanged += StopHidden;
         void StopHidden(object sender, DependencyPropertyChangedEventArgs e)
         {

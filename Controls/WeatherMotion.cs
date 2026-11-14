@@ -150,8 +150,8 @@ internal static class WeatherMotion
         element.RenderTransformOrigin = new Point(0.5, 0.5);
         var delay = EntranceDelay(delayMs);
         FadeIn(element, fresh, delay);
-        Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.Tile, from: fresh ? Motion.TileFromScale : null, delay: delay);
-        Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.Tile, from: fresh ? Motion.TileFromScale : null, delay: delay);
+        Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale, from: fresh ? Motion.TileFromScale : null, delay: delay);
+        Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale, from: fresh ? Motion.TileFromScale : null, delay: delay);
     }
 
     /// <summary>Grows out of one edge (origin given in relative coordinates).</summary>
