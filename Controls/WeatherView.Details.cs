@@ -185,7 +185,7 @@ public sealed partial class WeatherView
     {
         tile.MouseEnter += (_, _) =>
         {
-            Bump(tile, 1.035);
+            Bump(tile, ControlCenterView.HoverScale(tile));
             if (tile.Background is SolidColorBrush brush) WeatherMotion.Tint(brush, TileHover);
         };
         tile.MouseLeave += (_, _) =>
@@ -208,7 +208,7 @@ public sealed partial class WeatherView
         {
             pressed = false;
             var scale = Scale();
-            double rest = element.IsMouseOver ? restScale * 1.025 : restScale;
+            double rest = element.IsMouseOver ? restScale * ControlCenterView.HoverScale(element, 1.025) : restScale;
             Motion.To(scale, ScaleTransform.ScaleXProperty, rest, Motion.Press);
             Motion.To(scale, ScaleTransform.ScaleYProperty, rest, Motion.Press);
         }
