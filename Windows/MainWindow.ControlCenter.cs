@@ -311,8 +311,6 @@ public partial class MainWindow
 
         _claudeNotificationTimer ??= CreateClaudeNotificationTimer();
         _claudeNotificationTimer.Stop();
-        // A finished Claude turn has no timeout: it waits to be tapped, pushed away or answered.
-        if (doneSessionId != null) return;
         _claudeNotificationTimer.Interval = duration ?? (isClaude ? ClaudeNotificationDuration : AppNotificationDuration);
         _claudeNotificationTimer.Start();
     }
