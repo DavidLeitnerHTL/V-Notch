@@ -128,6 +128,7 @@ public partial class MainWindow
             if (IdleGlance.IsVisible && AmbientAnimationsAllowed)
             {
                 RefreshIdleClock(animate: false);
+                UpdateIdleWeather();
                 ScheduleIdleClock();
                 RefreshIdleWeatherIfStale();
                 SettleIdleWidth();
@@ -136,6 +137,8 @@ public partial class MainWindow
             {
                 _idleClockTimer?.Stop();
                 _idleSettleTimer?.Stop();
+                Motion.Stop(IdleGlance, OpacityProperty, _idleGlanceShown ? 1 : 0);
+                Motion.Stop(IdleGlanceShift, TranslateTransform.YProperty, _idleGlanceShown ? 0 : -4);
                 Motion.Stop(IdleClock, OpacityProperty, 1);
                 Motion.Stop(_idleClockShift, TranslateTransform.XProperty, 0);
                 Motion.Stop(_idleWeatherScale, ScaleTransform.ScaleXProperty, 1);
@@ -258,9 +261,10 @@ public partial class MainWindow
         if (!animate) return;
         IdleGlance.UpdateLayout();
         double after = IdleClock.TranslatePoint(new Point(), IdleGlance).X;
+        double velocity = Motion.VelocityOf(_idleClockShift, TranslateTransform.XProperty);
+        Motion.Stop(_idleClockShift, TranslateTransform.XProperty, _idleClockShift.X + before - after);
         Motion.To(_idleClockShift, TranslateTransform.XProperty, 0, Motion.Glide,
-            from: _idleClockShift.X + before - after,
-            velocity: Motion.VelocityOf(_idleClockShift, TranslateTransform.XProperty));
+            velocity: velocity);
     }
 
     #endregion

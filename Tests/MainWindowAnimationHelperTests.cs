@@ -103,7 +103,9 @@ public sealed class MainWindowAnimationHelperTests
         Assert.False(window.CompactTitleMarqueeTranslate.HasAnimatedProperties);
         Set(window, "_isCompactThumbnailHovered", false);
         Invoke(window, "AnimateThumbnailHover", false);
-        await WpfFrameWaiter.UntilAsync(() => window.CompactHoverInfo.Visibility == Visibility.Collapsed && Math.Abs(window.CompactThumbnailScale.ScaleX - 1) < 1e-6, "compact artwork hover exit", ct);
+        await WpfFrameWaiter.UntilAsync(() => window.CompactHoverInfo.Visibility == Visibility.Collapsed
+            && Math.Abs(window.CompactThumbnailScale.ScaleX - 1) < 1e-6
+            && window.NotchBorder.Width == Field<double>(window, "_collapsedWidth"), "compact artwork hover exit", ct);
         Assert.Equal(Field<double>(window, "_collapsedWidth"), window.NotchBorder.Width);
         Invoke(window, "ApplyCompactTitleContainerWidth", double.NaN);
         Assert.True(double.IsFinite(window.CompactTitleScrollContainer.Width));
@@ -154,13 +156,15 @@ public sealed class MainWindowAnimationHelperTests
         var from = new Canvas();
         var to = new Canvas { Visibility = Visibility.Collapsed };
         Invoke(fixture.Window, "AnimateIconSwitch", from, to, TimeSpan.FromMilliseconds(100), new CubicEase());
-        await WpfFrameWaiter.UntilAsync(() => from.Visibility == Visibility.Collapsed && Math.Abs(to.Opacity - 1) < 1e-6, "playback icon switched", ct);
+        await WpfFrameWaiter.UntilAsync(() => from.Visibility == Visibility.Collapsed && Math.Abs(to.Opacity - 1) < 1e-6
+            && !to.RenderTransform.HasAnimatedProperties, "playback icon switched", ct);
         Assert.Equal(Visibility.Visible, to.Visibility);
         Assert.Equal(1, ((ScaleTransform)from.RenderTransform).ScaleX);
         Assert.Equal(1, ((ScaleTransform)to.RenderTransform).ScaleY);
         Assert.False(from.HasAnimatedProperties);
         Invoke(fixture.Window, "AnimateIconSwitch", to, from, TimeSpan.FromMilliseconds(100), new CubicEase());
-        await WpfFrameWaiter.UntilAsync(() => to.Visibility == Visibility.Collapsed && Math.Abs(from.Opacity - 1) < 1e-6, "playback icon switch reversed", ct);
+        await WpfFrameWaiter.UntilAsync(() => to.Visibility == Visibility.Collapsed && Math.Abs(from.Opacity - 1) < 1e-6
+            && !from.RenderTransform.HasAnimatedProperties, "playback icon switch reversed", ct);
     });
 
     [Theory]

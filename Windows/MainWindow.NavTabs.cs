@@ -618,13 +618,6 @@ public partial class MainWindow
 
     public void NavigateToNotchView(NotchView targetView)
     {
-        if (_isAnimating && (_transitionCoordinator.CurrentView == NotchView.Compact ||
-            _transitionCoordinator.TargetView == NotchView.Compact))
-        {
-            // Still opening: the tab follows once it is open. Closing: dropped.
-            TryQueueNavigation(targetView);
-            return;
-        }
         _transitionCoordinator.RequestView(targetView, "NavTabClick");
     }
 

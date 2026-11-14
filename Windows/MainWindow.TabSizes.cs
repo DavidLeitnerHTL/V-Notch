@@ -46,14 +46,16 @@ public partial class MainWindow
 
     private void SettleHomeNotchToFit()
     {
-        if (!_isPiView || _cleanedUp) return;
-        SettleNotchToContent(PiContent, MeasureHomeViewHeight(), () => _isPiView);
+        if (_transitionCoordinator.TargetView != VNotch.Models.NotchView.Pi || _cleanedUp) return;
+        SettleNotchToContent(PiContent, MeasureHomeViewHeight(),
+            () => _transitionCoordinator.TargetView == VNotch.Models.NotchView.Pi);
     }
 
     private void SettleSchoolNotchToFit()
     {
-        if (!_isSchoolView || _cleanedUp) return;
-        SettleNotchToContent(SchoolContent, MeasureSchoolViewHeight(), () => _isSchoolView);
+        if (_transitionCoordinator.TargetView != VNotch.Models.NotchView.School || _cleanedUp) return;
+        SettleNotchToContent(SchoolContent, MeasureSchoolViewHeight(),
+            () => _transitionCoordinator.TargetView == VNotch.Models.NotchView.School);
     }
 
     /// <summary>
@@ -62,9 +64,11 @@ public partial class MainWindow
     /// </summary>
     private void SettleNotchToContent(FrameworkElement content, double target, Func<bool> stillOpen)
     {
-        double current = NotchBorder.ActualHeight > 0 ? NotchBorder.ActualHeight : target;
+        double current = double.IsFinite(NotchBorder.Height) ? NotchBorder.Height :
+            NotchBorder.ActualHeight > 0 ? NotchBorder.ActualHeight : target;
         double chrome = content.Margin.Top + content.Margin.Bottom;
-        if (Math.Abs(current - target) < 0.5) return;
+        if (Math.Abs(current - target) < 0.5 &&
+            !DependencyPropertyHelper.GetValueSource(NotchBorder, HeightProperty).IsAnimated) return;
 
         int generation = ++_centerNotchHeightGeneration;
         bool growing = target > current;
@@ -73,10 +77,12 @@ public partial class MainWindow
         // Auto-sized content needs a finite initial value; subsequent changes retain the live spring.
         if (!double.IsFinite(content.Height)) content.Height = Math.Max(0, current - chrome);
         Motion.To(content, HeightProperty, Math.Max(0, target - chrome), Motion.Glide);
-        Motion.To(NotchBorder, HeightProperty, target, Motion.Glide, done: () =>
+        void Arrived()
         {
             if (generation != _centerNotchHeightGeneration || !stillOpen()) return;
             if (!growing) ResizeHostWindowHeight(target);
-        });
+        }
+        if (_notchShellPresenter?.RetargetHeight(target, Arrived) != true)
+            Motion.To(NotchBorder, HeightProperty, target, Motion.Glide, done: Arrived);
     }
 }

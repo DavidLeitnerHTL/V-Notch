@@ -24,12 +24,16 @@ public sealed class NotchShellPresenter : IDisposable
     private long _animationVersion;
     private bool _disposed;
     private double? _canceledWidthVelocity, _canceledHeightVelocity;
+    private Action? _heightArrived;
+    private double _heightTarget;
 
     public NotchShellPresenter(NotchShellViewRefs refs)
     {
         _refs = refs ?? throw new ArgumentNullException(nameof(refs));
-        _corner = new CornerValue { Apply = SetCornerRadius };
+        _corner = new CornerValue();
         _corner.SetValue(CornerValue.ValueProperty, refs.NotchBorder.CornerRadius.BottomLeft);
+        // MainWindow's settings are loaded after its presenters are constructed.
+        _corner.Apply = SetCornerRadius;
     }
 
     public void AnimateShell(TransitionPlan plan, Action<TransitionExecutionResult> onCompleted)
@@ -42,6 +46,8 @@ public sealed class NotchShellPresenter : IDisposable
 
         long sessionId = _activeSessionId = plan.SessionId;
         long version = ++_animationVersion;
+        _heightArrived = null;
+        _heightTarget = plan.TargetHeight;
         if (!IsCurrent(sessionId, version)) return;
         var border = _refs.NotchBorder;
         bool opening = plan.FromView == NotchView.Compact && plan.TargetView != NotchView.Compact;
@@ -78,7 +84,25 @@ public sealed class NotchShellPresenter : IDisposable
         if (!double.IsFinite(border.Width)) border.Width = ReadExtent(border.Width, border.ActualWidth, plan.TargetWidth);
         if (!double.IsFinite(border.Height)) border.Height = ReadExtent(border.Height, border.ActualHeight, plan.TargetHeight);
         Motion.To(border, FrameworkElement.WidthProperty, plan.TargetWidth, widthSpring, fps: fps, done: () => { Motion.Stop(border, FrameworkElement.WidthProperty, plan.TargetWidth); Arrived(); }, velocity: widthVelocity);
-        Motion.To(border, FrameworkElement.HeightProperty, plan.TargetHeight, heightSpring, fps: fps, done: () => { Motion.Stop(border, FrameworkElement.HeightProperty, plan.TargetHeight); Arrived(); }, velocity: heightVelocity);
+        _heightArrived = () =>
+        {
+            if (!IsCurrent(sessionId, version)) return;
+            Motion.Stop(border, FrameworkElement.HeightProperty, _heightTarget);
+            _heightArrived = null;
+            Arrived();
+        };
+        Motion.To(border, FrameworkElement.HeightProperty, plan.TargetHeight, heightSpring, fps: fps, done: _heightArrived, velocity: heightVelocity);
+    }
+
+    internal bool RetargetHeight(double height, Action done)
+    {
+        if (_disposed || _heightArrived == null) return false;
+        _heightTarget = height;
+        var arrived = _heightArrived;
+        // A content measurement replaces the height spring, but still completes the shell session.
+        Motion.To(_refs.NotchBorder, FrameworkElement.HeightProperty, height, Motion.Glide,
+            done: () => { arrived(); done(); });
+        return true;
     }
 
     public void SnapTo(double width, double height, double cornerRadius)
@@ -86,6 +110,7 @@ public sealed class NotchShellPresenter : IDisposable
         if (_disposed) return;
         ++_animationVersion;
         ++_activeSessionId;
+        _heightArrived = null;
         _canceledWidthVelocity = _canceledHeightVelocity = null;
         Motion.Stop(_refs.NotchBorder, FrameworkElement.WidthProperty, width);
         Motion.Stop(_refs.NotchBorder, FrameworkElement.HeightProperty, height);
@@ -98,6 +123,7 @@ public sealed class NotchShellPresenter : IDisposable
     {
         ++_animationVersion;
         ++_activeSessionId;
+        _heightArrived = null;
         var border = _refs.NotchBorder;
         // Coordinators cancel before retargeting. Hold the rendered frame without losing its release speed.
         _canceledWidthVelocity = Motion.VelocityOf(border, FrameworkElement.WidthProperty);
@@ -126,7 +152,7 @@ public sealed class NotchShellPresenter : IDisposable
 
     private sealed class CornerValue : Animatable
     {
-        public Action<double>? Apply { get; init; }
+        public Action<double>? Apply { get; set; }
         public static readonly DependencyProperty ValueProperty = DependencyProperty.Register(
             "Value", typeof(double), typeof(CornerValue), new PropertyMetadata(0d,
                 (target, args) => ((CornerValue)target).Apply?.Invoke((double)args.NewValue)));

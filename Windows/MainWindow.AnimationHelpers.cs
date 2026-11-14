@@ -433,8 +433,9 @@ public partial class MainWindow
 
         double width = w._mtNotchW + (w._mtIslandW - w._mtNotchW) * t;
         double height = w._mtNotchH + (w._mtIslandH - w._mtNotchH) * t;
-        double topRadius = w._mtIslandR * t;
-        double bottomRadius = w._mtNotchBottomR + (w._mtIslandR - w._mtNotchBottomR) * t;
+        // A spring may overshoot zero; WPF corner radii cannot be negative.
+        double topRadius = Math.Max(0, w._mtIslandR * t);
+        double bottomRadius = Math.Max(0, w._mtNotchBottomR + (w._mtIslandR - w._mtNotchBottomR) * t);
         double marginTop = DynamicIslandTopMargin * t;
         double earOpacity = 1.0 - t;
 
@@ -658,6 +659,7 @@ public partial class MainWindow
         SettingsButton.Focusable = show;
         BatterySection.IsHitTestVisible = showBattery;
         NavIconsBackground.IsHitTestVisible = showBackground;
+        NavIconsPanel.IsHitTestVisible = show;
         if (show)
         {
             bool movedSettingsHost = PlaceSharedSettingsButton(targetView);
@@ -687,10 +689,16 @@ public partial class MainWindow
 
         RetargetChromeValue(BatterySection, OpacityProperty, showBattery ? 1 : 0, duration, animate);
         RetargetChromeValue(BatteryTranslate, TranslateTransform.YProperty, showBattery ? restY : -6, duration, animate);
-        RetargetChromeValue(NavIconsPanel, OpacityProperty, show ? 1 : 0, duration, animate);
+        RetargetChromeValue(NavIconsPanel, OpacityProperty, show ? 1 : 0, duration, animate, () =>
+        {
+            if (version == _statusBarRevealVersion && !show) NavIconsPanel.Visibility = Visibility.Collapsed;
+        });
         RetargetChromeValue(NavIconsTranslate, TranslateTransform.YProperty, show ? restY : -6, duration, animate);
         RetargetChromeValue(NavIconsBackground, OpacityProperty, showBackground ? 1 : 0,
-            new Duration(TimeSpan.FromMilliseconds(show ? 340 : 120)), animate);
+            new Duration(TimeSpan.FromMilliseconds(show ? 340 : 120)), animate, () =>
+            {
+                if (version == _statusBarRevealVersion && !showBackground) NavIconsBackground.Visibility = Visibility.Collapsed;
+            });
         RetargetChromeValue(SettingsTranslate, TranslateTransform.YProperty, show ? settingsY : -6, duration, animate,
             easing: _easeBackOut022, beginTime: settingsDelay);
         var settingsScaleDuration = new Duration(TimeSpan.FromMilliseconds(show ? 460 : 200));
@@ -743,7 +751,12 @@ public partial class MainWindow
             return;
         }
         Motion.To(element, property, to, _statusBarRevealing ? Motion.Tile : Motion.Exit,
-            delay: _statusBarRevealing ? beginTime : null, done: completed);
+            delay: _statusBarRevealing ? beginTime : null, done: () =>
+            {
+                // Other shell paths clear clocks; keep the settled state as the base value too.
+                Motion.Stop(element, property, to);
+                completed?.Invoke();
+            });
     }
 
     #endregion

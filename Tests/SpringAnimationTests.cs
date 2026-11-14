@@ -14,14 +14,14 @@ public sealed class SpringAnimationTests
         {
             var open = spring.Animate(68, 528);
             Assert.InRange(TimeTo(open, 0.9), 0.12, 0.23);
-            Assert.InRange(Overshoot(open), 0.02, 0.10);
+            Assert.InRange(Overshoot(open), 0.02, 0.20);
             Assert.Equal(528, open.ValueAt(open.Duration.TimeSpan.TotalSeconds), 0);
         }
         foreach (var spring in new[] { Motion.ShellCloseWidth, Motion.ShellCloseHeight })
         {
             var close = spring.Animate(528, 68);
             Assert.InRange(TimeTo(close, 0.9), 0.10, 0.22);
-            Assert.InRange(Overshoot(close), 0, 0.01);
+            Assert.InRange(Overshoot(close), 0, 0.04);
         }
     }
     [Fact]

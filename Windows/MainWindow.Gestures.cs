@@ -381,8 +381,8 @@ public partial class MainWindow
 
         EnsureGestureTransforms();
 
-        _gestureTranslate!.X = clamped;
-        _gestureShadowTranslate!.X = clamped;
+        Motion.Stop(_gestureTranslate!, TranslateTransform.XProperty, clamped);
+        Motion.Stop(_gestureShadowTranslate!, TranslateTransform.XProperty, clamped);
     }
 
     private void AnimateGestureSnapBack()

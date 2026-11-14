@@ -12,6 +12,29 @@ namespace VNotch.Tests;
 public sealed class ShellMotionTests
 {
     [Fact]
+    public void ContentHeightRetargetStillCompletesTheShellSession() => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        bool previous = AnimationConfig.ReduceMotion;
+        try
+        {
+            AnimationConfig.SetReduceMotion(false);
+            var border = new Border { Width = 300, Height = 40 };
+            using var presenter = new NotchShellPresenter(new() { NotchBorder = border });
+            int completions = 0;
+            presenter.AnimateShell(new TransitionPlan(1, NotchView.Compact, NotchView.Pi, NotchShapeState.Expanding,
+                680, 300, 24, new(TimeSpan.FromMilliseconds(400), AnimationPrimitives._easeUiOut, 60, false)), _ => completions++);
+            await WpfFrameWaiter.UntilAsync(() => border.Height > 70, "opening starts", ct);
+            double height = border.Height;
+            Assert.True(presenter.RetargetHeight(360, () => { }));
+            Assert.Equal(height, border.Height, 6);
+            await WpfFrameWaiter.UntilAsync(() => completions == 1, "retargeted shell completes", ct);
+            Assert.Equal(360, border.Height);
+            Assert.Equal(680, border.Width);
+        }
+        finally { AnimationConfig.SetReduceMotion(previous); }
+    });
+
+    [Fact]
     public void ReversingTheShellCarriesBothDimensionsAndTheCornerFromTheRenderedFrame() => SharedStaTestRunner.RunAsync(async ct =>
     {
         bool previous = AnimationConfig.ReduceMotion;

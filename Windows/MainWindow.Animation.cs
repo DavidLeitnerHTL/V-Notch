@@ -34,7 +34,7 @@ public partial class MainWindow
             _isMediaWidthAnimating = false;
             UpdateGlassMotionState();
         }
-        ExpandedContent?.BeginAnimation(WidthProperty, null);
+        if (ExpandedContent != null) Motion.Stop(ExpandedContent, WidthProperty);
     }
 
     private void SyncExpandedMediaWidth(bool animate = true)
@@ -68,16 +68,11 @@ public partial class MainWindow
             currentContentWidth = currentWidth - ExpandedContentHorizontalInset;
 
         int version = ++_mediaWidthAnimationVersion;
-        NotchBorder.BeginAnimation(WidthProperty, null);
-        ExpandedContent.BeginAnimation(WidthProperty, null);
-        NotchBorder.Width = currentWidth;
-        ExpandedContent.Width = currentContentWidth;
-
         if (!animate || AnimationConfig.ReduceMotion ||
             (Math.Abs(currentWidth - targetWidth) <= 0.5 && Math.Abs(currentContentWidth - targetContentWidth) <= 0.5))
         {
-            NotchBorder.Width = targetWidth;
-            ExpandedContent.Width = targetContentWidth;
+            Motion.Stop(NotchBorder, WidthProperty, targetWidth);
+            Motion.Stop(ExpandedContent, WidthProperty, targetContentWidth);
             if (_isMediaWidthAnimating)
             {
                 _isMediaWidthAnimating = false;
@@ -88,28 +83,20 @@ public partial class MainWindow
             return;
         }
 
-        int fps = AnimationConfig.TargetFps;
-        var borderAnim = MakeAnim(currentWidth, targetWidth, _dur400, _easeExpOut6, fps);
-        var contentAnim = MakeAnim(currentContentWidth, targetContentWidth, _dur400, _easeExpOut6, fps);
-        borderAnim.Completed += (_, _) =>
+        _isMediaWidthAnimating = true;
+        UpdateGlassMotionState();
+        if (!double.IsFinite(ExpandedContent.Width)) ExpandedContent.Width = currentContentWidth;
+        Motion.To(ExpandedContent, WidthProperty, targetContentWidth, Motion.Glide);
+        Motion.To(NotchBorder, WidthProperty, targetWidth, Motion.Glide, done: () =>
         {
             if (version != _mediaWidthAnimationVersion) return;
-            NotchBorder.BeginAnimation(WidthProperty, null);
-            ExpandedContent.BeginAnimation(WidthProperty, null);
-            NotchBorder.Width = targetWidth;
-            ExpandedContent.Width = targetContentWidth;
+            Motion.Stop(NotchBorder, WidthProperty, targetWidth);
+            Motion.Stop(ExpandedContent, WidthProperty, targetContentWidth);
             _isMediaWidthAnimating = false;
             UpdateGlassMotionState();
             UpdateProgressSectionLayout();
             MediaPlayback?.RefreshMediaMarquee();
-        };
-
-        _isMediaWidthAnimating = true;
-        UpdateGlassMotionState();
-        NotchBorder.Width = targetWidth;
-        ExpandedContent.Width = targetContentWidth;
-        NotchBorder.BeginAnimation(WidthProperty, borderAnim);
-        ExpandedContent.BeginAnimation(WidthProperty, contentAnim);
+        });
     }
 
 
@@ -139,23 +126,6 @@ public partial class MainWindow
 
         UpdateProgressSectionLayout();
         MediaPlayback.RefreshMediaMarquee();
-    }
-
-    private static DoubleAnimationUsingKeyFrames MakeExpandGeometryAnimation(
-        double from,
-        double to,
-        IEasingFunction easing,
-        int fps)
-    {
-        var animation = new DoubleAnimationUsingKeyFrames
-        {
-            Duration = _dur500,
-            FillBehavior = FillBehavior.HoldEnd
-        };
-        animation.KeyFrames.Add(new LinearDoubleKeyFrame(from, KeyTime.FromTimeSpan(TimeSpan.Zero)));
-        animation.KeyFrames.Add(new EasingDoubleKeyFrame(to, KeyTime.FromTimeSpan(_dur500.TimeSpan), easing));
-        Timeline.SetDesiredFrameRate(animation, fps);
-        return animation;
     }
 
     private double GetCurrentExpandedContentTranslationY()
@@ -332,7 +302,6 @@ public partial class MainWindow
         Motion.Stop(AnimationThumbnailTranslate, TranslateTransform.XProperty, 0);
         Motion.Stop(AnimationThumbnailTranslate, TranslateTransform.YProperty, 0);
         AnimationThumbnailClip.BeginAnimation(RectangleGeometry.RectProperty, null);
-        Motion.StopClipSize(AnimationThumbnailClip, 22, 22);
         Motion.StopClipSize(AnimationThumbnailClip, 22, 22);
         this.BeginAnimation(CurrentThumbnailAnimationRadiusProperty, null);
         CurrentThumbnailAnimationRadius = 6;
@@ -1255,26 +1224,32 @@ public partial class MainWindow
             NavigationDirection: navigationDirection
         );
 
+        int pendingPresenters = _notchContentPresenter != null ? 2 : 1;
+        void PartCompleted()
+        {
+            if (--pendingPresenters == 0)
+                OnExpandCompleted(generation, suppressCompactThumbnailMotion, effectiveTarget);
+        }
+        if (effectiveTarget == VNotch.Models.NotchView.Media)
+            ShellContentTranslate(ExpandedContent);
+
         if (_notchShellPresenter != null)
         {
             _notchShellPresenter.AnimateShell(plan, result =>
             {
                 if (result.Status == VNotch.Models.TransitionExecutionStatus.Completed)
                 {
-                    OnExpandCompleted(generation, suppressCompactThumbnailMotion, effectiveTarget);
+                    PartCompleted();
                 }
             });
         }
         else
         {
-            var widthAnim = MakeExpandGeometryAnimation(currentWidth, targetWidth, _easeAppleOut, animFps);
-            var heightAnim = MakeExpandGeometryAnimation(currentHeight, targetHeight, _easeAppleOut, animFps);
-            heightAnim.Completed += (s, e) => OnExpandCompleted(generation, suppressCompactThumbnailMotion, effectiveTarget);
-            NotchBorder.BeginAnimation(WidthProperty, widthAnim);
-            NotchBorder.BeginAnimation(HeightProperty, heightAnim);
-            NotchBorder.Width = targetWidth;
-            NotchBorder.Height = targetHeight;
-            AnimateCornerRadius(_cornerRadiusExpanded, TimeSpan.FromMilliseconds(400));
+            Motion.To(NotchBorder, WidthProperty, targetWidth,
+                switchingExpandedViews ? Motion.Glide : Motion.ShellOpenWidth, fps: animFps);
+            Motion.To(NotchBorder, HeightProperty, targetHeight,
+                switchingExpandedViews ? Motion.Glide : Motion.ShellOpenHeight, fps: animFps, done: PartCompleted);
+            AnimateCornerRadius(_cornerRadiusExpanded, switchingExpandedViews ? Motion.Glide : Motion.ShellOpenHeight);
         }
 
         Motion.To(CollapsedContent, OpacityProperty, 0, Motion.Exit);
@@ -1288,7 +1263,10 @@ public partial class MainWindow
         if (_notchContentPresenter != null)
         {
             var contentPlan = plan;
-            _notchContentPresenter.TransitionContent(contentPlan, _ => { });
+            _notchContentPresenter.TransitionContent(contentPlan, result =>
+            {
+                if (result.Status == VNotch.Models.TransitionExecutionStatus.Completed) PartCompleted();
+            });
         }
         else
         {
@@ -1367,7 +1345,8 @@ public partial class MainWindow
 
 
             ExpandedContentBlur.Radius = 0;
-            Motion.To(expandedTranslate, TranslateTransform.YProperty, contentTargetY, Motion.Tile);
+            Motion.To(expandedTranslate, TranslateTransform.YProperty, contentTargetY, Motion.Tile,
+                done: () => Motion.Stop(expandedTranslate, TranslateTransform.YProperty, contentTargetY));
             PlayMediaContentReveal(TimeSpan.FromMilliseconds(25), animateThumbnail: !useThumbnailOverlayMorph);
         }
 
@@ -1609,13 +1588,7 @@ public partial class MainWindow
 
         int fps = AnimationConfig.TargetFps;
         var fade = MakeAnim(opacity, 0, _dur200, _easeQuadOut);
-        var shrinkX = MakeAnim(scale.ScaleX, 0.88, _dur250, _easePowerOut3);
-        var shrinkY = MakeAnim(scale.ScaleY, 0.88, _dur250, _easePowerOut3);
-        var slide = MakeAnim(translate.Y, -16, _dur250, _easePowerOut3);
         Timeline.SetDesiredFrameRate(fade, fps);
-        Timeline.SetDesiredFrameRate(shrinkX, fps);
-        Timeline.SetDesiredFrameRate(shrinkY, fps);
-        Timeline.SetDesiredFrameRate(slide, fps);
 
         fade.Completed += (_, _) =>
         {
@@ -1623,9 +1596,9 @@ public partial class MainWindow
             VNotch.Presenters.NotchContentTransitionPresenter.ResetElementVisualState(content);
         };
 
-        scale.BeginAnimation(ScaleTransform.ScaleXProperty, shrinkX);
-        scale.BeginAnimation(ScaleTransform.ScaleYProperty, shrinkY);
-        translate.BeginAnimation(TranslateTransform.YProperty, slide);
+        Motion.To(scale, ScaleTransform.ScaleXProperty, Motion.ExitToScale, Motion.Exit, fps: fps);
+        Motion.To(scale, ScaleTransform.ScaleYProperty, Motion.ExitToScale, Motion.Exit, fps: fps);
+        Motion.To(translate, TranslateTransform.YProperty, -16, Motion.Exit, fps: fps);
         if (_settings.EnableBlurEffects)
         {
             var blur = new BlurEffect { Radius = blurRadius, RenderingBias = RenderingBias.Performance };
@@ -1939,12 +1912,6 @@ public partial class MainWindow
         AnimateExpandedContentFadeOut();
         AnimateStatusBarReveal(false);
 
-        NavIconsBackground.BeginAnimation(OpacityProperty, null);
-        NavIconsBackground.Opacity = 0;
-        NavIconsBackground.Visibility = Visibility.Collapsed;
-        NavIconsPanel.BeginAnimation(OpacityProperty, null);
-        NavIconsPanel.Opacity = 0;
-        NavIconsPanel.Visibility = Visibility.Collapsed;
     }
 
     private void OnExpandedContentFadeOutCompleted(int generation, bool wasSecondary, bool wasTimer)
@@ -2143,18 +2110,10 @@ public partial class MainWindow
         }
         else
         {
-            NotchBorder.BeginAnimation(WidthProperty, null);
-            NotchBorder.BeginAnimation(HeightProperty, null);
-            NotchBorder.Width = currentWidth;
-            NotchBorder.Height = currentHeight;
-
-            var widthAnim = MakeAnim(currentWidth, _collapsedWidth, _dur500, _easeExpOut6, animFps);
-            var heightAnim = MakeAnim(currentHeight, _collapsedHeight, _dur500, _easeExpOut6, animFps);
-            heightAnim.Completed += (s, e) => OnCollapseCompleted(generation, wasAudio, contentToShow, suppressCompactThumbnailMotion, animateCompactThumbnailRevealOnCollapse);
-
-            NotchBorder.BeginAnimation(WidthProperty, widthAnim);
-            NotchBorder.BeginAnimation(HeightProperty, heightAnim);
-            AnimateCornerRadius(_cornerRadiusCollapsed, TimeSpan.FromMilliseconds(400));
+            Motion.To(NotchBorder, WidthProperty, _collapsedWidth, Motion.ShellCloseWidth, fps: animFps);
+            Motion.To(NotchBorder, HeightProperty, _collapsedHeight, Motion.ShellCloseHeight, fps: animFps,
+                done: () => OnCollapseCompleted(generation, wasAudio, contentToShow, suppressCompactThumbnailMotion, animateCompactThumbnailRevealOnCollapse));
+            AnimateCornerRadius(_cornerRadiusCollapsed, Motion.ShellCloseHeight);
         }
 
         if (_notchContentPresenter != null)
@@ -2172,14 +2131,17 @@ public partial class MainWindow
         }
 
         // Apply after the presenter so its general fade cannot replace the exit motion.
-        AnimateAuxiliaryViewCollapse(SecondaryContent, generation);
-        AnimateAuxiliaryViewCollapse(CameraContent, generation);
-        AnimateAuxiliaryViewCollapse(ClaudeContent, generation);
-        AnimateAuxiliaryViewCollapse(PiContent, generation);
-        AnimateAuxiliaryViewCollapse(SchoolContent, generation);
-        AnimateAuxiliaryViewCollapse(WeatherContent, generation);
-        AnimateAuxiliaryViewCollapse(TimerContent, generation);
-        AnimateAuxiliaryViewCollapse(AudioContent, generation);
+        if (_notchContentPresenter == null)
+        {
+            AnimateAuxiliaryViewCollapse(SecondaryContent, generation);
+            AnimateAuxiliaryViewCollapse(CameraContent, generation);
+            AnimateAuxiliaryViewCollapse(ClaudeContent, generation);
+            AnimateAuxiliaryViewCollapse(PiContent, generation);
+            AnimateAuxiliaryViewCollapse(SchoolContent, generation);
+            AnimateAuxiliaryViewCollapse(WeatherContent, generation);
+            AnimateAuxiliaryViewCollapse(TimerContent, generation);
+            AnimateAuxiliaryViewCollapse(AudioContent, generation);
+        }
 
         Motion.To(expandedTranslate, TranslateTransform.YProperty, -10, Motion.Exit);
         ExpandedContentBlur.Radius = 0;

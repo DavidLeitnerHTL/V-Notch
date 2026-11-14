@@ -35,6 +35,7 @@ public sealed class NotchContentTransitionPresenter : IDisposable
     private bool _disposed;
     private sealed record PageOffset(Transform Original, TransformGroup Wrapper, ScaleTransform Scale, TranslateTransform Offset);
     private readonly Dictionary<FrameworkElement, PageOffset> _pageOffsets = new();
+    private readonly Dictionary<(DependencyObject Target, DependencyProperty Property), double> _canceledVelocities = new();
 
     public NotchContentTransitionPresenter(NotchContentViewRefs refs)
     {
@@ -71,7 +72,8 @@ public sealed class NotchContentTransitionPresenter : IDisposable
         }
 
         // The audio scroll viewer belongs to the audio page and must be ready before its entrance.
-        if (plan.TargetView == NotchView.AudioMixer && _refs.AudioScrollViewer != null)
+        if (plan.TargetView == NotchView.AudioMixer && _refs.AudioScrollViewer != null &&
+            !ReferenceEquals(_refs.AudioScrollViewer, targetElement) && _refs.AudioScrollViewer.Visibility != Visibility.Visible)
         {
             _refs.AudioScrollViewer.BeginAnimation(UIElement.OpacityProperty, null);
             _refs.AudioScrollViewer.Visibility = Visibility.Visible;
@@ -126,11 +128,11 @@ public sealed class NotchContentTransitionPresenter : IDisposable
                 ResetElementVisualState(_refs.AudioScrollViewer);
             onCompleted(new TransitionExecutionResult(sessionId, TransitionExecutionStatus.Completed));
         }
-        Motion.To(targetElement, UIElement.OpacityProperty, 1, Motion.Tile,
+        SpringTo(targetElement, UIElement.OpacityProperty, 1, Motion.Tile,
             from: targetWasVisible ? null : 0, fps: fps, done: Arrived);
-        Motion.To(targetLayer.Offset, TranslateTransform.XProperty, 0, Motion.Glide, fps: fps, done: Arrived);
-        Motion.To(targetLayer.Scale, ScaleTransform.ScaleXProperty, 1, Motion.Tile, fps: fps, done: Arrived);
-        Motion.To(targetLayer.Scale, ScaleTransform.ScaleYProperty, 1, Motion.Tile, fps: fps, done: Arrived);
+        SpringTo(targetLayer.Offset, TranslateTransform.XProperty, 0, Motion.Glide, fps: fps, done: Arrived);
+        SpringTo(targetLayer.Scale, ScaleTransform.ScaleXProperty, 1, Motion.Tile, fps: fps, done: Arrived);
+        SpringTo(targetLayer.Scale, ScaleTransform.ScaleYProperty, 1, Motion.Tile, fps: fps, done: Arrived);
 
         foreach (var element in allElements)
         {
@@ -142,11 +144,11 @@ public sealed class NotchContentTransitionPresenter : IDisposable
             }
             var layer = GetPageOffset(element, 0, 1);
             element.IsHitTestVisible = false;
-            Motion.To(layer.Offset, TranslateTransform.XProperty,
+            SpringTo(layer.Offset, TranslateTransform.XProperty,
                 switchingExpandedView ? -14 * plan.NavigationDirection : 0, Motion.Exit, fps: fps);
-            Motion.To(layer.Scale, ScaleTransform.ScaleXProperty, Motion.ExitToScale, Motion.Exit, fps: fps);
-            Motion.To(layer.Scale, ScaleTransform.ScaleYProperty, Motion.ExitToScale, Motion.Exit, fps: fps);
-            Motion.To(element, UIElement.OpacityProperty, 0, Motion.Exit, fps: fps, done: () =>
+            SpringTo(layer.Scale, ScaleTransform.ScaleXProperty, Motion.ExitToScale, Motion.Exit, fps: fps);
+            SpringTo(layer.Scale, ScaleTransform.ScaleYProperty, Motion.ExitToScale, Motion.Exit, fps: fps);
+            SpringTo(element, UIElement.OpacityProperty, 0, Motion.Exit, fps: fps, done: () =>
             {
                 if (!IsCurrent(sessionId, version)) return;
                 ResetContentVisualState(element);
@@ -176,6 +178,9 @@ public sealed class NotchContentTransitionPresenter : IDisposable
     private void ReleasePageOffset(FrameworkElement element)
     {
         if (!_pageOffsets.Remove(element, out var layer)) return;
+        _canceledVelocities.Remove((layer.Offset, TranslateTransform.XProperty));
+        _canceledVelocities.Remove((layer.Scale, ScaleTransform.ScaleXProperty));
+        _canceledVelocities.Remove((layer.Scale, ScaleTransform.ScaleYProperty));
         Motion.Stop(layer.Offset, TranslateTransform.XProperty);
         Motion.Stop(layer.Scale, ScaleTransform.ScaleXProperty);
         Motion.Stop(layer.Scale, ScaleTransform.ScaleYProperty);
@@ -185,6 +190,7 @@ public sealed class NotchContentTransitionPresenter : IDisposable
     private void ResetContentVisualState(FrameworkElement element)
     {
         ReleasePageOffset(element);
+        _canceledVelocities.Remove((element, UIElement.OpacityProperty));
         ResetElementVisualState(element);
         element.IsHitTestVisible = true;
     }
@@ -201,9 +207,13 @@ public sealed class NotchContentTransitionPresenter : IDisposable
         _activeSessionId++;
         foreach (var el in GetAllElements())
         {
-            double currentOpacity = el.Visibility == Visibility.Visible ? el.Opacity : 0.0;
-            el.BeginAnimation(UIElement.OpacityProperty, null);
-            el.Opacity = currentOpacity;
+            HoldSpring(el, UIElement.OpacityProperty);
+            if (_pageOffsets.TryGetValue(el, out var layer))
+            {
+                HoldSpring(layer.Offset, TranslateTransform.XProperty);
+                HoldSpring(layer.Scale, ScaleTransform.ScaleXProperty);
+                HoldSpring(layer.Scale, ScaleTransform.ScaleYProperty);
+            }
             HoldCurrentTransformAndEffect(el);
         }
         if (_refs.AudioScrollViewer != null && !ReferenceEquals(_refs.AudioScrollViewer, _refs.AudioContent))
@@ -213,6 +223,21 @@ public sealed class NotchContentTransitionPresenter : IDisposable
             _refs.AudioScrollViewer.Opacity = currentScrollOpacity;
             HoldCurrentTransformAndEffect(_refs.AudioScrollViewer);
         }
+    }
+
+    private void HoldSpring(DependencyObject target, DependencyProperty property)
+    {
+        // Preserve speed at the held frame, even if the next request waits for another dispatcher turn.
+        if (DependencyPropertyHelper.GetValueSource(target, property).IsAnimated)
+            _canceledVelocities[(target, property)] = Motion.VelocityOf(target, property);
+        Motion.Stop(target, property);
+    }
+
+    private void SpringTo(DependencyObject target, DependencyProperty property, double to, SpringMotion spring,
+        double? from = null, int? fps = null, Action? done = null)
+    {
+        double? velocity = _canceledVelocities.Remove((target, property), out var held) ? held : null;
+        Motion.To(target, property, to, spring, from: from, fps: fps, done: done, velocity: velocity);
     }
 
     private static void HoldCurrentTransformAndEffect(FrameworkElement element)
@@ -267,7 +292,7 @@ public sealed class NotchContentTransitionPresenter : IDisposable
         if (!DependencyPropertyHelper.GetValueSource(target, property).IsAnimated) return;
         object value = target.GetValue(property);
         target.BeginAnimation(property, null);
-        target.SetCurrentValue(property, value);
+        target.SetValue(property, value);
     }
 
     public void SnapToView(NotchView view)
@@ -275,6 +300,7 @@ public sealed class NotchContentTransitionPresenter : IDisposable
         if (_disposed) return;
         ++_animationVersion;
         _activeSessionId++;
+        _canceledVelocities.Clear();
         var target = GetElementForView(view);
         if (view == NotchView.AudioMixer && _refs.AudioScrollViewer != null)
         {
@@ -406,10 +432,10 @@ public sealed class NotchContentTransitionPresenter : IDisposable
         {
             var layer = GetPageOffset(element, 0, 1);
             element.IsHitTestVisible = false;
-            Motion.To(layer.Offset, TranslateTransform.XProperty, 0, Motion.Exit, fps: fps);
-            Motion.To(layer.Scale, ScaleTransform.ScaleXProperty, Motion.ExitToScale, Motion.Exit, fps: fps);
-            Motion.To(layer.Scale, ScaleTransform.ScaleYProperty, Motion.ExitToScale, Motion.Exit, fps: fps);
-            Motion.To(element, UIElement.OpacityProperty, 0, Motion.Exit, fps: fps, done: () =>
+            SpringTo(layer.Offset, TranslateTransform.XProperty, 0, Motion.Exit, fps: fps);
+            SpringTo(layer.Scale, ScaleTransform.ScaleXProperty, Motion.ExitToScale, Motion.Exit, fps: fps);
+            SpringTo(layer.Scale, ScaleTransform.ScaleYProperty, Motion.ExitToScale, Motion.Exit, fps: fps);
+            SpringTo(element, UIElement.OpacityProperty, 0, Motion.Exit, fps: fps, done: () =>
             {
                 if (!IsCurrent(sessionId, version)) return;
                 ResetContentVisualState(element);
@@ -455,6 +481,7 @@ public sealed class NotchContentTransitionPresenter : IDisposable
         _disposed = true;
         CancelActiveTransition();
         foreach (var element in GetAllElements()) ReleasePageOffset(element);
+        _canceledVelocities.Clear();
     }
 
     private bool IsCurrent(long sessionId, long version) =>

@@ -247,9 +247,11 @@ public partial class MainWindow
         if (!IsGreetingCurrent(generation)) return;
         Motion.To(GreetingOverlay, OpacityProperty, 0, Motion.Exit, done: () =>
         {
-            if (!IsGreetingCurrent(generation)) return;
+            if (_cleanedUp || generation != _greetingGeneration) return;
             GreetingOverlay.Visibility = Visibility.Collapsed;
-            GreetingOverlay.Opacity = 0;
+            Motion.Stop(GreetingOverlay, OpacityProperty, 0);
+            foreach (var path in new[] { HelloPath1, HelloPath2, ViPath1, ViPath2, ViPath3, ViPath4, ViPath5, ViPath6, ViPath7, ViPath8, ViPath9, ViPath10 })
+                path.BeginAnimation(OpacityProperty, null);
 
             if (_isVietnameseGreeting)
             {
@@ -281,10 +283,12 @@ public partial class MainWindow
     {
         int generation = _greetingGeneration;
         AnimateCornerRadius(_cornerRadiusCollapsed, Motion.ShellCloseHeight);
-        Motion.To(NotchBorder, WidthProperty, _collapsedWidth, Motion.ShellCloseWidth);
-        Motion.To(NotchBorder, HeightProperty, _collapsedHeight, Motion.ShellCloseHeight, done: () =>
+        int remaining = 2;
+        void Arrived()
         {
-            if (!IsGreetingCurrent(generation)) return;
+            if (--remaining != 0 || !IsGreetingCurrent(generation)) return;
+            Motion.Stop(NotchBorder, WidthProperty, _collapsedWidth);
+            Motion.Stop(NotchBorder, HeightProperty, _collapsedHeight);
             _isAnimating = false;
             _isGreetingActive = false;
             RestorePrivacyDotVisibility();
@@ -297,7 +301,9 @@ public partial class MainWindow
                 StartStartupHold(TimeSpan.FromSeconds(3));
                 SchedulePostAppearInitialization();
             });
-        });
+        }
+        Motion.To(NotchBorder, WidthProperty, _collapsedWidth, Motion.ShellCloseWidth, done: Arrived);
+        Motion.To(NotchBorder, HeightProperty, _collapsedHeight, Motion.ShellCloseHeight, done: Arrived);
     }
 
     private bool IsGreetingCurrent(int generation) => !_cleanedUp && _isGreetingActive && generation == _greetingGeneration;
@@ -327,7 +333,7 @@ public partial class MainWindow
         _greetingDismissTimer?.Dispose();
         _greetingDismissTimer = null;
         _isGreetingActive = false;
-        GreetingOverlay.BeginAnimation(OpacityProperty, null);
+        Motion.Stop(GreetingOverlay, OpacityProperty, 0);
         foreach (var path in new[] { HelloPath1, HelloPath2, ViPath1, ViPath2, ViPath3, ViPath4, ViPath5, ViPath6, ViPath7, ViPath8, ViPath9, ViPath10 })
         {
             path.BeginAnimation(Shape.StrokeDashOffsetProperty, null);
