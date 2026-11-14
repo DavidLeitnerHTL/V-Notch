@@ -59,6 +59,17 @@ public sealed class ClaudeResetGrantTests : IDisposable
     }
 
     [Fact]
+    public void FindsTheVersionWhenEachVersionIsAnExecutableFile()
+    {
+        // Native Claude Code installs keep ~/.local/share/claude/versions/<version> as plain files.
+        string versions = Path.Combine(_directory, "files");
+        Directory.CreateDirectory(versions);
+        File.WriteAllText(Path.Combine(versions, "2.1.322"), "");
+        File.WriteAllText(Path.Combine(versions, "2.1.325"), "");
+        Assert.Equal("2.1.325", ClaudeUsageClient.FindCliVersion(versions));
+    }
+
+    [Fact]
     public async Task ClaimUsesTheCliProtocolAndImmediatelyRefreshesUsage()
     {
         var handler = new RecordingHandler((_, _) => new HttpResponseMessage(HttpStatusCode.OK)

@@ -771,14 +771,13 @@ public partial class ControlCenterView
         return dot;
     }
 
-    /// <summary>The 5-hour and weekly limits as two slim bars, with the sound switch at the end.</summary>
+    /// <summary>The 5-hour and weekly limits as two slim bars.</summary>
     private FrameworkElement LimitStrip(ClaudeLimits? limits)
     {
         var grid = new Grid { Margin = new Thickness(4, 4, 4, 2) };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(22) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         if (limits?.FiveHour is { } fiveHour) grid.Children.Add(MiniLimit("5h", Loc.Get("control.claude.limit5h"), fiveHour));
         if (limits?.Week is { } week)
         {
@@ -787,32 +786,6 @@ public partial class ControlCenterView
             grid.Children.Add(mini);
         }
 
-        var tools = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(16, 0, 0, 0) };
-        if (_soundsOn != null)
-        {
-            // Sounds when a turn ends or a session waits: the speaker shows and flips the setting.
-            bool on = _soundsOn();
-            var sound = IconButton(on ? "" : "", Loc.Get(on ? "control.claude.soundsOn" : "control.claude.soundsOff"), () =>
-            {
-                _setSounds?.Invoke(!_soundsOn());
-                _claudeKey = "";
-                BuildClaudeSection();
-            });
-            sound.Width = sound.Height = 24;
-            sound.Margin = new Thickness(0);
-            sound.Opacity = on ? 1 : 0.6;
-            tools.Children.Add(sound);
-        }
-        if (_claudeInstalled)
-        {
-            var remove = ColumnLabel(Loc.Get("control.claude.remove"));
-            remove.FontSize = 11.5;
-            remove.Margin = new Thickness(12, 0, 0, 0);
-            MakeLink(remove, RemoveClaudeHooks);
-            tools.Children.Add(remove);
-        }
-        Grid.SetColumn(tools, 3);
-        grid.Children.Add(tools);
         _cardScratch.Add(("strip", grid));
         return grid;
     }

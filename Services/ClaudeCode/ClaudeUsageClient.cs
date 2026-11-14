@@ -225,7 +225,8 @@ internal sealed class ClaudeUsageClient : IDisposable
             "(?:-" + pre + "(?:\\." + pre + ")*)?(?:\\+" + build + "(?:\\." + build + ")*)?\\z";
         try
         {
-            return Directory.EnumerateDirectories(directory).Select(Path.GetFileName)
+            // Claude Code keeps each version as a bare executable named after it (older installs used folders).
+            return Directory.EnumerateFileSystemEntries(directory).Select(Path.GetFileName)
                 .Where(name => name != null && Regex.IsMatch(name, pattern, RegexOptions.CultureInvariant))
                 .OrderBy(name => name, Comparer<string?>.Create(CompareVersions)).LastOrDefault();
         }
