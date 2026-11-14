@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -147,6 +148,144 @@ public partial class ControlCenterView
         return created;
     }
 
+    private sealed class DetailTextState
+    {
+        public required string Target;
+        public required TranslateTransform Shift;
+        public bool Leaving;
+    }
+
+    private static readonly ConditionalWeakTable<TextBlock, DetailTextState> DetailTexts = new();
+
+    /// <summary>The newest label replaces the old one at the bottom of a small, interruptible dip.</summary>
+    private static void SetDetailText(TextBlock text, string value)
+    {
+        var state = DetailTexts.GetValue(text, label =>
+        {
+            var created = new DetailTextState { Target = label.Text, Shift = new TranslateTransform() };
+            AddDetailTransform(label, created.Shift);
+            label.IsVisibleChanged += (_, _) =>
+            {
+                if (label.IsVisible) return;
+                created.Leaving = false;
+                label.Text = created.Target;
+                Motion.Stop(label, OpacityProperty, 1);
+                Motion.Stop(created.Shift, TranslateTransform.YProperty, 0);
+            };
+            return created;
+        });
+        if (!text.IsVisible || AnimationConfig.ReduceMotion)
+        {
+            state.Target = value;
+            state.Leaving = false;
+            text.Text = value;
+            Motion.Stop(text, OpacityProperty, 1);
+            Motion.Stop(state.Shift, TranslateTransform.YProperty, 0);
+            return;
+        }
+        if (state.Target == value) return;
+        state.Target = value;
+        if (text.Text == value)
+        {
+            state.Leaving = false;
+            Motion.To(text, OpacityProperty, 1, Motion.Press);
+            Motion.To(state.Shift, TranslateTransform.YProperty, 0, Motion.Press);
+            return;
+        }
+        if (state.Leaving) return; // A burst updates the destination without delaying the swap.
+        state.Leaving = true;
+        Motion.To(state.Shift, TranslateTransform.YProperty, 2, Motion.PressDown);
+        Motion.To(text, OpacityProperty, 0, Motion.PressDown, done: () =>
+        {
+            if (!state.Leaving || text.Opacity > .01) return;
+            state.Leaving = false;
+            text.Text = state.Target;
+            Motion.To(state.Shift, TranslateTransform.YProperty, 0, Motion.Press);
+            Motion.To(text, OpacityProperty, 1, Motion.Press);
+        });
+    }
+
+    private static void AddDetailTransform(FrameworkElement element, Transform transform)
+    {
+        if (element.RenderTransform is TransformGroup group && !group.IsFrozen) group.Children.Add(transform);
+        else
+        {
+            var parts = new TransformGroup();
+            if (element.RenderTransform != Transform.Identity) parts.Children.Add(element.RenderTransform);
+            parts.Children.Add(transform);
+            element.RenderTransform = parts;
+        }
+    }
+
+    /// <summary>The glyph follows the pointer by a few pixels, independently of its parent's squish.</summary>
+    private static void DetailHover(FrameworkElement control, FrameworkElement glyph, double x = 0, double y = -2)
+    {
+        var shift = new TranslateTransform();
+        AddDetailTransform(glyph, shift);
+        void Move(double dx, double dy, SpringMotion spring)
+        {
+            if (!control.IsVisible || !glyph.IsVisible || AnimationConfig.ReduceMotion)
+            {
+                Motion.Stop(shift, TranslateTransform.XProperty, 0);
+                Motion.Stop(shift, TranslateTransform.YProperty, 0);
+                return;
+            }
+            Motion.To(shift, TranslateTransform.XProperty, dx, spring);
+            Motion.To(shift, TranslateTransform.YProperty, dy, spring);
+        }
+        control.MouseEnter += (_, _) => Move(x, y, Motion.Press);
+        control.MouseLeave += (_, _) => Move(0, 0, Motion.Press);
+        control.PreviewMouseLeftButtonDown += (_, _) => Move(-x * .5, 1, Motion.PressDown);
+        control.PreviewMouseLeftButtonUp += (_, _) => Move(control.IsMouseOver ? x : 0, control.IsMouseOver ? y : 0, Motion.Press);
+        control.LostMouseCapture += (_, _) => Move(0, 0, Motion.Press);
+        control.IsVisibleChanged += (_, _) => { if (!control.IsVisible) Move(0, 0, Motion.Press); };
+        glyph.IsVisibleChanged += (_, _) => { if (!glyph.IsVisible) Move(0, 0, Motion.Press); };
+    }
+
+    private static readonly ConditionalWeakTable<FrameworkElement, TranslateTransform> DetailReactions = new();
+
+    /// <summary>A state change gives a glyph a little momentum; another change carries it onward.</summary>
+    private static void DetailReaction(FrameworkElement glyph)
+    {
+        var shift = DetailReactions.GetValue(glyph, element =>
+        {
+            var created = new TranslateTransform();
+            AddDetailTransform(element, created);
+            element.IsVisibleChanged += (_, _) => { if (!element.IsVisible) Motion.Stop(created, TranslateTransform.YProperty, 0); };
+            return created;
+        });
+        if (!glyph.IsVisible || AnimationConfig.ReduceMotion)
+        {
+            Motion.Stop(shift, TranslateTransform.YProperty, 0);
+            return;
+        }
+        Motion.To(shift, TranslateTransform.YProperty, 0, Motion.Press,
+            velocity: Motion.VelocityOf(shift, TranslateTransform.YProperty) - 24);
+    }
+
+    private static readonly ConditionalWeakTable<FrameworkElement, TranslateTransform> DetailArrivals = new();
+
+    private static void DetailArrive(FrameworkElement element, int index)
+    {
+        var shift = DetailArrivals.GetValue(element, part =>
+        {
+            var created = new TranslateTransform();
+            AddDetailTransform(part, created);
+            part.IsVisibleChanged += (_, _) =>
+            {
+                if (part.IsVisible) return;
+                Motion.Stop(created, TranslateTransform.YProperty, 0);
+                Motion.Stop(part, OpacityProperty, 1);
+            };
+            return created;
+        });
+        if (!element.IsVisible || AnimationConfig.ReduceMotion) return;
+        bool moving = Motion.IsRunning(shift, TranslateTransform.YProperty);
+        var delay = Motion.Stagger(index);
+        Motion.To(shift, TranslateTransform.YProperty, 0, Motion.Tile, from: moving ? null : 3, delay: delay);
+        Motion.To(element, OpacityProperty, 1, Motion.Tile, from: moving ? null : 0, delay: delay);
+    }
+
     private static void ExitElement(FrameworkElement element, Action? done = null)
     {
         var scale = FeedbackScale(element);
@@ -274,6 +413,13 @@ public partial class ControlCenterView
             _shown = value;
             if (from == value || ms <= 0 || _owner is { IsVisible: false }) _tween.Play(value, value, 0, WeatherMotion.OutQuint);
             else _tween.To(value);
+        }
+
+        public void Reveal()
+        {
+            if (!double.IsFinite(_shown) || _owner is not { IsVisible: true } || AnimationConfig.ReduceMotion ||
+                Motion.IsRunning(_tween, WeatherTween.ValueProperty)) return;
+            _tween.To(_shown, from: _shown * .8);
         }
     }
 

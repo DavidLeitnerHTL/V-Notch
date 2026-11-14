@@ -33,7 +33,6 @@ public partial class ControlCenterView
     private static readonly TimeSpan GuardWindow = TimeSpan.FromSeconds(3);
     private const int TargetSendDelayMs = 700;
     private const int HomeSettleMs = 1400;
-    private const int GlowFps = 24;
 
     private static readonly (Color Main, Color Warmer, Color Cooler) HomeNight =
         (Color.FromRgb(0x7C, 0x7F, 0xB8), Color.FromRgb(0xA1, 0x9B, 0xD2), Color.FromRgb(0x5F, 0x7F, 0xA8));
@@ -52,8 +51,10 @@ public partial class ControlCenterView
     private readonly StackPanel _homePiSection = new();
     private readonly Dictionary<string, LightTile> _lightTiles = new(StringComparer.Ordinal);
     private readonly Dictionary<string, TextBlock> _plugStatus = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, PlugReadout> _plugReadouts = new(StringComparer.Ordinal);
     private HeatingParts? _heating;
     private TextBlock? _piLine;
+    private PiReadout? _piReadout;
     private bool? _musicSync;
     // After a tap the room is shown as asked until the dashboard has caught up, so the old state does not flash back.
     private DateTime _homeQuietUntilUtc;
@@ -117,8 +118,10 @@ public partial class ControlCenterView
         _homeLoops.StopAll();
         _lightTiles.Clear();
         _plugStatus.Clear();
+        _plugReadouts.Clear();
         _heating = null;
         _piLine = null;
+        _piReadout = null;
         foreach (var section in new[] { _homeLightSection, _homeClimateSection, _homePlugSection, _homeSceneSection, _homePiSection })
             section.Children.Clear();
     }
@@ -209,8 +212,8 @@ public partial class ControlCenterView
         }
         if (_heating != null && home.Climate is { } climate) _heating.Show(climate, keepTarget: quiet || _targetDraft != null);
         foreach (var plug in home.Plugs)
-            if (_plugStatus.TryGetValue(plug.Id, out var status)) status.Text = PlugText(plug);
-        if (_piLine != null && home.Pi != null) _piLine.Text = PiText(home.Pi);
+            if (_plugReadouts.TryGetValue(plug.Id, out var readout)) readout.Show(plug);
+        if (home.Pi != null) _piReadout?.Show(home.Pi);
     }
 
     /// <summary>Sends a switch to the dashboard and shows the room again once Home Assistant has caught up.</summary>
@@ -230,7 +233,7 @@ public partial class ControlCenterView
 
     /// <summary>
     /// A lamp as a big tile. Switching on blooms a glow out of the bulb, sends a burst of rays and makes the bulb hop;
-    /// switching off folds the glow back into it. While on the glow breathes slowly (only while the tab is open).
+    /// switching off folds the glow back into it. A steady lamp stays still after that response.
     /// </summary>
     private sealed class LightTile
     {
@@ -250,6 +253,8 @@ public partial class ControlCenterView
         public Color Color;
         public readonly List<(Ellipse Dot, Color Color)> Dots = new();
         public Ellipse? MusicDot;
+        public RollingNumber? BrightnessRoll;
+        public double? ShownBrightness;
 
         public Color LitColor => Light.Rgb ? Calm(Color, maxSaturation: 0.45, lightness: 0.66) : LampLight;
 
@@ -263,21 +268,28 @@ public partial class ControlCenterView
             On = light.On;
             Color = color;
             if (!changed && !animate) return;
-            double ms = animate ? 380 : 0;
+            bool moving = animate && Card.IsVisible && !AnimationConfig.ReduceMotion;
+            double ms = moving ? 180 : 0;
             var lit = LitColor;
             SetOrTint(Ink, light.On ? lit : ((SolidColorBrush)Muted).Color, ms);
             SetOrTint(Fill, light.On ? Alpha(lit, 0.16) : ((SolidColorBrush)CardBg).Color, ms);
             SetOrTint(RayInk, lit, 0);
             Fade(GlowCore, light.On ? Alpha(lit, 0.55) : Alpha(lit, 0), ms);
             Fade(GlowMid, light.On ? Alpha(lit, 0.18) : Alpha(lit, 0), ms);
-            State.Text = StateText();
-            foreach (var (dot, c) in Dots) dot.Stroke = light.On && Near(c, color) ? Brushes.White : RingOff;
-            View.Breathe(this);
-            if (!animate || AnimationConfig.ReduceMotion)
+            if (light.On && light.Rgb && light.Brightness is { } brightness && View._musicSync != true)
             {
-                GlowScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-                GlowScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-                GlowScale.ScaleX = GlowScale.ScaleY = light.On ? 1 : 0.2;
+                BrightnessRoll ??= new RollingNumber(value =>
+                {
+                    ShownBrightness = value;
+                    State.Text = StateText();
+                }, State);
+                BrightnessRoll.To(brightness, moving ? 650 : 0);
+            }
+            else SetDetailText(State, StateText());
+            foreach (var (dot, c) in Dots) dot.Stroke = light.On && Near(c, color) ? Brushes.White : RingOff;
+            if (!moving)
+            {
+                Settle();
                 return;
             }
             if (turnedOn)
@@ -285,49 +297,57 @@ public partial class ControlCenterView
                 // The light blooms out of the bulb with a little overshoot, rays burst outwards and the bulb hops.
                 Motion.To(GlowScale, ScaleTransform.ScaleXProperty, 1, Motion.Tile);
                 Motion.To(GlowScale, ScaleTransform.ScaleYProperty, 1, Motion.Tile);
-                var burst = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromMilliseconds(620) };
-                burst.KeyFrames.Add(new EasingDoubleKeyFrame(0.95, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(110)), WeatherMotion.Out));
-                burst.KeyFrames.Add(new EasingDoubleKeyFrame(0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(620)), WeatherMotion.Out));
-                Timeline.SetDesiredFrameRate(burst, AnimationConfig.TargetFps);
-                Rays.BeginAnimation(OpacityProperty, burst);
+                Motion.To(Rays, OpacityProperty, 0.65, Motion.PressDown, done: () =>
+                {
+                    if (On == true && Rays.IsVisible && Math.Abs(Rays.Opacity - 0.65) < 0.01)
+                        Motion.To(Rays, OpacityProperty, 0, Motion.Exit, done: () =>
+                        {
+                            if (Rays.Opacity > 0.01) return;
+                            Motion.Stop(RaysScale, ScaleTransform.ScaleXProperty, 1);
+                            Motion.Stop(RaysScale, ScaleTransform.ScaleYProperty, 1);
+                        });
+                });
                 Motion.To(RaysScale, ScaleTransform.ScaleXProperty, 1.55, Motion.Tile);
                 Motion.To(RaysScale, ScaleTransform.ScaleYProperty, 1.55, Motion.Tile);
-                Bounce(Icon, 1.38);
+                DetailReaction(Icon);
             }
             else if (turnedOff)
             {
                 // The glow folds back into the bulb, which sinks a little.
                 Motion.To(GlowScale, ScaleTransform.ScaleXProperty, 0.2, Motion.Exit);
                 Motion.To(GlowScale, ScaleTransform.ScaleYProperty, 0.2, Motion.Exit);
-                Bounce(Icon, 0.84);
+                Motion.To(Rays, OpacityProperty, 0, Motion.Exit);
+                Motion.To(RaysScale, ScaleTransform.ScaleXProperty, 1, Motion.Exit);
+                Motion.To(RaysScale, ScaleTransform.ScaleYProperty, 1, Motion.Exit);
+                DetailReaction(Icon);
             }
+        }
+
+        public void Settle()
+        {
+            Motion.Stop(GlowScale, ScaleTransform.ScaleXProperty, On == true ? 1 : 0.2);
+            Motion.Stop(GlowScale, ScaleTransform.ScaleYProperty, On == true ? 1 : 0.2);
+            Motion.Stop(Rays, OpacityProperty, 0);
+            Motion.Stop(RaysScale, ScaleTransform.ScaleXProperty, 1);
+            Motion.Stop(RaysScale, ScaleTransform.ScaleYProperty, 1);
+            var lit = LitColor;
+            SetOrTint(Ink, On == true ? lit : ((SolidColorBrush)Muted).Color, 0);
+            SetOrTint(Fill, On == true ? Alpha(lit, 0.16) : ((SolidColorBrush)CardBg).Color, 0);
+            Fade(GlowCore, On == true ? Alpha(lit, 0.55) : Alpha(lit, 0), 0);
+            Fade(GlowMid, On == true ? Alpha(lit, 0.18) : Alpha(lit, 0), 0);
         }
 
         public string StateText() =>
             !Light.Available ? Loc.Get("control.noAdapter")
             : !Light.On ? Loc.Get("control.off")
             : Light.Rgb && View._musicSync == true ? Loc.Get("home.musicSync")
-            : Light.Rgb && Light.Brightness is { } b && b < 100 ? $"{Loc.Get("control.on")} · {b} %"
+            : Light.Rgb && Light.Brightness is { } b && b < 100 ? $"{Loc.Get("control.on")} · {Math.Round(ShownBrightness ?? b)} %"
             : Loc.Get("control.on");
     }
 
     private static readonly Brush RingOff = Frozen("#26FFFFFF");
 
     private static bool Near(Color a, Color b) => Math.Abs(a.R - b.R) + Math.Abs(a.G - b.G) + Math.Abs(a.B - b.B) < 40;
-
-    /// <summary>A lit lamp's glow breathes slowly while the tab is on screen; an unlit one keeps still.</summary>
-    private void Breathe(LightTile tile)
-    {
-        tile.Glow.BeginAnimation(OpacityProperty, null);
-        if (tile.On != true || !IsVisible || !tile.Glow.IsVisible || AnimationConfig.ReduceMotion) return;
-        _homeLoops.Run(tile.Glow, OpacityProperty, new DoubleAnimation(1, 0.62, TimeSpan.FromSeconds(2.6))
-        {
-            AutoReverse = true,
-            RepeatBehavior = RepeatBehavior.Forever,
-            EasingFunction = WeatherMotion.Sine,
-            BeginTime = TimeSpan.FromMilliseconds(800)
-        }, GlowFps);
-    }
 
     private void BuildLights(PiHome home)
     {
@@ -426,9 +446,17 @@ public partial class ControlCenterView
             GlowCore = core, GlowMid = mid, Glow = glow, GlowScale = glowScale, Rays = rays, RaysScale = raysScale, RayInk = rayInk,
             Color = light.Color ?? LampLight
         };
-        glow.IsVisibleChanged += (_, _) => Breathe(tile);
+        card.IsVisibleChanged += (_, _) =>
+        {
+            if (!card.IsVisible) { tile.Settle(); return; }
+            DetailArrive(icon, 0);
+            DetailArrive(name, 1);
+            DetailArrive(state, 2);
+            tile.BrightnessRoll?.Reveal();
+        };
         if (light.Rgb) content.Children.Add(StripDots(tile, colors));
         Pressable(card, () => tile.On == true ? new SolidColorBrush(Alpha(tile.LitColor, 0.16)) : CardBg, CardHover, grow: true);
+        DetailHover(card, icon);
         card.MouseLeftButtonDown += (_, e) =>
         {
             e.Handled = true;
@@ -467,7 +495,7 @@ public partial class ControlCenterView
                 Ripple(tile, music, Color.FromRgb(0xC4, 0xB6, 0xEA));
                 music.Stroke = run ? Brushes.White : RingOff;
                 if (await GoveeSync.SetRunningAsync(run)) _musicSync = run;
-                tile.State.Text = tile.StateText();
+                SetDetailText(tile.State, tile.StateText());
                 if (_home is { } shown) UpdateHome(shown, force: true);
                 SetHomeMoodFromTiles();
             };
@@ -578,14 +606,16 @@ public partial class ControlCenterView
     private sealed class HeatingParts
     {
         public required TextBlock Status, Current, Target, Humidity;
-        public required RollingNumber CurrentRoll;
+        public required RollingNumber CurrentRoll, TargetRoll, HumidityRoll;
+        public bool HasHumidity;
 
         public void Show(HomeClimate climate, bool keepTarget)
         {
-            Status.Text = climate.Mode == "off" ? Loc.Get("home.heatingOff") : climate.IsHeating ? Loc.Get("home.heatingNow") : "";
+            SetDetailText(Status, climate.Mode == "off" ? Loc.Get("home.heatingOff") : climate.IsHeating ? Loc.Get("home.heatingNow") : "");
             if (climate.Current is { } current) CurrentRoll.To(current);
-            if (!keepTarget && climate.Target is { } target) Target.Text = Degrees(target);
-            Humidity.Text = climate.Humidity is { } h ? Loc.Get("home.humidity", Math.Round(h)) : "";
+            if (!keepTarget && climate.Target is { } target) TargetRoll.To(target);
+            HasHumidity = climate.Humidity != null;
+            HumidityRoll.To(climate.Humidity ?? 0);
         }
     }
 
@@ -617,6 +647,7 @@ public partial class ControlCenterView
         target.MinWidth = 44;
         target.TextAlignment = TextAlignment.Center;
         target.RenderTransformOrigin = new Point(0.5, 0.5);
+        var targetRoll = new RollingNumber(value => target.Text = Degrees(value), target);
         var stepper = new StackPanel
         {
             Orientation = Orientation.Horizontal,
@@ -637,8 +668,21 @@ public partial class ControlCenterView
         card.Padding = new Thickness(14, 11, 14, 11);
         card.Child = new StackPanel { Children = { head, middle, humidity } };
 
-        _heating = new HeatingParts { Status = status, Current = current, Target = target, Humidity = humidity, CurrentRoll = roll };
+        HeatingParts? parts = null;
+        var humidityRoll = new RollingNumber(value => humidity.Text = parts?.HasHumidity == true ? Loc.Get("home.humidity", Math.Round(value)) : "", humidity);
+        parts = new HeatingParts { Status = status, Current = current, Target = target, Humidity = humidity, CurrentRoll = roll, TargetRoll = targetRoll, HumidityRoll = humidityRoll };
+        _heating = parts;
         _heating.Show(climate, keepTarget: false);
+        card.IsVisibleChanged += (_, _) =>
+        {
+            if (!card.IsVisible) return;
+            DetailArrive(head, 0);
+            DetailArrive(current, 1);
+            DetailArrive(stepper, 1);
+            DetailArrive(humidity, 2);
+            roll.Reveal();
+            humidityRoll.Reveal();
+        };
         return card;
 
         Border StepButton(string sign, double step)
@@ -665,8 +709,8 @@ public partial class ControlCenterView
                 double from = _targetDraft ?? now.Target ?? 20;
                 double next = Math.Clamp(Math.Round((from + step) * 2) / 2, Math.Max(5, now.Min), Math.Min(30, now.Max));
                 _targetDraft = next;
-                target.Text = Degrees(next);
-                Bounce(target, step > 0 ? 1.16 : 0.88);
+                targetRoll.To(next);
+                DetailReaction(target);
                 // Several taps in a row send one change.
                 _targetSend ??= new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(TargetSendDelayMs) };
                 _targetSend.Stop();
@@ -675,6 +719,7 @@ public partial class ControlCenterView
                 _targetSend.Start();
             };
             Squish(button);
+            DetailHover(button, label, y: step > 0 ? -2 : 2);
             return button;
         }
     }
@@ -736,7 +781,7 @@ public partial class ControlCenterView
 
     #region Sockets, scenes, Pi
 
-    private string PlugText(HomePlug plug)
+    private static string PlugText(HomePlug plug)
     {
         if (!plug.Available) return Loc.Get("control.noAdapter");
         var text = new StringBuilder(Loc.Get(plug.On ? "control.on" : "control.off"));
@@ -744,6 +789,45 @@ public partial class ControlCenterView
         if (plug.TodayKwh is { } kwh && kwh > 0)
             text.Append(" · ").Append(Loc.Get("home.today", kwh.ToString("0.00", CultureInfo.CurrentCulture), (kwh * EuroPerKwh).ToString("0.00", CultureInfo.CurrentCulture)));
         return text.ToString();
+    }
+
+    private sealed class PlugReadout
+    {
+        private readonly TextBlock _text;
+        private readonly RollingNumber _wattsRoll, _energyRoll;
+        private HomePlug _plug;
+        private double _watts, _energy;
+
+        public PlugReadout(TextBlock text, HomePlug plug)
+        {
+            _text = text;
+            _plug = plug;
+            _watts = plug.Watts ?? 0;
+            _energy = plug.TodayKwh ?? 0;
+            _wattsRoll = new RollingNumber(value => { _watts = value; Paint(); }, text);
+            _energyRoll = new RollingNumber(value => { _energy = value; Paint(); }, text);
+            _wattsRoll.To(_watts, 0);
+            _energyRoll.To(_energy, 0);
+            text.IsVisibleChanged += (_, _) =>
+            {
+                if (!text.IsVisible) return;
+                _wattsRoll.Reveal();
+                _energyRoll.Reveal();
+            };
+        }
+
+        public void Show(HomePlug plug)
+        {
+            _plug = plug;
+            _wattsRoll.To(plug.Watts ?? 0);
+            _energyRoll.To(plug.TodayKwh ?? 0);
+        }
+
+        private void Paint() => _text.Text = PlugText(_plug with
+        {
+            Watts = _plug.Watts == null ? null : Math.Max(0, _watts),
+            TodayKwh = _plug.TodayKwh == null ? null : Math.Max(0, _energy)
+        });
     }
 
     private void BuildPlugs(PiHome home)
@@ -785,6 +869,7 @@ public partial class ControlCenterView
             }
             if (row.Children[^1] is Grid { Children.Count: > 0 } panel && panel.Children[^1] is TextBlock status) _plugStatus[id] = status;
             else if (row.Children.Count > 1 && row.Children[1] is Grid statusPanel && statusPanel.Children[^1] is TextBlock label) _plugStatus[id] = label;
+            if (_plugStatus.TryGetValue(id, out var readoutText)) _plugReadouts[id] = new PlugReadout(readoutText, plug);
             _homePlugSection.Children.Add(row);
         }
     }
@@ -830,16 +915,17 @@ public partial class ControlCenterView
             card.Cursor = Cursors.Hand;
             card.Child = new StackPanel { Orientation = Orientation.Horizontal, Children = { icon, name } };
             Pressable(card, () => CardBg, CardHover, grow: true);
+            DetailHover(card, icon);
             string id = scene.Id;
             card.MouseLeftButtonDown += async (_, e) =>
             {
                 e.Handled = true;
                 // A tick answers the tap, then the scene's own icon comes back.
-                icon.Text = Glyph(0xE73E);
-                Bounce(icon, 1.4);
+                SetDetailText(icon, Glyph(0xE73E));
+                DetailReaction(icon);
                 SendHome("scene", id, null);
                 await Task.Delay(1400);
-                icon.Text = Glyph(glyph);
+                SetDetailText(icon, Glyph(glyph));
             };
             PlaceTile(grid, card, i, home.Scenes.Count);
         }
@@ -855,6 +941,43 @@ public partial class ControlCenterView
         return string.Join(" · ", parts);
     }
 
+    private sealed class PiReadout
+    {
+        private readonly TextBlock _text;
+        private readonly RollingNumber _temperatureRoll, _uptimeRoll;
+        private HomePi _pi;
+        private double _temperature, _uptime;
+
+        public PiReadout(TextBlock text, HomePi pi)
+        {
+            _text = text;
+            _pi = pi;
+            _temperature = pi.Temp ?? 0;
+            _uptime = pi.UptimeSeconds ?? 0;
+            _temperatureRoll = new RollingNumber(value => { _temperature = value; Paint(); }, text);
+            _uptimeRoll = new RollingNumber(value => { _uptime = value; Paint(); }, text);
+            _temperatureRoll.To(_temperature, 0);
+            _uptimeRoll.To(_uptime, 0);
+            text.IsVisibleChanged += (_, _) =>
+            {
+                if (text.IsVisible) _temperatureRoll.Reveal();
+            };
+        }
+
+        public void Show(HomePi pi)
+        {
+            _pi = pi;
+            _temperatureRoll.To(pi.Temp ?? 0);
+            _uptimeRoll.To(pi.UptimeSeconds ?? 0);
+        }
+
+        private void Paint() => _text.Text = PiText(_pi with
+        {
+            Temp = _pi.Temp == null ? null : _temperature,
+            UptimeSeconds = _pi.UptimeSeconds == null ? null : (long)Math.Max(0, _uptime)
+        });
+    }
+
     /// <summary>The Pi in one quiet line; checks that are not green get a row each, with their fix when there is one.</summary>
     private void BuildPiLine(PiHome home)
     {
@@ -864,6 +987,7 @@ public partial class ControlCenterView
         var row = NewRow(Glyph(0xE950), "Raspberry Pi");
         AddStatus(row, PiText(pi), pi.Issues.Count == 0 ? HandedIn : Muted);
         if (row.Children[^1] is Grid { Children.Count: > 0 } panel && panel.Children[^1] is TextBlock line) _piLine = line;
+        if (_piLine != null) _piReadout = new PiReadout(_piLine, pi);
         _homePiSection.Children.Add(row);
         foreach (var issue in pi.Issues)
         {

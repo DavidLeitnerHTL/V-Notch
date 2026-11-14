@@ -280,10 +280,11 @@ public partial class ControlCenterView
             System.Windows.Automation.AutomationProperties.SetName(card, Loc.Get(name));
             int index = i;
             Pressable(card, () => _legionParts?.Selected == index ? Brushes.Transparent : CardBg, CardHover, gentle: true);
+            DetailHover(card, glyph);
             card.MouseLeftButtonDown += async (_, e) =>
             {
                 e.Handled = true;
-                if (_legionParts?.Selected == index) { Bounce(glyph, 1.22); return; }
+                if (_legionParts?.Selected == index) { DetailReaction(glyph); return; }
                 _legionBusy = true; // no poll may paint the old mode over the tap
                 try
                 {
@@ -342,7 +343,7 @@ public partial class ControlCenterView
             bool on = i == index;
             SetOrTint((SolidColorBrush)tile.Card.Background, on ? Colors.Transparent : ((SolidColorBrush)CardBg).Color, fade == 0 ? 0 : 260);
             SetOrTint(tile.Ink, on ? glow : ((SolidColorBrush)Muted).Color, fade == 0 ? 0 : 320);
-            tile.State.Text = on ? Loc.Get("legion.active") : "";
+            SetDetailText(tile.State, on ? Loc.Get("legion.active") : "");
             tile.State.Foreground = on ? _legionAccent : Muted;
         }
         parts.CustomNote.Visibility = rawMode == (int)LegionMode.Custom && IsExpanded("legion.mode") ? Visibility.Visible : Visibility.Collapsed;
@@ -372,21 +373,25 @@ public partial class ControlCenterView
             double to = PillX(parts, index);
             int distance = Math.Abs(index - previous);
             Motion.To(parts.PillShift, TranslateTransform.XProperty, to, Motion.Glide);
-            Motion.To(parts.PillScale, ScaleTransform.ScaleXProperty, 1 + 0.09 * distance, Motion.PressDown,
-                done: () => Motion.To(parts.PillScale, ScaleTransform.ScaleXProperty, 1, Motion.Press));
-            Motion.To(parts.PillScale, ScaleTransform.ScaleYProperty, 1 - 0.045 * distance, Motion.PressDown,
-                done: () => Motion.To(parts.PillScale, ScaleTransform.ScaleYProperty, 1, Motion.Press));
+            double wide = 1 + 0.015 * distance, narrow = 1 - 0.01 * distance;
+            Motion.To(parts.PillScale, ScaleTransform.ScaleXProperty, wide, Motion.PressDown,
+                done: () =>
+                {
+                    if (Math.Abs(parts.PillScale.ScaleX - wide) < 0.001)
+                        Motion.To(parts.PillScale, ScaleTransform.ScaleXProperty, 1, Motion.Press);
+                });
+            Motion.To(parts.PillScale, ScaleTransform.ScaleYProperty, narrow, Motion.PressDown,
+                done: () =>
+                {
+                    if (Math.Abs(parts.PillScale.ScaleY - narrow) < 0.001)
+                        Motion.To(parts.PillScale, ScaleTransform.ScaleYProperty, 1, Motion.Press);
+                });
             parts.Pill.BeginAnimation(OpacityProperty, WeatherMotion.To(parts.Pill.Opacity, 1, 200, WeatherMotion.Out));
-            Bounce(activeGlyph, 1.4);
-            if (previous >= 0) Bounce(parts.Modes[previous].Glyph, 0.85);
+            DetailReaction(activeGlyph);
+            if (previous >= 0) DetailReaction(parts.Modes[previous].Glyph);
         }
 
-        // The lit mode breathes softly while the page is open.
-        if (IsVisible && activeGlyph.IsVisible)
-        {
-            _legionLoops.Swing(activeGlyph, OpacityProperty, 1, 0.55, 1.4, delaySeconds: 0.8);
-            _legionLoops.Swing(parts.PillGlow, DropShadowEffect.BlurRadiusProperty, 18, 28, 1.4, delaySeconds: 0.8);
-        }
+        // Selection already reacts once; a permanent glow would repaint the whole notch at rest.
     }
 
     #endregion
@@ -424,6 +429,7 @@ public partial class ControlCenterView
         System.Windows.Automation.AutomationProperties.SetName(card, label);
         var tile = new KeyTile { Card = card, Glyph = glyph, Ink = ink, State = state };
         Pressable(card, () => tile.On == true ? _legionWash : CardBg, CardHover, gentle: true);
+        DetailHover(card, glyph);
         card.MouseLeftButtonDown += async (_, e) =>
         {
             e.Handled = true;
@@ -450,8 +456,8 @@ public partial class ControlCenterView
         double ms = animate || changed ? 280 : 0;
         SetOrTint((SolidColorBrush)tile.Card.Background, on ? _legionWash.Color : ((SolidColorBrush)CardBg).Color, ms);
         SetOrTint(tile.Ink, on ? _legionAccent.Color : ((SolidColorBrush)Muted).Color, ms);
-        tile.State.Text = Loc.Get(on ? "control.on" : "legion.locked");
-        if (changed) Bounce(tile.Glyph, on ? 1.32 : 0.84);
+        SetDetailText(tile.State, Loc.Get(on ? "control.on" : "legion.locked"));
+        if (changed) DetailReaction(tile.Glyph);
     }
 
     private void UpdateLegion(LegionState state)
@@ -478,7 +484,7 @@ public partial class ControlCenterView
         card.MouseLeftButtonDown += async (_, e) =>
         {
             e.Handled = true;
-            label.Text = Loc.Get("legion.settingUp");
+            SetDetailText(label, Loc.Get("legion.settingUp"));
             await LegionService.RunSetupAsync();
             _legionKey = "";
             RefreshLegion();

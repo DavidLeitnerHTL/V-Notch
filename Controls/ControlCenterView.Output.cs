@@ -36,6 +36,8 @@ public partial class ControlCenterView
         public required ScaleTransform Fill;
         public required RotateTransform Chevron;
         public required RollingNumber Number;
+        public double Level;
+        public bool Muted;
     }
 
     private OutputTile? _outputTile;
@@ -54,7 +56,15 @@ public partial class ControlCenterView
         Motion.To(tween, WeatherTween.ValueProperty, to, Motion.Glide, from: from, done: done);
     }
     private readonly StackPanel _appsSection = new();
-    private readonly Dictionary<uint, (ScaleTransform Fill, TextBlock Value)> _appBars = new();
+    private sealed class AppBar
+    {
+        public required ScaleTransform Fill;
+        public required TextBlock Value;
+        public float Volume;
+        public bool Muted;
+    }
+
+    private readonly Dictionary<uint, AppBar> _appBars = new();
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<TextBlock, RollingNumber> AppNumbers = new();
 
     /// <summary>For the <see cref="ControlCenterPage.System"/> page: the default speaker's volume and the app mixer.</summary>
@@ -150,6 +160,7 @@ public partial class ControlCenterView
         card.Cursor = Cursors.Hand;
         System.Windows.Automation.AutomationProperties.SetName(card, Loc.Get("control.output"));
         Pressable(card, () => CardBg, CardHover, grow: true);
+        DetailHover(card, arrow, y: -2);
         card.MouseLeftButtonDown += (_, e) =>
         {
             e.Handled = true;
@@ -172,6 +183,20 @@ public partial class ControlCenterView
 
         var tile = new OutputTile { Card = card, Name = name, Sub = sub, Fill = fill, Chevron = chevron,
             Number = new RollingNumber(n => sub.Text = sub.Tag is true ? "🔇" : $"{Math.Round(n)} %", sub) };
+        card.IsVisibleChanged += (_, _) =>
+        {
+            if (!card.IsVisible)
+            {
+                Motion.Stop(fill, ScaleTransform.ScaleXProperty, tile.Muted ? 0 : tile.Level);
+                return;
+            }
+            DetailArrive(head, 0);
+            DetailArrive(nameRow, 1);
+            tile.Number.To(0, 0);
+            tile.Number.To(tile.Level * 100);
+            Motion.To(fill, ScaleTransform.ScaleXProperty, tile.Muted ? 0 : tile.Level, Motion.Glide,
+                from: AnimationConfig.ReduceMotion ? null : 0, delay: Motion.Stagger(2));
+        };
         if (_volume != null)
         {
             var (v, m) = _volume.Current;
@@ -189,13 +214,16 @@ public partial class ControlCenterView
     private static void SetOutputLevel(OutputTile tile, float volume, bool muted, bool animate)
     {
         double target = muted ? 0 : Math.Clamp(volume, 0, 1);
+        bool changed = tile.Sub.Tag is bool previous && previous != muted;
+        tile.Level = Math.Clamp(volume, 0, 1);
+        tile.Muted = muted;
         tile.Sub.Tag = muted;
         tile.Number.To(volume * 100, animate ? 650 : 0);
         if (muted) tile.Sub.Text = "🔇";
-        if (!animate || AnimationConfig.ReduceMotion)
+        if (changed && animate) DetailReaction(tile.Sub);
+        if (!animate || AnimationConfig.ReduceMotion || !tile.Card.IsVisible)
         {
-            tile.Fill.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-            tile.Fill.ScaleX = target;
+            Motion.Stop(tile.Fill, ScaleTransform.ScaleXProperty, target);
             return;
         }
         Motion.To(tile.Fill, ScaleTransform.ScaleXProperty, target, Motion.Glide);
@@ -204,7 +232,7 @@ public partial class ControlCenterView
     private void ShowOutputName(OutputTile tile)
     {
         var current = _outputs.FirstOrDefault(o => o.IsDefault);
-        tile.Name.Text = current?.Name ?? "–";
+        SetDetailText(tile.Name, current?.Name ?? "–");
         tile.Card.ToolTip = current?.FriendlyName;
     }
 
@@ -352,6 +380,7 @@ public partial class ControlCenterView
         }
         Brush rest = chip.Background;
         Pressable(chip, () => rest, CardHover);
+        DetailHover(chip, title, x: 2, y: 0);
         System.Windows.Automation.AutomationProperties.SetName(chip, name);
         chip.MouseLeftButtonDown += (_, e) =>
         {
@@ -430,9 +459,20 @@ public partial class ControlCenterView
             Grid.SetColumnSpan(slider, 2);
             row.Children.Add(slider);
 
-            var bar = (fill, value);
+            var bar = new AppBar { Fill = fill, Value = value };
             _appBars[a.ProcessId] = bar;
             SetAppBar(bar, a.Volume, a.IsMuted, animate: false);
+            value.IsVisibleChanged += (_, _) =>
+            {
+                double target = bar.Muted ? 0 : Math.Clamp(bar.Volume, 0, 1);
+                if (!value.IsVisible) Motion.Stop(fill, ScaleTransform.ScaleXProperty, target);
+                else
+                {
+                    SetAppBar(bar, bar.Volume, bar.Muted, animate: true);
+                    Motion.To(fill, ScaleTransform.ScaleXProperty, target, Motion.Glide,
+                        from: AnimationConfig.ReduceMotion ? null : 0);
+                }
+            };
 
             void SetFrom(MouseEventArgs e)
             {
@@ -462,25 +502,28 @@ public partial class ControlCenterView
         }
     }
 
-    private void SetAppVolume(uint processId, float volume, (ScaleTransform Fill, TextBlock Value) bar)
+    private void SetAppVolume(uint processId, float volume, AppBar bar)
     {
-        SetAppBar(bar, volume, false, animate: false);
+        SetAppBar(bar, volume, false, animate: true);
         var mixer = _mixer?.Invoke();
         if (mixer != null) Task.Run(() => mixer.SetSessionVolume(processId, volume));
     }
 
-    private static void SetAppBar((ScaleTransform Fill, TextBlock Value) bar, float volume, bool muted, bool animate)
+    private static void SetAppBar(AppBar bar, float volume, bool muted, bool animate)
     {
         double target = muted ? 0 : Math.Clamp(volume, 0, 1);
+        bool changed = bar.Value.Tag is bool previous && previous != muted;
+        bar.Volume = volume;
+        bar.Muted = muted;
         bar.Value.Tag = muted;
         var number = AppNumbers.GetValue(bar.Value, label => new RollingNumber(
             n => label.Text = label.Tag is true ? "🔇" : $"{Math.Round(n)} %", label));
         number.To(volume * 100, animate ? 650 : 0);
         if (muted) bar.Value.Text = "🔇";
-        if (!animate || AnimationConfig.ReduceMotion || Math.Abs(bar.Fill.ScaleX - target) < 0.005)
+        if (changed && animate) DetailReaction(bar.Value);
+        if (!animate || AnimationConfig.ReduceMotion || !bar.Value.IsVisible)
         {
-            bar.Fill.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-            bar.Fill.ScaleX = target;
+            Motion.Stop(bar.Fill, ScaleTransform.ScaleXProperty, target);
             return;
         }
         Motion.To(bar.Fill, ScaleTransform.ScaleXProperty, target, Motion.Glide);
