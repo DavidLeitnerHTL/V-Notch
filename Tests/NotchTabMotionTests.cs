@@ -19,6 +19,31 @@ public sealed class NotchTabMotionTests
     private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
 
     [Fact]
+    public void TabClickDuringOpeningRetargetsImmediately() => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        bool previous = AnimationConfig.ReduceMotion;
+        await using var fixture = new GreetingAcceptanceTests.MainWindowFixture("en", false,
+            settings => { settings.EnableLocalOnlyMode = true; settings.DisableMouseLeaveAutoClose = true; },
+            services => services.AddSingleton<IMediaDetectionService>(new FakeMediaDetectionService()));
+        try
+        {
+            var window = fixture.Window;
+            AnimationConfig.SetReduceMotion(true);
+            window.Show();
+            var coordinator = (NotchTransitionCoordinator)typeof(MainWindow).GetField("_transitionCoordinator", Private)!.GetValue(window)!;
+            AnimationConfig.SetReduceMotion(false);
+            window.NavigateToNotchView(NotchView.Media);
+            await WpfFrameWaiter.UntilAsync(() => window.NotchBorder.Width > 330 && coordinator.IsTransitionActive,
+                "opening shell moves", ct);
+            window.NavigateToNotchView(NotchView.Secondary);
+            Assert.Equal(NotchView.Secondary, coordinator.TargetView);
+            await WpfFrameWaiter.UntilAsync(() => !coordinator.IsTransitionActive, "latest tab settles", ct);
+            Assert.Equal(NotchView.Secondary, coordinator.CurrentView);
+        }
+        finally { AnimationConfig.SetReduceMotion(previous); }
+    });
+
+    [Fact]
     public void RetargetingVisibleChromePreservesTheRenderedFrame() => SharedStaTestRunner.Run(() =>
     {
         bool previous = AnimationConfig.ReduceMotion;

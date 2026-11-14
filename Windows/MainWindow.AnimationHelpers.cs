@@ -7,6 +7,7 @@ using System.Windows.Media.Effects;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using VNotch.Controls;
+using VNotch.Services;
 using static VNotch.Services.AnimationPrimitives;
 
 namespace VNotch;
@@ -31,29 +32,27 @@ public partial class MainWindow
             return;
         }
 
-        var light = MakeAnim(isHovered ? 0.35 : 0, _dur200, _easeQuadOut);
-        HoverGlow.BeginAnimation(OpacityProperty, light);
-        if (VNotch.Services.AnimationConfig.ReduceMotion)
-        {
-            NotchScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-            NotchShadowScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-            HoverGlow.BeginAnimation(OpacityProperty, null);
-            HoverGlow.Opacity = isHovered ? 0.35 : 0;
-            NotchScale.ScaleX = NotchShadowScale.ScaleX = 1;
-            return;
-        }
+        Motion.To(HoverGlow, OpacityProperty, isHovered ? 0.35 : 0, Motion.Press);
+        double targetScale = AnimationConfig.ReduceMotion ? 1 : isHovered ? NotchHoverScaleX : 1;
+        int generation = BeginSpringHoverMotion();
+        Motion.To(NotchShadowScale, ScaleTransform.ScaleXProperty, targetScale, Motion.Press);
+        Motion.To(NotchScale, ScaleTransform.ScaleXProperty, targetScale, Motion.Press,
+            done: () => EndSpringHoverMotion(generation));
+    }
 
-        double targetScale = isHovered ? NotchHoverScaleX : 1.0;
-        var duration = isHovered ? _dur500 : _dur350;
-        var easing = isHovered ? (IEasingFunction)_easeSoftSpring : _easeQuadOut;
+    private int BeginSpringHoverMotion()
+    {
+        int generation = ++_glassHoverGen;
+        _glassHoverMotion = !AnimationConfig.ReduceMotion;
+        UpdateGlassMotionState();
+        return generation;
+    }
 
-        var animX = MakeAnim(targetScale, duration, easing);
-        NotchScale.BeginAnimation(ScaleTransform.ScaleXProperty, animX);
-        NotchShadowScale.BeginAnimation(ScaleTransform.ScaleXProperty, animX);
-
-        // Keep the liquid glass tracking the notch at full rate while the hover
-        // scale plays, so the refracted backdrop doesn't jump in throttled steps.
-        BeginGlassHoverMotion(animX);
+    private void EndSpringHoverMotion(int generation)
+    {
+        if (generation != _glassHoverGen) return;
+        _glassHoverMotion = false;
+        UpdateGlassMotionState();
     }
 
     private void AnimateThumbnailHover(bool isHovered)
@@ -94,19 +93,10 @@ public partial class MainWindow
         }
         double infoOpacity = isHovered ? 1 : 0;
 
-        var duration = isHovered ? _dur500 : _dur350;
-        var easing = isHovered ? (IEasingFunction)_easeThumbSpring : _easeExpOut6;
-        int animFps = VNotch.Services.AnimationConfig.TargetFps;
-
-        var widthAnim = MakeAnim(notchWidth, duration, isHovered ? _easeExpOut6 : _easeQuadOut, animFps);
-        var heightAnim = MakeAnim(notchHeight, duration, isHovered ? _easeExpOut6 : _easeQuadOut, animFps);
-        VNotch.Services.RuntimeLog.Log("NOTCH-WIDTH",
-            $"AnimateNotchHover -> {notchWidth} (hover={isHovered}, _isExpanded={_isExpanded}, _isAnimating={_isAnimating})");
-        NotchBorder.BeginAnimation(WidthProperty, widthAnim);
-        NotchBorder.BeginAnimation(HeightProperty, heightAnim);
-        // Same as AnimateNotchHover: keep the glass at full rate for the resize.
-
-        BeginGlassHoverMotion(widthAnim);
+        int generation = BeginSpringHoverMotion();
+        Motion.To(NotchBorder, WidthProperty, notchWidth, Motion.Press,
+            done: () => EndSpringHoverMotion(generation));
+        Motion.To(NotchBorder, HeightProperty, notchHeight, Motion.Press);
 
         if (isHovered)
         {
@@ -115,10 +105,8 @@ public partial class MainWindow
 
         CompactThumbnailBorder.RenderTransformOrigin = new Point(0, 0);
 
-        var thumbScaleAnimX = MakeAnim(thumbScale, duration, easing, animFps);
-        var thumbScaleAnimY = MakeAnim(thumbScale, duration, easing, animFps);
-        CompactThumbnailScale.BeginAnimation(ScaleTransform.ScaleXProperty, thumbScaleAnimX);
-        CompactThumbnailScale.BeginAnimation(ScaleTransform.ScaleYProperty, thumbScaleAnimY);
+        Motion.To(CompactThumbnailScale, ScaleTransform.ScaleXProperty, thumbScale, Motion.Press);
+        Motion.To(CompactThumbnailScale, ScaleTransform.ScaleYProperty, thumbScale, Motion.Press);
 
         if (isHovered)
         {
@@ -130,21 +118,12 @@ public partial class MainWindow
             QueueCompactMarqueeRefresh();
         }
 
-        var fadeAnim = MakeAnim(
-            infoOpacity,
-            isHovered ? _dur200 : TimeSpan.FromMilliseconds(240),
-            isHovered ? _easeQuadOut : _easePowerOut3);
-        if (!isHovered)
+        Motion.To(CompactHoverInfo, OpacityProperty, infoOpacity, Motion.Press, done: () =>
         {
-            fadeAnim.Completed += (s, e) =>
-            {
-                if (_isCompactThumbnailHovered || CompactHoverInfo.Opacity >= 0.1) return;
-
-                CompactHoverInfo.Visibility = Visibility.Collapsed;
-                CompactHoverInfo.OpacityMask = null;
-            };
-        }
-        CompactHoverInfo.BeginAnimation(OpacityProperty, fadeAnim);
+            if (isHovered || _isCompactThumbnailHovered || CompactHoverInfo.Opacity >= 0.1) return;
+            CompactHoverInfo.Visibility = Visibility.Collapsed;
+            CompactHoverInfo.OpacityMask = null;
+        });
 
         double radius;
         if (isHovered)
@@ -155,15 +134,13 @@ public partial class MainWindow
         {
             radius = _cornerRadiusCollapsed;
         }
-        AnimateCornerRadius(radius, duration.TimeSpan);
+        AnimateCornerRadius(radius, Motion.Press);
 
         double thumbRadius = isHovered && islandMode ? 8 : 6;
         double startThumbRadius = CompactThumbnailBorder.CornerRadius.TopLeft;
         if (Math.Abs(thumbRadius - startThumbRadius) > 0.1)
         {
-            CurrentCompactThumbnailRadius = startThumbRadius;
-            var thumbRadiusAnim = MakeAnim(startThumbRadius, thumbRadius, duration, easing);
-            this.BeginAnimation(CurrentCompactThumbnailRadiusProperty, thumbRadiusAnim);
+            Motion.To(this, CurrentCompactThumbnailRadiusProperty, thumbRadius, Motion.Press);
         }
     }
 
@@ -185,6 +162,12 @@ public partial class MainWindow
             };
         }
 
+        if (!AmbientAnimationsAllowed || !CompactHoverInfo.IsVisible)
+        {
+            CompactTitleMarqueeTranslate.BeginAnimation(TranslateTransform.XProperty, null);
+            CompactTitleMarqueeTranslate.X = 0;
+            return;
+        }
         CompactTitleMarquee.Text = _currentMediaInfo.CurrentTrack;
         CompactTitleMarqueeTranslate.BeginAnimation(TranslateTransform.XProperty, null);
         CompactTitleMarquee.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
@@ -283,52 +266,20 @@ public partial class MainWindow
     private static void FadeSwitch(FrameworkElement from, FrameworkElement to)
     {
 
-        from.BeginAnimation(OpacityProperty, null);
-        to.BeginAnimation(OpacityProperty, null);
-
-        var fadeOut = MakeAnim(0, _dur100);
-        fadeOut.Completed += (s, e) =>
+        Motion.To(from, OpacityProperty, 0, Motion.Exit, done: () =>
         {
             if (from.Opacity < 0.05) from.Visibility = Visibility.Collapsed;
-        };
-        from.BeginAnimation(OpacityProperty, fadeOut);
-
+        });
+        bool entering = to.Visibility != Visibility.Visible;
         to.Visibility = Visibility.Visible;
-        var fadeIn = MakeAnim(1, _dur200);
-        to.BeginAnimation(OpacityProperty, fadeIn);
+        Motion.To(to, OpacityProperty, 1, Motion.Tile, from: entering ? 0 : null);
     }
-
 
     private static void AnimateIconSwitch(Canvas fromIcon, Canvas toIcon, TimeSpan duration, EasingFunctionBase easing) => Controls.ButtonFeedback.AnimateIconSwitch(fromIcon, toIcon, duration, easing);
 
     private static void PlayButtonPressAnimation(Border button) => Controls.ButtonFeedback.PlayButtonPressAnimation(button);
 
-    private void PlayGentleButtonPressAnimation(Border button)
-    {
-        var transform = button.RenderTransform as ScaleTransform ?? new ScaleTransform(1, 1);
-        button.RenderTransform = transform;
-        button.RenderTransformOrigin = new Point(0.5, 0.5);
-
-        transform.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-        transform.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-
-        var squish = MakeAnim(1d, 0.90d, _dur80, _easeQuadOut, null);
-        var bounce = new DoubleAnimation(0.90, 1.0, _dur200)
-        {
-            EasingFunction = _easeSoftSpring,
-            BeginTime = TimeSpan.Zero
-        };
-        Timeline.SetDesiredFrameRate(bounce, VNotch.Services.AnimationConfig.TargetFps);
-
-        squish.Completed += (s, e) =>
-        {
-            transform.BeginAnimation(ScaleTransform.ScaleXProperty, bounce);
-            transform.BeginAnimation(ScaleTransform.ScaleYProperty, bounce);
-        };
-
-        transform.BeginAnimation(ScaleTransform.ScaleXProperty, squish);
-        transform.BeginAnimation(ScaleTransform.ScaleYProperty, squish);
-    }
+    private void PlayGentleButtonPressAnimation(Border button) => Controls.ButtonFeedback.PlayButtonPressAnimation(button, 0.90);
 
     private void PlayNextSkipAnimation()
     {
@@ -482,8 +433,9 @@ public partial class MainWindow
 
         double width = w._mtNotchW + (w._mtIslandW - w._mtNotchW) * t;
         double height = w._mtNotchH + (w._mtIslandH - w._mtNotchH) * t;
-        double topRadius = w._mtIslandR * t;
-        double bottomRadius = w._mtNotchBottomR + (w._mtIslandR - w._mtNotchBottomR) * t;
+        // A spring may overshoot zero; WPF corner radii cannot be negative.
+        double topRadius = Math.Max(0, w._mtIslandR * t);
+        double bottomRadius = Math.Max(0, w._mtNotchBottomR + (w._mtIslandR - w._mtNotchBottomR) * t);
         double marginTop = DynamicIslandTopMargin * t;
         double earOpacity = 1.0 - t;
 
@@ -505,6 +457,7 @@ public partial class MainWindow
         _mtIslandW = _settings.DynamicIslandWidth;
         _mtIslandR = Math.Max(0, _mtIslandH / 2.0);
 
+        bool retargeting = _isModeTransitioning;
         _isModeTransitioning = true;
         UpdateGlassMotionState();
 
@@ -520,23 +473,14 @@ public partial class MainWindow
         NotchBorder.BeginAnimation(HeightProperty, null);
         this.BeginAnimation(CurrentCornerRadiusProperty, null);
 
-        double from = toIsland ? 0.0 : 1.0;
-        double to = toIsland ? 1.0 : 0.0;
-        ModeTransitionT = to;
-
-        var anim = new DoubleAnimation(from, to, _dur450)
-        {
-            EasingFunction = _easeExpOut6,
-            FillBehavior = FillBehavior.Stop
-        };
-        Timeline.SetDesiredFrameRate(anim, fps);
-        anim.Completed += (s, e) =>
+        double to = toIsland ? 1 : 0;
+        Motion.To(this, ModeTransitionTProperty, to, Motion.Glide,
+            from: retargeting ? null : toIsland ? 0 : 1, fps: fps, done: () =>
         {
             if (gen != _modeTransitionGeneration) return;
-            this.BeginAnimation(ModeTransitionTProperty, null);
+            Motion.Stop(this, ModeTransitionTProperty, to);
             FinalizeModeTransition(toIsland);
-        };
-        this.BeginAnimation(ModeTransitionTProperty, anim);
+        });
     }
 
     private void ApplyModeTransitionFrame(double width, double height, double topRadius, double bottomRadius, double marginTop, double earOpacity)
@@ -666,72 +610,38 @@ public partial class MainWindow
         }
     }
 
-    private void AnimateCornerRadius(double targetRadius, TimeSpan duration)
+    private void AnimateCornerRadius(double targetRadius, TimeSpan duration) => AnimateCornerRadius(targetRadius, Motion.Glide);
+
+    private void AnimateCornerRadius(double targetRadius, SpringMotion? spring)
     {
-        double startRadius = NotchBorder.CornerRadius.BottomLeft;
-        if (Math.Abs(targetRadius - startRadius) < 0.5)
-        {
-            CurrentCornerRadius = targetRadius;
-            this.BeginAnimation(CurrentCornerRadiusProperty, null);
-            return;
-        }
-
-        CurrentCornerRadius = startRadius;
-        this.BeginAnimation(CurrentCornerRadiusProperty, null);
-
-        var anim = MakeAnim(startRadius, targetRadius, new Duration(duration), _easeExpOut6, null);
-        Timeline.SetDesiredFrameRate(anim, VNotch.Services.AnimationConfig.TargetFps);
-        this.BeginAnimation(CurrentCornerRadiusProperty, anim);
+        if (spring is { } motion) Motion.To(this, CurrentCornerRadiusProperty, targetRadius, motion);
+        else Motion.Stop(this, CurrentCornerRadiusProperty, targetRadius);
     }
 
-    private void AnimateThumbnailAnimationRadius(double fromRadius, double toRadius, Duration duration, IEasingFunction easing, TimeSpan? beginTime = null)
-    {
-        this.BeginAnimation(CurrentThumbnailAnimationRadiusProperty, null);
-        CurrentThumbnailAnimationRadius = fromRadius;
-
-        var anim = MakeAnim(fromRadius, toRadius, duration, easing, beginTime);
-        anim.Completed += (_, _) => CurrentThumbnailAnimationRadius = toRadius;
-        this.BeginAnimation(CurrentThumbnailAnimationRadiusProperty, anim);
-    }
+    private void AnimateThumbnailAnimationRadius(double fromRadius, double toRadius, Duration duration, IEasingFunction easing, TimeSpan? beginTime = null) =>
+        Motion.To(this, CurrentThumbnailAnimationRadiusProperty, toRadius, Motion.Glide, delay: beginTime);
 
     public void PlayTrackChangeBounce()
     {
         if (_isExpanded || _isAnimating) return;
-
-        var durPeak = TimeSpan.FromMilliseconds(150);
-        var durEnd = TimeSpan.FromMilliseconds(800);
-
-        // While hovered the pill rests at the hover scale, not 1.0 — ending the
-        // bounce there would leave it visibly shrunken until the next hover cycle.
-        double restX = !_isGreetingActive && !_isVolumeIndicatorActive && NotchWrapper.IsMouseOver ? NotchHoverScaleX : 1.0;
-
-        var bounceX = new DoubleAnimationUsingKeyFrames();
-        bounceX.KeyFrames.Add(new EasingDoubleKeyFrame(restX + 0.12, KeyTime.FromTimeSpan(durPeak), _easeQuadOut));
-        bounceX.KeyFrames.Add(new EasingDoubleKeyFrame(restX, KeyTime.FromTimeSpan(durEnd), _easeSoftSpring));
-        Timeline.SetDesiredFrameRate(bounceX, VNotch.Services.AnimationConfig.TargetFps);
-
-        var bounceY = new DoubleAnimationUsingKeyFrames();
-        bounceY.KeyFrames.Add(new EasingDoubleKeyFrame(0.92, KeyTime.FromTimeSpan(durPeak), _easeQuadOut));
-        bounceY.KeyFrames.Add(new EasingDoubleKeyFrame(1.0, KeyTime.FromTimeSpan(durEnd), _easeSoftSpring));
-        Timeline.SetDesiredFrameRate(bounceY, VNotch.Services.AnimationConfig.TargetFps);
-
-        NotchScale.BeginAnimation(ScaleTransform.ScaleXProperty, bounceX);
-        NotchScale.BeginAnimation(ScaleTransform.ScaleYProperty, bounceY);
-        NotchShadowScale.BeginAnimation(ScaleTransform.ScaleXProperty, bounceX);
-        NotchShadowScale.BeginAnimation(ScaleTransform.ScaleYProperty, bounceY);
+        double restX = !_isGreetingActive && !_isVolumeIndicatorActive && NotchWrapper.IsMouseOver ? NotchHoverScaleX : 1;
+        Motion.To(NotchScale, ScaleTransform.ScaleXProperty, restX, Motion.Pop, velocity: 2.8);
+        Motion.To(NotchScale, ScaleTransform.ScaleYProperty, 1, Motion.Pop, velocity: -1.8);
+        Motion.To(NotchShadowScale, ScaleTransform.ScaleXProperty, restX, Motion.Pop, velocity: 2.8);
+        Motion.To(NotchShadowScale, ScaleTransform.ScaleYProperty, 1, Motion.Pop, velocity: -1.8);
     }
-
 
     #endregion
 
     #region Status Bar Animation
 
     private int _statusBarRevealVersion;
-    private readonly Dictionary<(DependencyObject Target, DependencyProperty Property), DoubleAnimation> _chromeAnimations = new();
+    private bool _statusBarRevealing;
 
     private void AnimateStatusBarReveal(bool show)
     {
         int version = ++_statusBarRevealVersion;
+        _statusBarRevealing = show;
         bool animate = !VNotch.Services.AnimationConfig.ReduceMotion && VNotch.Services.AnimationConfig.ClientAreaAnimation;
         bool chromeVisible = NavIconsPanel.Visibility == Visibility.Visible && NavIconsPanel.Opacity > 0.01;
         var targetView = _navigationVisualTarget ?? _transitionCoordinator.CurrentView;
@@ -749,6 +659,7 @@ public partial class MainWindow
         SettingsButton.Focusable = show;
         BatterySection.IsHitTestVisible = showBattery;
         NavIconsBackground.IsHitTestVisible = showBackground;
+        NavIconsPanel.IsHitTestVisible = show;
         if (show)
         {
             bool movedSettingsHost = PlaceSharedSettingsButton(targetView);
@@ -764,7 +675,7 @@ public partial class MainWindow
                 SettingsScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
                 SettingsScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
                 SettingsRotate.BeginAnimation(RotateTransform.AngleProperty, null);
-                SettingsScale.ScaleX = SettingsScale.ScaleY = 0.86;
+                SettingsScale.ScaleX = SettingsScale.ScaleY = Motion.TileFromScale;
                 SettingsRotate.Angle = 20;
             }
             else if (movedSettingsHost)
@@ -778,10 +689,16 @@ public partial class MainWindow
 
         RetargetChromeValue(BatterySection, OpacityProperty, showBattery ? 1 : 0, duration, animate);
         RetargetChromeValue(BatteryTranslate, TranslateTransform.YProperty, showBattery ? restY : -6, duration, animate);
-        RetargetChromeValue(NavIconsPanel, OpacityProperty, show ? 1 : 0, duration, animate);
+        RetargetChromeValue(NavIconsPanel, OpacityProperty, show ? 1 : 0, duration, animate, () =>
+        {
+            if (version == _statusBarRevealVersion && !show) NavIconsPanel.Visibility = Visibility.Collapsed;
+        });
         RetargetChromeValue(NavIconsTranslate, TranslateTransform.YProperty, show ? restY : -6, duration, animate);
         RetargetChromeValue(NavIconsBackground, OpacityProperty, showBackground ? 1 : 0,
-            new Duration(TimeSpan.FromMilliseconds(show ? 340 : 120)), animate);
+            new Duration(TimeSpan.FromMilliseconds(show ? 340 : 120)), animate, () =>
+            {
+                if (version == _statusBarRevealVersion && !showBackground) NavIconsBackground.Visibility = Visibility.Collapsed;
+            });
         RetargetChromeValue(SettingsTranslate, TranslateTransform.YProperty, show ? settingsY : -6, duration, animate,
             easing: _easeBackOut022, beginTime: settingsDelay);
         var settingsScaleDuration = new Duration(TimeSpan.FromMilliseconds(show ? 460 : 200));
@@ -827,29 +744,19 @@ public partial class MainWindow
         IEasingFunction? easing = null, TimeSpan? beginTime = null)
     {
         var element = (DependencyObject)target;
-        double from = (double)element.GetValue(property);
-        var key = (element, property);
-        _chromeAnimations.Remove(key);
-        target.BeginAnimation(property, null);
-        element.SetValue(property, from);
-        if (!animate || Math.Abs(from - to) < 0.0001)
+        if (!animate)
         {
-            element.SetValue(property, to);
+            Motion.Stop(element, property, to);
             completed?.Invoke();
             return;
         }
-        var animation = MakeAnim(from, to, duration, easing ?? _easeExpOut5);
-        animation.BeginTime = beginTime ?? TimeSpan.Zero;
-        _chromeAnimations[key] = animation;
-        animation.Completed += (_, _) =>
-        {
-            if (!_chromeAnimations.TryGetValue(key, out var active) || !ReferenceEquals(active, animation)) return;
-            _chromeAnimations.Remove(key);
-            target.BeginAnimation(property, null);
-            element.SetValue(property, to);
-            completed?.Invoke();
-        };
-        target.BeginAnimation(property, animation, HandoffBehavior.SnapshotAndReplace);
+        Motion.To(element, property, to, _statusBarRevealing ? Motion.Tile : Motion.Exit,
+            delay: _statusBarRevealing ? beginTime : null, done: () =>
+            {
+                // Other shell paths clear clocks; keep the settled state as the base value too.
+                Motion.Stop(element, property, to);
+                completed?.Invoke();
+            });
     }
 
     #endregion
@@ -858,123 +765,22 @@ public partial class MainWindow
     public void PlaySettingsEjectAnimation()
     {
         if (_isExpanded || _isAnimating) return;
-
-        int fps = VNotch.Services.AnimationConfig.TargetFps;
-
-        NotchScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-        NotchScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-        NotchShadowScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-        NotchShadowScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-        NotchBorder.BeginAnimation(WidthProperty, null);
-        NotchBorder.BeginAnimation(HeightProperty, null);
-
-        var ejectDur = TimeSpan.FromMilliseconds(150);
-        var springDur = TimeSpan.FromMilliseconds(600);
-
-        double currentWidth = _collapsedWidth;
-        double peakWidth = currentWidth + 40;
-
-        var widthAnim = new DoubleAnimationUsingKeyFrames();
-        widthAnim.KeyFrames.Add(new EasingDoubleKeyFrame(peakWidth,
-            KeyTime.FromTimeSpan(ejectDur),
-            _easeQuadOut));
-        widthAnim.KeyFrames.Add(new EasingDoubleKeyFrame(currentWidth,
-            KeyTime.FromTimeSpan(ejectDur + springDur),
-            _easeSoftSpring));
-        Timeline.SetDesiredFrameRate(widthAnim, fps);
-
-        double currentHeight = _collapsedHeight;
-        double peakHeight = currentHeight + 8;
-
-        var heightAnim = new DoubleAnimationUsingKeyFrames();
-        heightAnim.KeyFrames.Add(new EasingDoubleKeyFrame(peakHeight,
-            KeyTime.FromTimeSpan(ejectDur),
-            _easeQuadOut));
-        heightAnim.KeyFrames.Add(new EasingDoubleKeyFrame(currentHeight,
-            KeyTime.FromTimeSpan(ejectDur + springDur),
-            _easeSoftSpring));
-        Timeline.SetDesiredFrameRate(heightAnim, fps);
-
-        var scaleY = new DoubleAnimationUsingKeyFrames();
-        scaleY.KeyFrames.Add(new EasingDoubleKeyFrame(1.15,
-            KeyTime.FromTimeSpan(ejectDur),
-            _easeQuadOut));
-        scaleY.KeyFrames.Add(new EasingDoubleKeyFrame(1.0,
-            KeyTime.FromTimeSpan(ejectDur + springDur),
-            _easeSoftSpring));
-        Timeline.SetDesiredFrameRate(scaleY, fps);
-
-        NotchBorder.BeginAnimation(WidthProperty, widthAnim);
-        NotchBorder.BeginAnimation(HeightProperty, heightAnim);
-        NotchScale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleY);
-        NotchShadowScale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleY);
+        SpringSettingsFeedback(900, 180, 3);
     }
+
     public void PlaySettingsAbsorbAnimation()
     {
         if (_isExpanded || _isAnimating) return;
+        SpringSettingsFeedback(1200, 220, 2.5);
+    }
 
-        int fps = VNotch.Services.AnimationConfig.TargetFps;
-
-        NotchScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-        NotchScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-        NotchShadowScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-        NotchShadowScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-        NotchBorder.BeginAnimation(WidthProperty, null);
-        NotchBorder.BeginAnimation(HeightProperty, null);
-        var absorbDelay = TimeSpan.FromMilliseconds(480);
-        var openDur = TimeSpan.FromMilliseconds(200);
-        var springDur = TimeSpan.FromMilliseconds(700);
-
-        double currentWidth = _collapsedWidth;
-        double peakWidth = currentWidth + 60;
-
-        var widthAnim = new DoubleAnimationUsingKeyFrames { BeginTime = absorbDelay };
-        widthAnim.KeyFrames.Add(new EasingDoubleKeyFrame(peakWidth,
-            KeyTime.FromTimeSpan(openDur),
-            _easeQuadOut));
-        widthAnim.KeyFrames.Add(new EasingDoubleKeyFrame(currentWidth,
-            KeyTime.FromTimeSpan(openDur + springDur),
-            _easeSoftSpring));
-        Timeline.SetDesiredFrameRate(widthAnim, fps);
-
-        double currentHeight = _collapsedHeight;
-        double peakHeight = currentHeight + 10;
-
-        var heightAnim = new DoubleAnimationUsingKeyFrames { BeginTime = absorbDelay };
-        heightAnim.KeyFrames.Add(new EasingDoubleKeyFrame(peakHeight,
-            KeyTime.FromTimeSpan(openDur),
-            _easeQuadOut));
-        heightAnim.KeyFrames.Add(new EasingDoubleKeyFrame(currentHeight,
-            KeyTime.FromTimeSpan(openDur + springDur),
-            _easeSoftSpring));
-        Timeline.SetDesiredFrameRate(heightAnim, fps);
-
-        double currentRadius = _cornerRadiusCollapsed;
-        double peakRadius = currentRadius + 6;
-
-        var radiusAnim = new DoubleAnimationUsingKeyFrames { BeginTime = absorbDelay };
-        radiusAnim.KeyFrames.Add(new EasingDoubleKeyFrame(peakRadius,
-            KeyTime.FromTimeSpan(openDur),
-            _easeQuadOut));
-        radiusAnim.KeyFrames.Add(new EasingDoubleKeyFrame(currentRadius,
-            KeyTime.FromTimeSpan(openDur + springDur),
-            _easeSoftSpring));
-        Timeline.SetDesiredFrameRate(radiusAnim, fps);
-
-        var scaleY = new DoubleAnimationUsingKeyFrames { BeginTime = absorbDelay };
-        scaleY.KeyFrames.Add(new EasingDoubleKeyFrame(1.12,
-            KeyTime.FromTimeSpan(openDur),
-            _easeQuadOut));
-        scaleY.KeyFrames.Add(new EasingDoubleKeyFrame(1.0,
-            KeyTime.FromTimeSpan(openDur + springDur),
-            _easeSoftSpring));
-        Timeline.SetDesiredFrameRate(scaleY, fps);
-
-        NotchBorder.BeginAnimation(WidthProperty, widthAnim);
-        NotchBorder.BeginAnimation(HeightProperty, heightAnim);
-        NotchScale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleY);
-        NotchShadowScale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleY);
-        this.BeginAnimation(CurrentCornerRadiusProperty, radiusAnim);
+    private void SpringSettingsFeedback(double widthVelocity, double heightVelocity, double scaleVelocity)
+    {
+        Motion.To(NotchBorder, WidthProperty, _collapsedWidth, Motion.Pop, velocity: widthVelocity);
+        Motion.To(NotchBorder, HeightProperty, _collapsedHeight, Motion.Pop, velocity: heightVelocity);
+        Motion.To(NotchScale, ScaleTransform.ScaleYProperty, 1, Motion.Pop, velocity: scaleVelocity);
+        Motion.To(NotchShadowScale, ScaleTransform.ScaleYProperty, 1, Motion.Pop, velocity: scaleVelocity);
+        AnimateCornerRadius(_cornerRadiusCollapsed, Motion.Pop);
     }
 
     #endregion
