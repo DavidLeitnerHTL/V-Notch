@@ -230,9 +230,11 @@ public partial class ControlCenterView
         if ((_claudeInstalled || sessions.Count > 0) && !listening)
             _claudeSection.Children.Add(HintCard("", Loc.Get("control.claude.portBusy", ClaudeHookServer.DefaultPort)));
         if (lead != null) _claudeSection.Children.Add(Hero(lead, pending));
-        else if (_claudeInstalled) _claudeSection.Children.Add(EmptyHero());
-        if (order.Count > 1) _claudeSection.Children.Add(Chips(order));
+        else if (_claudeInstalled || _codexSessions.Count > 0) _claudeSection.Children.Add(EmptyHero());
+        if (order.Count > 1 || _codexSessions.Count > 0) _claudeSection.Children.Add(Chips(order));
         _claudeSection.Children.Add(LimitStrip(limits));
+        AddResetRows(limits);
+        if (_codexUsage?.HasSource == true) AddCodexLimits();
 
         RevealNewCards(_cardScratch);
         _cardScratch.Clear();
@@ -259,6 +261,7 @@ public partial class ControlCenterView
             sb.Append(s.Id).Append(s.Status).Append(s.Title).Append(s.Activity).Append(s.Prompt).Append(s.Summary).Append(s.Cwd)
               .Append(s.TurnStartedUtc?.Ticks).Append(s.FinishedUtc?.Ticks).Append(';');
         foreach (var p in pending) sb.Append(p.Id).Append(';');
+        AppendCodexAndResetKey(sb, limits);
         return sb.ToString();
     }
 
@@ -684,6 +687,7 @@ public partial class ControlCenterView
     {
         var wrap = new WrapPanel { Margin = new Thickness(0, 0, 0, 10), Tag = ChipsTag };
         for (int i = 1; i < order.Count; i++) wrap.Children.Add(Chip(order[i]));
+        foreach (var session in _codexSessions) wrap.Children.Add(CodexChip(session));
         return wrap;
     }
 
@@ -813,7 +817,7 @@ public partial class ControlCenterView
         return grid;
     }
 
-    private FrameworkElement MiniLimit(string key, string label, ClaudeLimitWindow window)
+    private FrameworkElement MiniLimit(string key, string label, ClaudeLimitWindow window, Brush? accent = null)
     {
         double used = Math.Clamp(window.UsedPercent, 0, 100);
         var top = new Grid();
@@ -841,7 +845,7 @@ public partial class ControlCenterView
         top.Children.Add(percent);
 
         var grow = new ScaleTransform(used / 100, 1);
-        var fill = new Border { Background = ClaudeBar, CornerRadius = new CornerRadius(1.5), RenderTransformOrigin = new Point(0, 0.5), RenderTransform = grow };
+        var fill = new Border { Background = accent ?? ClaudeBar, CornerRadius = new CornerRadius(1.5), RenderTransformOrigin = new Point(0, 0.5), RenderTransform = grow };
         var bar = new Grid
         {
             Height = 3,
@@ -870,9 +874,10 @@ public partial class ControlCenterView
                 if (left <= TimeSpan.Zero && !askedAfterReset)
                 {
                     askedAfterReset = true;
-                    RefreshUsage(TimeSpan.Zero);
+                    if (accent == null) RefreshUsage(UsageViewMinAge);
+                    else RefreshCodexUsage();
                 }
-                return Loc.Get("control.claude.resetsIn", FormatDuration(left));
+                return Loc.Get("control.claude.resetsIn", FormatDuration(left)) + " · " + FormatResetTime(resets, DateTimeOffset.Now);
             }));
         }
 

@@ -1188,8 +1188,6 @@
   "control.claude.limitWeek": "Weeklimiet",
   "control.claude.resetsIn": "Reset over {0}",
   "control.claude.limitBack": "{0} is weer vrij",
-  "control.claude.tokensTask": "Taak",
-  "control.claude.tokensChat": "Chat",
   "control.claude.tokensContext": "Context",
   "control.claude.tokensLimit": "van 5-uurslimiet",
   "control.claude.tokensBreakdown": "Invoer {0} · cache geschreven {1} · cache gelezen {2} · uitvoer {3}",

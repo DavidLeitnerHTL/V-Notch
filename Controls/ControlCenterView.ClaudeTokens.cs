@@ -13,8 +13,7 @@ using VNotch.Services.ClaudeCode;
 namespace VNotch.Controls;
 
 /// <summary>
-/// What the session in the big card used, under its activity line: the tokens of the current task and of the
-/// whole chat, how full its context is, and the task's share of the five-hour limit. The counts come from the
+/// How full the big card's context is and the task's share of the five-hour limit. The counts come from the
 /// session's transcript, read every few seconds while the tab is open, and roll to each new value.
 /// </summary>
 public partial class ControlCenterView
@@ -32,20 +31,18 @@ public partial class ControlCenterView
     {
         public required string SessionId;
         public required FrameworkElement Host;
-        public required RollingNumber Task, Chat, Context;
+        public required RollingNumber Context;
         public required TextBlock Share;
         public bool Filled;
     }
 
-    /// <summary>Four small figures under a hairline: task, chat, context, share of the five-hour limit.</summary>
+    /// <summary>Two small figures under a hairline: context and share of the five-hour limit.</summary>
     private FrameworkElement TokenStats(ClaudeSession lead)
     {
         var grid = new Grid();
-        for (int i = 0; i < 4; i++) grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        var task = TokenFigure(grid, 0, Loc.Get("control.claude.tokensTask"));
-        var chat = TokenFigure(grid, 1, Loc.Get("control.claude.tokensChat"));
-        var context = TokenFigure(grid, 2, Loc.Get("control.claude.tokensContext"));
-        var share = TokenFigure(grid, 3, Loc.Get("control.claude.tokensLimit"));
+        for (int i = 0; i < 2; i++) grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        var context = TokenFigure(grid, 0, Loc.Get("control.claude.tokensContext"));
+        var share = TokenFigure(grid, 1, Loc.Get("control.claude.tokensLimit"));
 
         var stack = new StackPanel { Background = Brushes.Transparent };
         stack.Children.Add(new Border { Height = 1, Background = TokenDivider, Margin = new Thickness(0, 14, 0, 11) });
@@ -55,8 +52,6 @@ public partial class ControlCenterView
         {
             SessionId = lead.Id,
             Host = stack,
-            Task = new RollingNumber(v => task.Text = FormatTokens(v)),
-            Chat = new RollingNumber(v => chat.Text = FormatTokens(v)),
             Context = new RollingNumber(v => context.Text = FormatTokens(v)),
             Share = share
         };
@@ -98,12 +93,8 @@ public partial class ControlCenterView
     {
         if (fromZero && !AnimationConfig.ReduceMotion)
         {
-            row.Task.To(0, 0);
-            row.Chat.To(0, 0);
             row.Context.To(0, 0);
         }
-        row.Task.To(tokens.Task.Total, 900);
-        row.Chat.To(tokens.Chat.Total, 900);
         row.Context.To(tokens.Context, 900);
         row.Share.Text = tokens.TaskLimitPercent is { } percent ? FormatShare(percent) : "–";
         var chat = tokens.Chat;

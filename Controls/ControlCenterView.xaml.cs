@@ -83,6 +83,7 @@ public partial class ControlCenterView : UserControl, IDisposable
     private ClaudeSessionTracker? _claude;
     private ClaudeHookServer? _hookServer;
     private ClaudeUsageClient? _usage;
+    private CodexUsageClient? _codexUsage;
     private Func<bool> _isLocalOnly = () => true;
     private Func<bool> _usesGlass = () => false;
 
@@ -180,12 +181,13 @@ public partial class ControlCenterView : UserControl, IDisposable
     private void RefreshOnceShellIsReady() => Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(Refresh));
 
     /// <summary>For the <see cref="ControlCenterPage.Claude"/> page.</summary>
-    internal void AttachClaude(ClaudeSessionTracker tracker, ClaudeHookServer hookServer, ClaudeUsageClient usage,
+    internal void AttachClaude(ClaudeSessionTracker tracker, ClaudeHookServer hookServer, ClaudeUsageClient usage, CodexUsageClient codexUsage,
         Func<bool> isLocalOnly, Func<bool> usesGlass)
     {
         _claude = tracker;
         _hookServer = hookServer;
         _usage = usage;
+        _codexUsage = codexUsage;
         _isLocalOnly = isLocalOnly;
         _usesGlass = usesGlass;
         tracker.Changed += OnClaudeChanged;
@@ -224,6 +226,8 @@ public partial class ControlCenterView : UserControl, IDisposable
         _backdrop?.SetDrifting(false);
         StopClaudeLoops();
         StopTokenClock();
+        StopCodexClock();
+        StopResetFeedback();
         SetGpuSampling(false);
         _stats.Dispose();
         IsVisibleChanged -= OnIsVisibleChanged;
@@ -258,6 +262,8 @@ public partial class ControlCenterView : UserControl, IDisposable
                 StartRipples();
                 ApplyClaudeLoops();
                 StartTokenClock();
+                StartCodexClock();
+                if (_resetStates.Count > 0) StartResetFeedback();
             }
             else if (Page is ControlCenterPage.Pi or ControlCenterPage.School)
             {
@@ -286,6 +292,8 @@ public partial class ControlCenterView : UserControl, IDisposable
             StopRipples();
             StopClaudeLoops();
             StopTokenClock();
+            StopCodexClock();
+            StopResetFeedback();
             SetGpuSampling(false);
             if (Page == ControlCenterPage.System)
             {
@@ -391,10 +399,10 @@ public partial class ControlCenterView : UserControl, IDisposable
 
     private async void RefreshUsage(TimeSpan minAge)
     {
-        if (_usage == null || _isLocalOnly() || !ClaudeUsageClient.HasCredentials) return;
+        if (_usage == null || _isLocalOnly()) return;
         try
         {
-            if (await _usage.RefreshAsync(minAge) != null) BuildClaudeSection();
+            if (await Task.Run(() => _usage.RefreshAsync(minAge)) != null && !_disposed) BuildClaudeSection();
         }
         catch (Exception ex)
         {
