@@ -23,8 +23,6 @@ public partial class MainWindow
     private enum ChargeMoment { None, PlugIn, Unplug, Full }
 
     private static readonly TimeSpan ChargePulseEvery = TimeSpan.FromSeconds(2.5);
-    // Charging that starts without a plug (battery care topping up) only shows once it has gone on this long.
-    private static readonly TimeSpan ChargeQuietFor = TimeSpan.FromMinutes(2);
     private const int ChargeGlowFps = 30;
     private const int ChargeGlintFps = 60;
     private const int ChargeDoneAt = 75;
@@ -48,7 +46,6 @@ public partial class MainWindow
     private bool _chargeCharging;
     private bool _chargeFromPlug;
     private bool _chargeDone;
-    private DateTime _chargingSinceUtc;
     private ChargeMoment _chargeMoment;
     private bool _chargeConnected;
     private bool _chargeHooked;
@@ -57,7 +54,6 @@ public partial class MainWindow
     private Color _chargeTintColor = ChargeTintFor(100);
     private DispatcherTimer? _chargeMomentTimer;
     private DispatcherTimer? _chargePulseTimer;
-    private DispatcherTimer? _chargeQuietTimer;
     private readonly TranslateTransform _chargeRimShift = new(RimStreakBefore, 0);
     // Where the rim streak's head is, in notch widths: just off the right edge, past the middle, past the left edge.
     private const double RimStreakBefore = 0.6;
@@ -84,18 +80,13 @@ public partial class MainWindow
     private int ChargeLevel => _chargeBattery is { Percentage: >= 0 } battery ? Math.Clamp(battery.Percentage, 0, 100) : 0;
 
     /// <summary>
-    /// The quiet charging face wants the orb: plugged in after a plug event (until it is full), or charging on its
-    /// own for a while (battery care topping up shows only when it lasts).
+    /// The quiet charging face wants the orb only after a real plug-in, until it is full. Charging while the laptop
+    /// stays on the cable (battery care topping up, or plugged in since start-up) shows nothing.
     /// </summary>
-    private bool WantsChargingOrb
-    {
-        get
-        {
-            if (!_chargePlugged) return false;
-            if (_chargeFromPlug && !_chargeDone) return true;
-            return _chargeCharging && DateTime.UtcNow - _chargingSinceUtc >= ChargeQuietFor;
-        }
-    }
+    private bool WantsChargingOrb => _chargePlugged && _chargeFromPlug && !_chargeDone;
+
+    /// <summary>A charge the user started by plugging in, so the battery icon may pulse.</summary>
+    private bool InChargeFromPlug => _chargeFromPlug && !_chargeDone;
 
     #region Battery events
 
@@ -112,8 +103,8 @@ public partial class MainWindow
         var moment = ChargeMoment.None;
         if (!known)
         {
-            // Already charging when the notch starts: show it like after a plug.
-            _chargeFromPlug = plugged && charging;
+            // Already on the cable when the notch starts: the laptop mostly lives on it, so that is no charge to show.
+            _chargeFromPlug = false;
         }
         else if (plugged && _wasPluggedIn == false)
         {
@@ -135,11 +126,6 @@ public partial class MainWindow
         _wasPluggedIn = plugged;
         _chargePlugged = battery.HasBattery && plugged;
 
-        if (charging && !wasCharging)
-        {
-            _chargingSinceUtc = DateTime.UtcNow;
-            if (!_chargeFromPlug || _chargeDone) RestartChargeQuietTimer();
-        }
         _chargeCharging = charging;
         if (!battery.HasBattery) return;
 
@@ -222,26 +208,10 @@ public partial class MainWindow
         RefreshChargePulse();
     }
 
-    private void RestartChargeQuietTimer()
-    {
-        if (_chargeQuietTimer == null)
-        {
-            _chargeQuietTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = ChargeQuietFor + TimeSpan.FromSeconds(1) };
-            _chargeQuietTimer.Tick += (_, _) =>
-            {
-                _chargeQuietTimer!.Stop();
-                if (!_cleanedUp) ArrangeLiveActivities(_currentMediaInfo, applyCompact: true);
-            };
-        }
-        _chargeQuietTimer.Stop();
-        _chargeQuietTimer.Start();
-    }
-
     private void StopChargeTimers()
     {
         _chargeMomentTimer?.Stop();
         _chargePulseTimer?.Stop();
-        _chargeQuietTimer?.Stop();
         _chargeToken++;
     }
 

@@ -113,7 +113,11 @@ public partial class MainWindow
         AnimateBrushTransition(BatteryPercent, percentBrush);
         AnimateChargingBolt(showLightning);
 
-        if (battery.IsCharging)
+        // Plugging in and out now plays in the orb beside the notch (MainWindow.ChargeOrb), not as a glance in it.
+        if (!MotionLabFakesCharging) UpdateChargeOrb(battery);
+
+        // Only a charge the user plugged in for pulses; on permanent mains power the battery just sits still.
+        if (battery.IsCharging && (InChargeFromPlug || MotionLabFakesCharging))
         {
             StartChargingPulse();
         }
@@ -121,9 +125,6 @@ public partial class MainWindow
         {
             StopChargingPulse();
         }
-
-        // Plugging in and out now plays in the orb beside the notch (MainWindow.ChargeOrb), not as a glance in it.
-        if (!MotionLabFakesCharging) UpdateChargeOrb(battery);
         UpdateKeepAwake();
     }
 
