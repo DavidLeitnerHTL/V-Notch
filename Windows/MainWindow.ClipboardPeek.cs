@@ -18,46 +18,14 @@ public partial class MainWindow
 
     private void PlayClipboardPeek()
     {
-
-        if (!_isExpanded && !_isAnimating)
-        {
-            NotchScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-            NotchScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-            NotchShadowScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-            NotchShadowScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-
-            var peakTime = TimeSpan.FromMilliseconds(100);
-            var endTime = TimeSpan.FromMilliseconds(500);
-
-            var bounceX = new DoubleAnimationUsingKeyFrames();
-            bounceX.KeyFrames.Add(new EasingDoubleKeyFrame(1.06,
-                KeyTime.FromTimeSpan(peakTime), _easeQuadOut));
-            bounceX.KeyFrames.Add(new EasingDoubleKeyFrame(1.0,
-                KeyTime.FromTimeSpan(endTime), _easeSoftSpring));
-            Timeline.SetDesiredFrameRate(bounceX, VNotch.Services.AnimationConfig.TargetFps);
-
-            var bounceY = new DoubleAnimationUsingKeyFrames();
-            bounceY.KeyFrames.Add(new EasingDoubleKeyFrame(0.95,
-                KeyTime.FromTimeSpan(peakTime), _easeQuadOut));
-            bounceY.KeyFrames.Add(new EasingDoubleKeyFrame(1.0,
-                KeyTime.FromTimeSpan(endTime), _easeSoftSpring));
-            Timeline.SetDesiredFrameRate(bounceY, VNotch.Services.AnimationConfig.TargetFps);
-
-            NotchScale.BeginAnimation(ScaleTransform.ScaleXProperty, bounceX);
-            NotchScale.BeginAnimation(ScaleTransform.ScaleYProperty, bounceY);
-            NotchShadowScale.BeginAnimation(ScaleTransform.ScaleXProperty, bounceX);
-            NotchShadowScale.BeginAnimation(ScaleTransform.ScaleYProperty, bounceY);
-        }
-
-        if (_isMusicCompactMode && !_isExpanded)
-        {
-            ShowClipboardCopiedState();
-        }
-        else if (!_isExpanded && !_isAnimating)
-        {
-            // Without music the copy gets a short pill to drag out or hand to Claude.
-            ShowCopiedPill();
-        }
+        if (!_isExpanded && !_isAnimating && !AnimationConfig.ReduceMotion)
+            foreach (var scale in new[] { NotchScale, NotchShadowScale })
+            {
+                Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.Press, velocity: Motion.VelocityOf(scale, ScaleTransform.ScaleXProperty) + 1);
+                Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.Press, velocity: Motion.VelocityOf(scale, ScaleTransform.ScaleYProperty) - 0.8);
+            }
+        if (_isMusicCompactMode && !_isExpanded) ShowClipboardCopiedState();
+        else if (!_isExpanded && !_isAnimating) ShowCopiedPill();
     }
     private void ShowClipboardCopiedState()
     {
@@ -97,16 +65,15 @@ public partial class MainWindow
 
         ClipboardCopiedText.Visibility = Visibility.Visible;
         ClipboardCopiedText.BeginAnimation(OpacityProperty, null);
-        ClipboardCopiedTranslate.BeginAnimation(TranslateTransform.XProperty, null);
 
-        ClipboardCopiedTranslate.X = -8;
+
+
 
         var textFadeIn = MakeAnim(0.0, 1.0, _dur250, _easeQuadOut);
-        var textSlideIn = MakeAnim(-8.0, 0.0, _dur350, _easeExpOut6);
-        Timeline.SetDesiredFrameRate(textSlideIn, VNotch.Services.AnimationConfig.TargetFps);
+
 
         ClipboardCopiedText.BeginAnimation(OpacityProperty, textFadeIn);
-        ClipboardCopiedTranslate.BeginAnimation(TranslateTransform.XProperty, textSlideIn);
+        Motion.To(ClipboardCopiedTranslate, TranslateTransform.XProperty, 0, Motion.Tile, from: -8, delay: Motion.Stagger(1));
 
         StopClipboardRevertTimer();
 
@@ -145,11 +112,10 @@ public partial class MainWindow
         HideCompactSurface(ClipboardCheckIcon);
 
         ClipboardCopiedText.BeginAnimation(OpacityProperty, null);
-        ClipboardCopiedTranslate.BeginAnimation(TranslateTransform.XProperty, null);
+
 
         var textFadeOut = MakeAnim(1.0, 0.0, _dur250, _easeQuadOut);
-        var textSlideOut = MakeAnim(0.0, -8.0, _dur350, _easeExpOut6);
-        Timeline.SetDesiredFrameRate(textSlideOut, VNotch.Services.AnimationConfig.TargetFps);
+
 
         textFadeOut.Completed += (s, e) =>
         {
@@ -158,7 +124,7 @@ public partial class MainWindow
         };
 
         ClipboardCopiedText.BeginAnimation(OpacityProperty, textFadeOut);
-        ClipboardCopiedTranslate.BeginAnimation(TranslateTransform.XProperty, textSlideOut);
+        Motion.To(ClipboardCopiedTranslate, TranslateTransform.XProperty, -8, Motion.Exit);
 
         CompactThumbnailBorder.BeginAnimation(OpacityProperty, null);
         CompactThumbnailScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
@@ -189,7 +155,7 @@ public partial class MainWindow
         ClipboardCheckIcon.Visibility = Visibility.Collapsed;
 
         ClipboardCopiedText.BeginAnimation(OpacityProperty, null);
-        ClipboardCopiedTranslate.BeginAnimation(TranslateTransform.XProperty, null);
+
         ClipboardCopiedText.Opacity = 0;
         ClipboardCopiedText.Visibility = Visibility.Collapsed;
 

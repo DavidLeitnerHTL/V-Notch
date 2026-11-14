@@ -1,11 +1,18 @@
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
+using System.Reflection;
+using System.Windows;
+using System.Windows.Threading;
+using Microsoft.Extensions.DependencyInjection;
+using VNotch.Services;
 using VNotch.Services.ClaudeCode;
+using VNotch.Tests.Fakes;
 using Xunit;
 
 namespace VNotch.Tests;
 
 /// <summary>The word the closed notch shows for a session, from the hook events the tracker saw.</summary>
+[Collection("Localization")]
 public class ClaudeLiveStatusTests
 {
     private static JsonObject Hook(string hookEvent, string? tool = null)
@@ -21,6 +28,35 @@ public class ClaudeLiveStatusTests
 
     private static string StatusOf(ClaudeSessionTracker tracker) =>
         MainWindow.ClaudeLiveStatusKey(Assert.Single(tracker.GetSessions()));
+
+    [Fact]
+    public void FullscreenStopsTheVisibleStarAndClockUntilAmbientMotionReturns() => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        await using var fixture = new GreetingAcceptanceTests.MainWindowFixture("en", greeting: false,
+            configureSettings: settings => settings.EnableLocalOnlyMode = true,
+            configureServices: services => services.AddSingleton<IMediaDetectionService>(new FakeMediaDetectionService()));
+        var window = fixture.Window;
+        window.Show();
+        var tracker = (ClaudeSessionTracker)typeof(MainWindow).GetField("_claudeTracker", flags)!.GetValue(window)!;
+        await tracker.HandleHookAsync(Hook("UserPromptSubmit"));
+        typeof(MainWindow).GetField("_claudeLiveSession", flags)!.SetValue(window, Assert.Single(tracker.GetSessions()));
+        window.CollapsedContent.Visibility = Visibility.Visible;
+        window.ClaudeLive.Visibility = Visibility.Visible;
+        typeof(MainWindow).GetMethod("ApplyClaudeLiveMotion", flags)!.Invoke(window, null);
+        Assert.True(window.ClaudeLiveStarRotate.HasAnimatedProperties);
+        typeof(MainWindow).GetField("_isHiddenByFullscreen", flags)!.SetValue(window, true);
+        typeof(MainWindow).GetMethod("ApplyClaudeLiveMotion", flags)!.Invoke(window, null);
+        Assert.False(window.ClaudeLiveStarRotate.HasAnimatedProperties);
+        Assert.False(window.ClaudeLiveStarScale.HasAnimatedProperties);
+        var clock = (DispatcherTimer)typeof(MainWindow).GetField("_claudeLiveClock", flags)!.GetValue(window)!;
+        Assert.False(clock.IsEnabled);
+        typeof(MainWindow).GetField("_isHiddenByFullscreen", flags)!.SetValue(window, false);
+        typeof(MainWindow).GetMethod("ApplyClaudeLiveMotion", flags)!.Invoke(window, null);
+        Assert.True(clock.IsEnabled);
+        Assert.True(window.ClaudeLiveStarRotate.HasAnimatedProperties);
+        ct.ThrowIfCancellationRequested();
+    });
 
     [Theory]
     [InlineData("Edit", "claude.status.writing")]

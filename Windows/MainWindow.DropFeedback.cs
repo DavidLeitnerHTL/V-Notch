@@ -42,23 +42,8 @@ public partial class MainWindow
 
     private void PlayBadgeSpringBounce()
     {
-        ClipboardDropBadgeScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-        ClipboardDropBadgeScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-        ClipboardDropBadgeScale.ScaleX = ClipboardDropBadgeScale.ScaleY = 1.0;
-
-        // Magnetic snap & spring bounce: snap from 0.85 -> overshoot to 1.035 -> settle to 1.0
-        var animX = new DoubleAnimationUsingKeyFrames
-        {
-            FillBehavior = FillBehavior.HoldEnd
-        };
-        animX.KeyFrames.Add(new DiscreteDoubleKeyFrame(0.85, KeyTime.FromTimeSpan(TimeSpan.Zero)));
-        animX.KeyFrames.Add(new SplineDoubleKeyFrame(1.035, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(150)), new KeySpline(0.2, 0.8, 0.25, 1.0)));
-        animX.KeyFrames.Add(new SplineDoubleKeyFrame(1.0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(260)), new KeySpline(0.25, 1.0, 0.5, 1.0)));
-        Timeline.SetDesiredFrameRate(animX, AnimationConfig.TargetFps);
-
-        var animY = animX.Clone();
-        ClipboardDropBadgeScale.BeginAnimation(ScaleTransform.ScaleXProperty, animX);
-        ClipboardDropBadgeScale.BeginAnimation(ScaleTransform.ScaleYProperty, animY);
+        Motion.To(ClipboardDropBadgeScale, ScaleTransform.ScaleXProperty, 1, Motion.Tile, from: Motion.TileFromScale);
+        Motion.To(ClipboardDropBadgeScale, ScaleTransform.ScaleYProperty, 1, Motion.Tile, from: Motion.TileFromScale);
     }
 
 

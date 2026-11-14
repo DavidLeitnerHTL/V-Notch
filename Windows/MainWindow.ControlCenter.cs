@@ -184,13 +184,17 @@ public partial class MainWindow
 
     private void ShowClaudeWaitingBadge(bool show)
     {
-        ClaudeWaitingBadgeScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-        ClaudeWaitingBadgeScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-        ClaudeWaitingBadge.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-        if (!show || AnimationConfig.ReduceMotion) return;
-        var pop = MakeAnim(0d, 1d, _dur400, _easeSpring);
-        ClaudeWaitingBadgeScale.BeginAnimation(ScaleTransform.ScaleXProperty, pop);
-        ClaudeWaitingBadgeScale.BeginAnimation(ScaleTransform.ScaleYProperty, pop);
+        bool entering = ClaudeWaitingBadge.Visibility != Visibility.Visible;
+        if (show) ClaudeWaitingBadge.Visibility = Visibility.Visible;
+        Motion.To(ClaudeWaitingBadgeScale, ScaleTransform.ScaleXProperty, show ? 1 : Motion.ExitToScale,
+            show ? Motion.Tile : Motion.Exit, from: show && entering ? Motion.TileFromScale : null);
+        Motion.To(ClaudeWaitingBadgeScale, ScaleTransform.ScaleYProperty, show ? 1 : Motion.ExitToScale,
+            show ? Motion.Tile : Motion.Exit, from: show && entering ? Motion.TileFromScale : null);
+        Motion.To(ClaudeWaitingBadge, OpacityProperty, show ? 1 : 0, show ? Motion.Tile : Motion.Exit,
+            from: show && entering ? 0 : null, done: () =>
+            {
+                if (!show) ClaudeWaitingBadge.Visibility = Visibility.Collapsed;
+            });
     }
 
     /// <summary>Typing a message to a session needs the keys; otherwise the notch never takes focus.</summary>
@@ -358,12 +362,10 @@ public partial class MainWindow
         ClaudeNotification.Visibility = Visibility.Visible;
         ClaudeNotification.Opacity = 0;
         ClaudeNotification.BeginAnimation(OpacityProperty, MakeCompactNotificationEntrance(0, 1));
-        ClaudeNotificationTranslate.BeginAnimation(
-            TranslateTransform.YProperty, MakeCompactNotificationEntrance(6, 0), HandoffBehavior.SnapshotAndReplace);
+        Motion.To(ClaudeNotificationTranslate, TranslateTransform.YProperty, 0, Motion.Tile, from: 6);
 
-        var iconScale = MakeAnim(0.8d, 1d, _dur400, _easeSpring, TimeSpan.FromMilliseconds(150));
-        ClaudeNotificationIconScale.BeginAnimation(ScaleTransform.ScaleXProperty, iconScale);
-        ClaudeNotificationIconScale.BeginAnimation(ScaleTransform.ScaleYProperty, iconScale);
+        Motion.To(ClaudeNotificationIconScale, ScaleTransform.ScaleXProperty, 1, Motion.Tile, from: Motion.TileFromScale);
+        Motion.To(ClaudeNotificationIconScale, ScaleTransform.ScaleYProperty, 1, Motion.Tile, from: Motion.TileFromScale);
     }
 
     private void AnimateClaudeNotificationOut()
@@ -394,8 +396,9 @@ public partial class MainWindow
             content.BeginAnimation(OpacityProperty, MakeCompactContentRestore());
         };
         ClaudeNotification.BeginAnimation(OpacityProperty, fadeOut);
-        ClaudeNotificationTranslate.BeginAnimation(
-            TranslateTransform.YProperty, MakeCompactNotificationExit(0, -4), HandoffBehavior.SnapshotAndReplace);
+        Motion.To(ClaudeNotificationTranslate, TranslateTransform.YProperty, -4, Motion.Exit);
+        Motion.To(ClaudeNotificationIconScale, ScaleTransform.ScaleXProperty, Motion.ExitToScale, Motion.Exit);
+        Motion.To(ClaudeNotificationIconScale, ScaleTransform.ScaleYProperty, Motion.ExitToScale, Motion.Exit);
     }
 
     /// <summary>The notch opens or another alert takes the pill: drop it without an exit animation.</summary>

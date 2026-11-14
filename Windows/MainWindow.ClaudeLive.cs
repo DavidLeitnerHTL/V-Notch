@@ -80,7 +80,7 @@ public partial class MainWindow
         var session = _claudeLiveSession;
         if (session == null) return;
         if (_bubbleOpen && _bubbleActivity == LiveActivity.Claude) UpdateBubbleContent();
-        ClaudeLiveText.Text = ControlCenterView.FormatElapsed(DateTime.UtcNow - (session.TurnStartedUtc ?? DateTime.UtcNow));
+        CrossFadeText(ClaudeLiveText, ControlCenterView.FormatElapsed(DateTime.UtcNow - (session.TurnStartedUtc ?? DateTime.UtcNow)));
     }
 
     /// <summary>One word for what the session is at, like Claude Code's own spinner: the tool decides it.</summary>
@@ -142,7 +142,7 @@ public partial class MainWindow
     {
         _claudeLiveStatusTimer?.Stop();
         if (_claudeLiveStatusNext is not { } word || _cleanedUp) return;
-        ClaudeLiveStatus.Text = word;
+        CrossFadeText(ClaudeLiveStatus, word);
         _claudeLiveStatusShownUtc = DateTime.UtcNow;
     }
 
@@ -155,8 +155,9 @@ public partial class MainWindow
     /// </summary>
     private void ApplyClaudeLiveMotion()
     {
-        bool big = ClaudeLive.IsVisible && _claudeLiveSession != null;
-        bool inBubble = _bubbleShown && _bubbleActivity == LiveActivity.Claude && ActivityBubble.IsVisible;
+        bool allowed = !_cleanedUp && AmbientAnimationsAllowed;
+        bool big = allowed && ClaudeLive.IsVisible && _claudeLiveSession != null;
+        bool inBubble = allowed && _bubbleShown && _bubbleActivity == LiveActivity.Claude && ActivityBubble.IsVisible;
         ClaudeSession? orbSession = inBubble && _bubbleClaudeSessions.Count > 0 ? _bubbleClaudeSessions[0] : null;
 
         // The clock only runs while a time is on screen.
@@ -197,12 +198,11 @@ public partial class MainWindow
             ClaudeLiveStarRotate.BeginAnimation(RotateTransform.AngleProperty, ClaudeLiveSpin());
             // At cover size a bare spin reads as a loading wheel; a slow breath makes it feel alive.
             Scale(ClaudeLiveStarScale, ClaudeLivePulse(0.86, 1200));
-            // A light sweeps over the status word, then rests a moment before the next pass.
+            // The sweep's reset is outside the word, so the next pass can start without a hold.
             var sweep = new DoubleAnimationUsingKeyFrames { RepeatBehavior = RepeatBehavior.Forever };
             sweep.KeyFrames.Add(new DiscreteDoubleKeyFrame(-1, KeyTime.FromTimeSpan(TimeSpan.Zero)));
             sweep.KeyFrames.Add(new EasingDoubleKeyFrame(1, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(1500)),
                 new SineEase { EasingMode = EasingMode.EaseInOut }));
-            sweep.KeyFrames.Add(new DiscreteDoubleKeyFrame(1, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(2200))));
             Timeline.SetDesiredFrameRate(sweep, ClaudeLiveFps);
             ClaudeLiveStatusShine.BeginAnimation(TranslateTransform.XProperty, sweep);
         }
@@ -250,7 +250,11 @@ public partial class MainWindow
     private DispatcherTimer CreateClaudeLiveClock()
     {
         var timer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(1) };
-        timer.Tick += (_, _) => UpdateClaudeLiveText();
+        timer.Tick += (_, _) =>
+        {
+            ApplyClaudeLiveMotion();
+            if (timer.IsEnabled) UpdateClaudeLiveText();
+        };
         return timer;
     }
 

@@ -46,11 +46,18 @@ internal sealed class PhoneMirrorWindow : Window
     private string? _startingSerial;
     private double _aspect = 1200.0 / 2608.0;
     private EventHandler? _frame;
+    private readonly Func<bool> _motionAllowed;
+    private SpringDoubleAnimation[]? _rectangleSprings;
+    private readonly Stopwatch _springClock = new();
+    private Int32Rect _springTarget;
+    private Action? _springDone;
     private IntPtr _hwnd;
 
-    public PhoneMirrorWindow(Func<NotchAnchor?> anchor)
+    public PhoneMirrorWindow(Func<NotchAnchor?> anchor, Func<bool>? motionAllowed = null)
     {
         _anchor = anchor;
+        _motionAllowed = motionAllowed ?? (() => true);
+        IsVisibleChanged += (_, _) => RefreshMotionVisibility();
         WindowStyle = WindowStyle.None;
         ResizeMode = ResizeMode.NoResize;
         ShowInTaskbar = false;
@@ -163,15 +170,13 @@ internal sealed class PhoneMirrorWindow : Window
         Topmost = !_fullscreen;
         var target = DockedRect(anchor);
         var start = TuckedRect(anchor);
-        PlaceNow(start);
-        SetScreenVisible(false);
+        if (_frame == null) PlaceNow(start);
+        SetScreenVisible(_child != null);
         Show();
         // The body grows right away; the picture joins as soon as scrcpy is up (at once when it was warm).
         var ready = EnsureScrcpyAsync(serial);
-        bool grown = false;
-        Spring(start, target, stiffness: 300, damping: 21, done: () =>
+        Spring(CurrentRect(), target, Motion.Pop, done: () =>
         {
-            grown = true;
             if (ready.IsCompletedSuccessfully && ready.Result) RevealScreen();
         });
         bool ok = await ready;
@@ -181,19 +186,18 @@ internal sealed class PhoneMirrorWindow : Window
             PullIn();
             return;
         }
-        if (grown) RevealScreen();
+        RevealScreen();
     }
 
     /// <summary>Full height (top of the screen to the bottom, under the notch) or back to hanging from the notch.</summary>
     public void ToggleFullscreen()
     {
-        if (State == MirrorState.Hidden || _frame != null || _anchor() is not { } anchor) return;
+        if (State == MirrorState.Hidden || _anchor() is not { } anchor) return;
         _fullscreen = !_fullscreen;
         _fullGlyph.Text = _fullscreen ? "\uE73F" : "\uE740";
         State = MirrorState.Docked;
         Topmost = !_fullscreen;
-        SetScreenVisible(false);
-        Spring(CurrentRect(), DockedRect(anchor), stiffness: 360, damping: 27, done: RevealScreen);
+        Spring(CurrentRect(), DockedRect(anchor), Motion.Glide, done: RevealScreen);
     }
 
     /// <summary>Pulls the mirror back into the notch; scrcpy stays warm for a little while.</summary>
@@ -201,7 +205,6 @@ internal sealed class PhoneMirrorWindow : Window
     {
         if (State == MirrorState.Hidden) return;
         State = MirrorState.Hidden;
-        SetScreenVisible(false);
         var anchor = _anchor();
         if (anchor == null || !IsVisible)
         {
@@ -210,7 +213,7 @@ internal sealed class PhoneMirrorWindow : Window
             return;
         }
         Topmost = true;
-        Spring(CurrentRect(), TuckedRect(anchor.Value), stiffness: 520, damping: 46, done: () =>
+        Spring(CurrentRect(), TuckedRect(anchor.Value), Motion.PopBack, done: () =>
         {
             Hide();
             _coolDown.Stop();
@@ -223,6 +226,7 @@ internal sealed class PhoneMirrorWindow : Window
     public void Shutdown()
     {
         StopFrame();
+        _springDone = null;
         State = MirrorState.Hidden;
         Hide();
         StopScrcpy();
@@ -333,7 +337,7 @@ internal sealed class PhoneMirrorWindow : Window
         {
             State = MirrorState.Docked;
             Topmost = true;
-            Spring(now, DockedRect(anchor), stiffness: 380, damping: 26, done: null);
+            Spring(now, DockedRect(anchor), Motion.Pop, done: null);
         }
         else
         {
@@ -396,51 +400,72 @@ internal sealed class PhoneMirrorWindow : Window
     /// Moves the window along damped springs: height leads, width follows a touch softer, so the body
     /// stretches out of the notch like a drop and settles with a small overshoot.
     /// </summary>
-    private void Spring(Int32Rect from, Int32Rect to, double stiffness, double damping, Action? done)
+    private void Spring(Int32Rect from, Int32Rect to, SpringMotion spring, Action? done)
     {
-        StopFrame();
-        if (AnimationConfig.ReduceMotion)
-        {
-            PlaceNow(to);
-            done?.Invoke();
-            return;
-        }
         double[] value = [from.X + from.Width / 2.0, from.Y, from.Width, from.Height];
         double[] goal = [to.X + to.Width / 2.0, to.Y, to.Width, to.Height];
         double[] velocity = new double[4];
-        double[] k = [stiffness, stiffness, stiffness * 0.8, stiffness];
-        var clock = Stopwatch.StartNew();
-        double last = 0;
+        if (_rectangleSprings is { } previous && _frame != null)
+        {
+            double elapsed = _springClock.Elapsed.TotalSeconds;
+            for (int i = 0; i < 4; i++)
+            {
+                value[i] = previous[i].ValueAt(elapsed);
+                velocity[i] = previous[i].VelocityAt(elapsed);
+            }
+        }
+        StopFrame();
+        _springTarget = to;
+        _springDone = done;
+        if (AnimationConfig.ReduceMotion || !IsVisible || !_motionAllowed())
+        {
+            PlaceNow(to);
+            CompleteSpring();
+            return;
+        }
+        // The same closed-form springs as the notch preserve speed when a resize reverses.
+        _rectangleSprings = new SpringDoubleAnimation[4];
+        for (int i = 0; i < 4; i++) _rectangleSprings[i] = spring.Animate(value[i], goal[i], velocity[i]);
+        _springClock.Restart();
+        double last = -1;
         _frame = (_, _) =>
         {
-            double now = clock.Elapsed.TotalSeconds;
-            double dt = Math.Min(0.032, now - last);
+            if (!IsVisible || !_motionAllowed()) { RefreshMotionVisibility(); return; }
+            double now = _springClock.Elapsed.TotalSeconds;
+            if (now - last < 1.0 / AnimationConfig.TargetFps) return;
             last = now;
             bool settled = true;
-            // Small fixed steps keep the spring stable on slow frames.
-            for (double left = dt; left > 0; left -= 0.004)
-            {
-                double step = Math.Min(0.004, left);
-                for (int i = 0; i < 4; i++)
-                {
-                    double force = -k[i] * (value[i] - goal[i]) - damping * velocity[i];
-                    velocity[i] += force * step;
-                    value[i] += velocity[i] * step;
-                }
-            }
             for (int i = 0; i < 4; i++)
-                if (Math.Abs(value[i] - goal[i]) > 0.5 || Math.Abs(velocity[i]) > 8) settled = false;
-            if (settled || now > 1.6)
+            {
+                value[i] = _rectangleSprings[i].ValueAt(now);
+                if (now < _rectangleSprings[i].Duration.TimeSpan.TotalSeconds) settled = false;
+            }
+            if (settled)
             {
                 StopFrame();
                 PlaceNow(to);
-                done?.Invoke();
+                CompleteSpring();
                 return;
             }
-            int width = (int)Math.Round(value[2]), height = (int)Math.Round(value[3]);
+            int width = Math.Max(1, (int)Math.Round(value[2])), height = Math.Max(1, (int)Math.Round(value[3]));
             PlaceNow(new Int32Rect((int)Math.Round(value[0] - width / 2.0), (int)Math.Round(value[1]), width, height));
         };
         CompositionTarget.Rendering += _frame;
+    }
+
+    public void RefreshMotionVisibility()
+    {
+        if (_frame == null || (IsVisible && _motionAllowed() && !AnimationConfig.ReduceMotion)) return;
+        StopFrame();
+        PlaceNow(_springTarget);
+        CompleteSpring();
+    }
+
+    private void CompleteSpring()
+    {
+        var done = _springDone;
+        _springDone = null;
+        done?.Invoke();
     }
 
     private void StopFrame()

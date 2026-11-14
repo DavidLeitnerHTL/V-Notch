@@ -132,6 +132,7 @@ public partial class MainWindow
     private void StepClaudeDonePillAside()
     {
         int token = _claudeNotificationToken;
+        KeepCompactDeparture(ClaudeNotification);
         CancelClaudeNotificationImmediate();
         _compactPillArbiter.Release(token);
         RestorePrivacyDotVisibility();

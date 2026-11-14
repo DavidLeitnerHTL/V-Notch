@@ -280,7 +280,7 @@ public partial class MainWindow
                 brush.Color = to;
                 return;
             }
-            var change = new ColorAnimation(to, new Duration(TimeSpan.FromMilliseconds(400)));
+            var change = new ColorAnimation(to, new Duration(TimeSpan.FromMilliseconds(180)));
             Timeline.SetDesiredFrameRate(change, ChargeGlowFps);
             brush.BeginAnimation(SolidColorBrush.ColorProperty, change);
         }
@@ -391,16 +391,10 @@ public partial class MainWindow
             return;
         }
         int token = _chargeToken;
-        var back = new DoubleAnimation(0, new Duration(TimeSpan.FromMilliseconds(fast ? 120 : 180)))
-        {
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
-        };
-        Fps(back);
-        back.Completed += (_, _) =>
+        Motion.To(ChargeCableGrow, ScaleTransform.ScaleXProperty, 0, Motion.PopBack, done: () =>
         {
             if (token == _chargeToken) ChargeCable.Visibility = Visibility.Collapsed;
-        };
-        ChargeCableGrow.BeginAnimation(ScaleTransform.ScaleXProperty, back);
+        });
     }
 
     /// <summary>The face is on screen (after the bud or the swap): play what the moment asks for.</summary>
@@ -430,21 +424,14 @@ public partial class MainWindow
         timer.Tick += (_, _) =>
         {
             timer.Stop();
-            if (token == _chargeToken && !_cleanedUp) action();
+            if (token == _chargeToken && !_cleanedUp && ActivityBubble.IsVisible && (AmbientAnimationsAllowed || AnimationConfig.ReduceMotion)) action();
         };
         timer.Start();
     }
 
     private void AnimateChargeRing(int level, TimeSpan duration)
     {
-        if (AnimationConfig.ReduceMotion)
-        {
-            Still(this, ChargeRingLevelProperty, level);
-            return;
-        }
-        var ring = new DoubleAnimation(level, new Duration(duration)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } };
-        Fps(ring);
-        BeginAnimation(ChargeRingLevelProperty, ring);
+        Motion.To(this, ChargeRingLevelProperty, level, Motion.Glide);
     }
 
     #endregion
@@ -475,35 +462,20 @@ public partial class MainWindow
             return;
         }
 
-        var grow = new DoubleAnimation(0, 1, new Duration(Ms(190))) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } };
-        Fps(grow);
-        ChargeCableGrow.BeginAnimation(ScaleTransform.ScaleXProperty, grow);
-        var sag = new DoubleAnimation(5, ChargeCableRestSag, new Duration(Ms(900)))
-        {
-            EasingFunction = new ElasticEase { Oscillations = 2, Springiness = 4, EasingMode = EasingMode.EaseOut }
-        };
-        Fps(sag);
-        BeginAnimation(ChargeCableSagProperty, sag);
+        Motion.To(ChargeCableGrow, ScaleTransform.ScaleXProperty, 1, Motion.Pop, from: 0);
+        Motion.To(this, ChargeCableSagProperty, ChargeCableRestSag, Motion.Pop, from: 5);
 
         if (plugged) JoltForCharge(Ms(170));
 
-        var lit = new DoubleAnimation(0, 1, new Duration(Ms(280))) { BeginTime = Ms(330) };
+        var lit = new DoubleAnimation(0, 1, new Duration(Ms(280))) { BeginTime = Motion.Stagger(1) };
         Fps(lit);
         ChargeBolt.BeginAnimation(OpacityProperty, lit);
-        var pop = Keys(Ms(460), (0, 1), (0.4, 1.22), (0.7, 0.95), (1, 1));
-        pop.BeginTime = Ms(330);
-        ChargeBoltScale.BeginAnimation(ScaleTransform.ScaleXProperty, pop);
-        ChargeBoltScale.BeginAnimation(ScaleTransform.ScaleYProperty, pop);
-        var track = new DoubleAnimation(0, 1, new Duration(Ms(300))) { BeginTime = Ms(370) };
+        Motion.To(ChargeBoltScale, ScaleTransform.ScaleXProperty, 1, Motion.Tile, from: Motion.TileFromScale, delay: Motion.Stagger(1));
+        Motion.To(ChargeBoltScale, ScaleTransform.ScaleYProperty, 1, Motion.Tile, from: Motion.TileFromScale, delay: Motion.Stagger(1));
+        var track = new DoubleAnimation(0, 1, new Duration(Ms(300))) { BeginTime = Motion.Stagger(2) };
         Fps(track);
         ChargeTrack.BeginAnimation(OpacityProperty, track);
-        var ring = new DoubleAnimation(0, level, new Duration(Ms(800)))
-        {
-            BeginTime = Ms(430),
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
-        };
-        Fps(ring);
-        BeginAnimation(ChargeRingLevelProperty, ring);
+        Motion.To(this, ChargeRingLevelProperty, level, Motion.Glide, delay: Motion.Stagger(2));
 
         ChargeAfter(Ms(520), () => PlayChargePulse(alongTheRim: plugged));
         ChargeAfter(Ms(1400), RefreshChargePulse);
@@ -512,31 +484,19 @@ public partial class MainWindow
     /// <summary>The notch squashes a little as the cable lands in it, the orb with it.</summary>
     private void JoltForCharge(TimeSpan delay)
     {
-        var squeezeX = Keys(Ms(380), (0, 1), (0.28, 1.05), (0.62, 0.98), (1, 1));
-        var squeezeY = Keys(Ms(380), (0, 1), (0.28, 0.95), (0.62, 1.02), (1, 1));
-        foreach (var animation in new[] { squeezeX, squeezeY })
+        ChargeAfter(delay, () =>
         {
-            animation.BeginTime = delay;
-            animation.FillBehavior = FillBehavior.Stop;
-        }
-        BubbleScale.BeginAnimation(ScaleTransform.ScaleXProperty, squeezeX);
-        BubbleScale.BeginAnimation(ScaleTransform.ScaleYProperty, squeezeY);
-
-        // Only a resting notch: hover and press own its scale otherwise.
-        bool resting = !_isExpanded && !_isAnimating &&
-                       Math.Abs(NotchScale.ScaleX - 1) < 0.001 && Math.Abs(NotchScale.ScaleY - 1) < 0.001;
-        if (!resting) return;
-        var joltX = Keys(Ms(460), (0, 1), (0.3, 1.03), (0.64, 0.993), (1, 1));
-        var joltY = Keys(Ms(460), (0, 1), (0.3, 0.95), (0.64, 1.012), (1, 1));
-        foreach (var animation in new[] { joltX, joltY })
-        {
-            animation.BeginTime = delay;
-            animation.FillBehavior = FillBehavior.Stop;
-        }
-        NotchScale.BeginAnimation(ScaleTransform.ScaleXProperty, joltX);
-        NotchScale.BeginAnimation(ScaleTransform.ScaleYProperty, joltY);
-        NotchShadowScale.BeginAnimation(ScaleTransform.ScaleXProperty, joltX);
-        NotchShadowScale.BeginAnimation(ScaleTransform.ScaleYProperty, joltY);
+            Motion.To(BubbleScale, ScaleTransform.ScaleXProperty, 1, Motion.Press, velocity: 1.4);
+            Motion.To(BubbleScale, ScaleTransform.ScaleYProperty, 1, Motion.Press, velocity: -1.4);
+            bool resting = !_isExpanded && !_isAnimating &&
+                Math.Abs(NotchScale.ScaleX - 1) < 0.001 && Math.Abs(NotchScale.ScaleY - 1) < 0.001;
+            if (!resting) return;
+            foreach (var scale in new[] { NotchScale, NotchShadowScale })
+            {
+                Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.Press, velocity: 0.8);
+                Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.Press, velocity: -1.4);
+            }
+        });
     }
 
     /// <summary>
@@ -548,16 +508,12 @@ public partial class MainWindow
 
     private void PlayChargePulse(bool alongTheRim)
     {
-        if (AnimationConfig.ReduceMotion || !_chargeConnected || _cleanedUp) return;
+        if (AnimationConfig.ReduceMotion || !AmbientAnimationsAllowed || !ActivityBubble.IsVisible || !_chargeConnected || _cleanedUp) return;
 
-        var glint = new DoubleAnimation(44, -14, new Duration(Ms(220))) { EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn } };
-        Timeline.SetDesiredFrameRate(glint, ChargeGlintFps);
-        ChargeGlintShift.BeginAnimation(TranslateTransform.XProperty, glint);
+        Motion.To(ChargeGlintShift, TranslateTransform.XProperty, -14, Motion.Glide, from: 44, fps: ChargeGlintFps);
         ChargeGlint.BeginAnimation(OpacityProperty, Blink(Ms(220), TimeSpan.Zero, ChargeGlintFps));
 
-        var run = new DoubleAnimation(_chargeCableLength - 6, 5, new Duration(Ms(240))) { BeginTime = Ms(190) };
-        Timeline.SetDesiredFrameRate(run, ChargeGlintFps);
-        ChargeCableGlintShift.BeginAnimation(TranslateTransform.XProperty, run);
+        Motion.To(ChargeCableGlintShift, TranslateTransform.XProperty, 5, Motion.Glide, from: _chargeCableLength - 6, delay: Ms(190), fps: ChargeGlintFps);
         ChargeCableGlint.BeginAnimation(OpacityProperty, Blink(Ms(240), Ms(190), ChargeGlintFps));
 
         var glow = new DoubleAnimationUsingKeyFrames { Duration = new Duration(Ms(620)), BeginTime = Ms(380) };
@@ -569,13 +525,7 @@ public partial class MainWindow
 
         // The streak leaves as the glow peaks, a little behind the light on the cable.
         var streakLength = Ms(alongTheRim ? 1000 : 620);
-        var streak = new DoubleAnimation(RimStreakBefore, alongTheRim ? RimStreakAll : RimStreakHalf, new Duration(streakLength))
-        {
-            BeginTime = Ms(400),
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
-        };
-        Timeline.SetDesiredFrameRate(streak, ChargeGlintFps);
-        _chargeRimShift.BeginAnimation(TranslateTransform.XProperty, streak);
+        Motion.To(_chargeRimShift, TranslateTransform.XProperty, alongTheRim ? RimStreakAll : RimStreakHalf, Motion.Glide, from: RimStreakBefore, delay: Ms(400), fps: ChargeGlintFps);
         double strength = alongTheRim ? 1 : 0.55;
         var rimLight = new DoubleAnimationUsingKeyFrames { Duration = new Duration(streakLength), BeginTime = Ms(400) };
         rimLight.KeyFrames.Add(new LinearDoubleKeyFrame(0, KeyTime.FromPercent(0)));
@@ -621,7 +571,19 @@ public partial class MainWindow
         if (!_chargePulseTimer.IsEnabled) _chargePulseTimer.Start();
     }
 
-    private void StopChargePulse() => _chargePulseTimer?.Stop();
+    private void StopChargePulse()
+    {
+        _chargePulseTimer?.Stop();
+        if (AmbientAnimationsAllowed && ActivityBubble.IsVisible) return;
+        // A hidden orb must release even finite light sweeps, not just the next pulse timer.
+        Motion.Stop(ChargeGlintShift, TranslateTransform.XProperty);
+        Motion.Stop(ChargeCableGlintShift, TranslateTransform.XProperty);
+        Motion.Stop(_chargeRimShift, TranslateTransform.XProperty);
+        Still(ChargeGlint, OpacityProperty, 0);
+        Still(ChargeCableGlint, OpacityProperty, 0);
+        Still(ChargeNotchGlow, OpacityProperty, 0);
+        Still(ChargeNotchRim, OpacityProperty, 0);
+    }
 
     /// <summary>The cable pulls taut and trembles, then snaps in the middle (see <see cref="SnapChargeCable"/>).</summary>
     private void PlayChargeUnplug()
@@ -637,10 +599,8 @@ public partial class MainWindow
             ApplyChargeTint(ChargeGrey, animate: false);
             return;
         }
-        var taut = new DoubleAnimation(-0.7, new Duration(Ms(180))) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } };
-        Fps(taut);
-        BeginAnimation(ChargeCableSagProperty, taut);
-        BubbleSlide.BeginAnimation(TranslateTransform.XProperty, Keys(Ms(300), (0, 0), (0.2, 0.9), (0.4, 0.1), (0.6, 1.1), (0.8, 0.3), (1, 1.4)));
+        Motion.To(this, ChargeCableSagProperty, -0.7, Motion.PressDown);
+        Motion.To(BubbleSlide, TranslateTransform.XProperty, 1.4, Motion.Press);
         ChargeAfter(Ms(300), SnapChargeCable);
     }
 
@@ -652,31 +612,20 @@ public partial class MainWindow
     {
         var sparks = Keys(Ms(360), (0, 1), (0.4, 1), (1, 0));
         ChargeCableSparks.BeginAnimation(OpacityProperty, sparks);
-        var burst = new DoubleAnimation(0.4, 1.4, new Duration(Ms(360))) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } };
-        Fps(burst);
-        ChargeCableSparksScale.BeginAnimation(ScaleTransform.ScaleXProperty, burst);
-        ChargeCableSparksScale.BeginAnimation(ScaleTransform.ScaleYProperty, burst);
-
-        var shrink = new DoubleAnimation(1, 0, new Duration(Ms(340))) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } };
-        Fps(shrink);
-        ChargeCableLeftScale.BeginAnimation(ScaleTransform.ScaleXProperty, shrink);
-        ChargeCableRightScale.BeginAnimation(ScaleTransform.ScaleXProperty, shrink);
-        ChargeCableLeftTurn.BeginAnimation(RotateTransform.AngleProperty, Keys(Ms(340), (0, 0), (0.35, -24), (1, 6)));
-        ChargeCableRightTurn.BeginAnimation(RotateTransform.AngleProperty, Keys(Ms(340), (0, 0), (0.35, 26), (1, -8)));
-
-        BubbleSlide.BeginAnimation(TranslateTransform.XProperty, Keys(Ms(620), (0, 1.4), (0.28, 6.5), (0.6, -1.2), (0.82, 0.4), (1, 0)));
-        var squashX = Keys(Ms(620), (0, 1), (0.28, 0.93), (0.6, 1.02), (1, 1));
-        var squashY = Keys(Ms(620), (0, 1), (0.28, 1.06), (0.6, 0.98), (1, 1));
-        squashX.FillBehavior = squashY.FillBehavior = FillBehavior.Stop;
-        BubbleScale.BeginAnimation(ScaleTransform.ScaleXProperty, squashX);
-        BubbleScale.BeginAnimation(ScaleTransform.ScaleYProperty, squashY);
+        Motion.To(ChargeCableSparksScale, ScaleTransform.ScaleXProperty, 1.4, Motion.Pop, from: 0.4);
+        Motion.To(ChargeCableSparksScale, ScaleTransform.ScaleYProperty, 1.4, Motion.Pop, from: 0.4);
+        Motion.To(ChargeCableLeftScale, ScaleTransform.ScaleXProperty, 0, Motion.PopBack);
+        Motion.To(ChargeCableRightScale, ScaleTransform.ScaleXProperty, 0, Motion.PopBack);
+        Motion.To(ChargeCableLeftTurn, RotateTransform.AngleProperty, 6, Motion.PopBack, velocity: -650);
+        Motion.To(ChargeCableRightTurn, RotateTransform.AngleProperty, -8, Motion.PopBack, velocity: 700);
+        Motion.To(BubbleSlide, TranslateTransform.XProperty, 0, Motion.Pop, velocity: 150);
+        Motion.To(BubbleScale, ScaleTransform.ScaleXProperty, 1, Motion.Press, velocity: -1.8);
+        Motion.To(BubbleScale, ScaleTransform.ScaleYProperty, 1, Motion.Press, velocity: 1.8);
 
         var dark = new DoubleAnimation(0, new Duration(Ms(260))) { BeginTime = Ms(60) };
         Fps(dark);
         ChargeBolt.BeginAnimation(OpacityProperty, dark);
-        var unwind = new DoubleAnimation(0, new Duration(Ms(360))) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn } };
-        Fps(unwind);
-        BeginAnimation(ChargeRingLevelProperty, unwind);
+        Motion.To(this, ChargeRingLevelProperty, 0, Motion.Exit);
         var trackOut = new DoubleAnimation(0, new Duration(Ms(300))) { BeginTime = Ms(200) };
         Fps(trackOut);
         ChargeTrack.BeginAnimation(OpacityProperty, trackOut);
@@ -700,24 +649,18 @@ public partial class MainWindow
             Still(ChargeCheck, System.Windows.Shapes.Shape.StrokeDashOffsetProperty, 0);
             return;
         }
-        var close = new DoubleAnimation(100, new Duration(Ms(850))) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut } };
-        Fps(close);
-        BeginAnimation(ChargeRingLevelProperty, close);
+        Motion.To(this, ChargeRingLevelProperty, 100, Motion.Glide);
         PlayChargePulse();
         ChargeAfter(Ms(330), PlayChargePulse);
         ChargeAfter(Ms(660), PlayChargePulse);
         ChargeAfter(Ms(900), () =>
         {
             var boltOut = new DoubleAnimation(0, new Duration(Ms(220))) { EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn } };
-            var shrink = new DoubleAnimation(0.3, new Duration(Ms(220))) { EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn } };
-            var turn = new DoubleAnimation(-35, new Duration(Ms(220))) { EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn } };
             Fps(boltOut);
-            Fps(shrink);
-            Fps(turn);
             ChargeBoltBox.BeginAnimation(OpacityProperty, boltOut);
-            ChargeBoltScale.BeginAnimation(ScaleTransform.ScaleXProperty, shrink);
-            ChargeBoltScale.BeginAnimation(ScaleTransform.ScaleYProperty, shrink);
-            ChargeBoltTurn.BeginAnimation(RotateTransform.AngleProperty, turn);
+            Motion.To(ChargeBoltScale, ScaleTransform.ScaleXProperty, Motion.ExitToScale, Motion.Exit);
+            Motion.To(ChargeBoltScale, ScaleTransform.ScaleYProperty, Motion.ExitToScale, Motion.Exit);
+            Motion.To(ChargeBoltTurn, RotateTransform.AngleProperty, -35, Motion.Exit);
 
             var show = new DoubleAnimation(0, 1, new Duration(Ms(80))) { BeginTime = Ms(170) };
             var draw = new DoubleAnimation(7, 0, new Duration(Ms(300))) { BeginTime = Ms(170), EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } };
@@ -725,23 +668,15 @@ public partial class MainWindow
             Fps(draw);
             ChargeCheck.BeginAnimation(OpacityProperty, show);
             ChargeCheck.BeginAnimation(System.Windows.Shapes.Shape.StrokeDashOffsetProperty, draw);
-            var tickPop = Keys(Ms(420), (0, 0.8), (0.7, 1.12), (1, 1));
-            tickPop.BeginTime = Ms(170);
-            ChargeCheckScale.BeginAnimation(ScaleTransform.ScaleXProperty, tickPop);
-            ChargeCheckScale.BeginAnimation(ScaleTransform.ScaleYProperty, tickPop);
-
-            var bounce = Keys(Ms(680), (0, 1), (0.32, 1.16), (0.6, 0.95), (0.8, 1.03), (1, 1));
-            bounce.BeginTime = Ms(150);
-            bounce.FillBehavior = FillBehavior.Stop;
-            BubbleScale.BeginAnimation(ScaleTransform.ScaleXProperty, bounce);
-            BubbleScale.BeginAnimation(ScaleTransform.ScaleYProperty, bounce);
+            Motion.To(ChargeCheckScale, ScaleTransform.ScaleXProperty, 1, Motion.Tile, from: Motion.TileFromScale, delay: Motion.Stagger(1));
+            Motion.To(ChargeCheckScale, ScaleTransform.ScaleYProperty, 1, Motion.Tile, from: Motion.TileFromScale, delay: Motion.Stagger(1));
+            Motion.To(BubbleScale, ScaleTransform.ScaleXProperty, 1, Motion.Press, velocity: 3);
+            Motion.To(BubbleScale, ScaleTransform.ScaleYProperty, 1, Motion.Press, velocity: 3);
         });
         ChargeAfter(Ms(3000), () =>
         {
             _chargeConnected = false;
-            var back = new DoubleAnimation(0, new Duration(Ms(260))) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn } };
-            Fps(back);
-            ChargeCableGrow.BeginAnimation(ScaleTransform.ScaleXProperty, back);
+            Motion.To(ChargeCableGrow, ScaleTransform.ScaleXProperty, 0, Motion.PopBack);
         });
     }
 

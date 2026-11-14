@@ -16,6 +16,26 @@ public sealed class NotificationDropTests
     private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
 
     [Fact]
+    public void HidingTheDropLayerStopsItsFrameLoopAndSpringClocks() => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        await using var fixture = new GreetingAcceptanceTests.MainWindowFixture("en", greeting: false,
+            configureSettings: settings => settings.EnableLocalOnlyMode = true,
+            configureServices: services => services.AddSingleton<IMediaDetectionService>(new FakeMediaDetectionService()));
+        var window = fixture.Window;
+        window.Show();
+        var logo = new DrawingImage(new GeometryDrawing(Brushes.Gray, null, new RectangleGeometry(new Rect(0, 0, 14, 14))));
+        Invoke(window, "ShowNotchPill", "Discord", "Alex: hi", logo, false, new Func<bool>(() => true), null, null, null);
+        await WpfFrameWaiter.UntilAsync(() => window.ClaudeNotification.Opacity > 0.99, "pill shown", ct);
+        Invoke(window, "PlayNotificationDrop", IntPtr.Zero);
+        var layer = Field<System.Windows.Controls.Canvas>(window, "_dropLayer");
+        Assert.NotNull(Field<EventHandler?>(window, "_dropFrame"));
+        layer.Visibility = Visibility.Collapsed;
+        Assert.Null(Field<EventHandler?>(window, "_dropFrame"));
+        Assert.False(Field<TranslateTransform>(window, "_dropMove").HasAnimatedProperties);
+        Assert.False(Field<ScaleTransform>(window, "_dropScale").HasAnimatedProperties);
+    });
+
+    [Fact]
     public void TappingAnAppPillDropsItsLogoOutOfTheNotchOnATearingNeck() => SharedStaTestRunner.RunAsync(async ct =>
     {
         await using var fixture = new GreetingAcceptanceTests.MainWindowFixture("en", greeting: false,

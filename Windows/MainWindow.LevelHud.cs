@@ -202,29 +202,22 @@ public partial class MainWindow
     {
         TintPath(VolumeIndicatorSun, accent, fill: true);
         TintPath(VolumeIndicatorSunRays, accent, fill: false);
-
         double t = Math.Clamp(level, 0, 1);
         double rayScale = 0.78 + 0.22 * t;
-        double current = VolumeIndicatorSunRaysScale.ScaleX;
-        VolumeIndicatorSunRaysScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-        VolumeIndicatorSunRaysScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-        VolumeIndicatorSunRaysScale.ScaleX = VolumeIndicatorSunRaysScale.ScaleY = rayScale;
-        VolumeIndicatorSunRays.Opacity = 0.5 + 0.5 * t;
-
-        if (!animate || AnimationConfig.ReduceMotion) return;
-        if (Math.Abs(current - rayScale) > 0.005)
+        if (animate)
         {
-            var grow = MakeAnim(current, rayScale, _dur250, _easeSoftSpring);
-            grow.FillBehavior = FillBehavior.Stop;
-            VolumeIndicatorSunRaysScale.BeginAnimation(ScaleTransform.ScaleXProperty, grow);
-            VolumeIndicatorSunRaysScale.BeginAnimation(ScaleTransform.ScaleYProperty, grow);
+            Motion.To(VolumeIndicatorSunRaysScale, ScaleTransform.ScaleXProperty, rayScale, Motion.Glide);
+            Motion.To(VolumeIndicatorSunRaysScale, ScaleTransform.ScaleYProperty, rayScale, Motion.Glide);
+            Motion.To(VolumeIndicatorSunRays, OpacityProperty, 0.5 + 0.5 * t, Motion.Glide);
+            Motion.To(VolumeIndicatorIconScale, ScaleTransform.ScaleXProperty, 1, Motion.Press, velocity: 2.5);
+            Motion.To(VolumeIndicatorIconScale, ScaleTransform.ScaleYProperty, 1, Motion.Press, velocity: 2.5);
         }
-        var pop = new DoubleAnimationUsingKeyFrames();
-        pop.KeyFrames.Add(new EasingDoubleKeyFrame(1.16, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(75)), _easeQuadOut));
-        pop.KeyFrames.Add(new EasingDoubleKeyFrame(1.0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(220)), _easeSoftSpring));
-        Timeline.SetDesiredFrameRate(pop, AnimationConfig.TargetFps);
-        VolumeIndicatorIconScale.BeginAnimation(ScaleTransform.ScaleXProperty, pop);
-        VolumeIndicatorIconScale.BeginAnimation(ScaleTransform.ScaleYProperty, pop);
+        else
+        {
+            Motion.Stop(VolumeIndicatorSunRaysScale, ScaleTransform.ScaleXProperty, rayScale);
+            Motion.Stop(VolumeIndicatorSunRaysScale, ScaleTransform.ScaleYProperty, rayScale);
+            Motion.Stop(VolumeIndicatorSunRays, OpacityProperty, 0.5 + 0.5 * t);
+        }
     }
 
     private ScaleTransform? _powerModeIconScale;
@@ -254,14 +247,10 @@ public partial class MainWindow
         int step = _powerModeLook.Step;
         int previous = _powerModeIconStep;
         _powerModeIconStep = step;
-        if (!animate || previous == 0 || previous == step || _powerModeIconScale == null || AnimationConfig.ReduceMotion) return;
-        double peak = step > previous ? 1.22 : 1.12;
-        var pop = new DoubleAnimationUsingKeyFrames();
-        pop.KeyFrames.Add(new EasingDoubleKeyFrame(peak, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(85)), _easeQuadOut));
-        pop.KeyFrames.Add(new EasingDoubleKeyFrame(1.0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(260)), _easeSoftSpring));
-        Timeline.SetDesiredFrameRate(pop, AnimationConfig.TargetFps);
-        _powerModeIconScale.BeginAnimation(ScaleTransform.ScaleXProperty, pop);
-        _powerModeIconScale.BeginAnimation(ScaleTransform.ScaleYProperty, pop);
+        if (!animate || previous == 0 || previous == step || _powerModeIconScale == null) return;
+        double impulse = step > previous ? 3.5 : 1.9;
+        Motion.To(_powerModeIconScale, ScaleTransform.ScaleXProperty, 1, Motion.Press, velocity: impulse);
+        Motion.To(_powerModeIconScale, ScaleTransform.ScaleYProperty, 1, Motion.Press, velocity: impulse);
     }
 
     private static void TintPath(Shape path, Color color, bool fill)

@@ -30,6 +30,8 @@ public partial class MainWindow
         if (_ambientVisibilityHooked) return;
         _ambientVisibilityHooked = true;
         BatteryFill.IsVisibleChanged += (_, _) => RefreshAmbientAnimations();
+        PrivacyDot.IsVisibleChanged += (_, _) => RefreshPrivacyBreathing();
+        UpdateNotificationButton.IsVisibleChanged += (_, _) => StartUpdatePulseAnimation();
         MediaPlayback.TrackTitle.IsVisibleChanged += (_, _) => RefreshAmbientAnimations();
     }
 
@@ -48,6 +50,12 @@ public partial class MainWindow
         else StopTitleShimmerInternal();
 
         RefreshChargePulse();
+        RefreshPrivacyBreathing();
+        StartUpdatePulseAnimation();
+        ApplyBubbleMusicSpin();
+        ApplyClaudeLiveMotion();
+        if (!allowed) StopNotificationDrop();
+        _phoneMirror?.RefreshMotionVisibility();
     }
 
     private void OnReduceMotionChanged()
@@ -76,14 +84,7 @@ public partial class MainWindow
         }
         AnimationConfig.SetReduceMotion(battery.IsBatterySaver);
 
-        var scaleAnimation = new DoubleAnimation
-        {
-            To = battery.FillRatio,
-            Duration = TimeSpan.FromMilliseconds(300),
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut }
-        };
-        System.Windows.Media.Animation.Timeline.SetDesiredFrameRate(scaleAnimation, VNotch.Services.AnimationConfig.TargetFps);
-        BatteryFillScale.BeginAnimation(ScaleTransform.ScaleXProperty, scaleAnimation);
+        Motion.To(BatteryFillScale, ScaleTransform.ScaleXProperty, battery.FillRatio, Motion.Glide);
 
         SolidColorBrush fillBrush;
         SolidColorBrush percentBrush;
@@ -218,12 +219,10 @@ public partial class MainWindow
         var fadeIn = MakeCompactNotificationEntrance(0, 1);
         ChargingNotification.BeginAnimation(OpacityProperty, fadeIn);
 
-        var slideUp = MakeCompactNotificationEntrance(6, 0);
-        ChargingNotificationTranslate.BeginAnimation(TranslateTransform.YProperty, slideUp);
+        Motion.To(ChargingNotificationTranslate, TranslateTransform.YProperty, 0, Motion.Tile, from: 6);
 
-        var iconScale = MakeAnim(0.6d, 1d, _dur400, _easeSpring, TimeSpan.FromMilliseconds(150));
-        ChargingIconScale.BeginAnimation(ScaleTransform.ScaleXProperty, iconScale);
-        ChargingIconScale.BeginAnimation(ScaleTransform.ScaleYProperty, iconScale);
+        Motion.To(ChargingIconScale, ScaleTransform.ScaleXProperty, 1, Motion.Tile, from: Motion.TileFromScale);
+        Motion.To(ChargingIconScale, ScaleTransform.ScaleYProperty, 1, Motion.Tile, from: Motion.TileFromScale);
 
         StopChargingNotificationDismissTimer();
 
@@ -287,8 +286,9 @@ public partial class MainWindow
 
         ChargingNotification.BeginAnimation(OpacityProperty, fadeOut);
 
-        var slideDown = MakeCompactNotificationExit(0, -4);
-        ChargingNotificationTranslate.BeginAnimation(TranslateTransform.YProperty, slideDown);
+        Motion.To(ChargingNotificationTranslate, TranslateTransform.YProperty, -4, Motion.Exit);
+        Motion.To(ChargingIconScale, ScaleTransform.ScaleXProperty, Motion.ExitToScale, Motion.Exit);
+        Motion.To(ChargingIconScale, ScaleTransform.ScaleYProperty, Motion.ExitToScale, Motion.Exit);
     }
 
     private void CancelChargingGlanceImmediate()
@@ -315,31 +315,12 @@ public partial class MainWindow
 
     private void PlayChargingBounce()
     {
-        if (_isExpanded || _isAnimating) return;
-
-        int fps = VNotch.Services.AnimationConfig.TargetFps;
-
-        double extra = ChargingWattText.Visibility == Visibility.Visible ? 56 : 28;
-        double targetWidth = _collapsedWidth + extra;
-        AnimateCompactWidth(targetWidth, TimeSpan.FromMilliseconds(500), _easeSoftSpring, _chargingGlanceToken);
-
-        var durPeak = TimeSpan.FromMilliseconds(140);
-        var durEnd = TimeSpan.FromMilliseconds(700);
-
-        var bounceX = new DoubleAnimationUsingKeyFrames();
-        bounceX.KeyFrames.Add(new EasingDoubleKeyFrame(1.06, KeyTime.FromTimeSpan(durPeak), _easeQuadOut));
-        bounceX.KeyFrames.Add(new EasingDoubleKeyFrame(1.0, KeyTime.FromTimeSpan(durEnd), _easeSoftSpring));
-        Timeline.SetDesiredFrameRate(bounceX, fps);
-
-        var bounceY = new DoubleAnimationUsingKeyFrames();
-        bounceY.KeyFrames.Add(new EasingDoubleKeyFrame(0.95, KeyTime.FromTimeSpan(durPeak), _easeQuadOut));
-        bounceY.KeyFrames.Add(new EasingDoubleKeyFrame(1.0, KeyTime.FromTimeSpan(durEnd), _easeSoftSpring));
-        Timeline.SetDesiredFrameRate(bounceY, fps);
-
-        NotchScale.BeginAnimation(ScaleTransform.ScaleXProperty, bounceX);
-        NotchScale.BeginAnimation(ScaleTransform.ScaleYProperty, bounceY);
-        NotchShadowScale.BeginAnimation(ScaleTransform.ScaleXProperty, bounceX);
-        NotchShadowScale.BeginAnimation(ScaleTransform.ScaleYProperty, bounceY);
+        if (_isExpanded || _isAnimating || AnimationConfig.ReduceMotion) return;
+        foreach (var scale in new[] { NotchScale, NotchShadowScale })
+        {
+            Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.Press, velocity: 1);
+            Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.Press, velocity: -0.8);
+        }
     }
 
     private static void AnimateBrushTransition(FrameworkElement element, SolidColorBrush targetBrush)
@@ -379,25 +360,9 @@ public partial class MainWindow
 
     private void AnimateChargingBolt(bool show)
     {
-        var opacityAnimation = new DoubleAnimation
-        {
-            To = show ? 1.0 : 0.0,
-            Duration = TimeSpan.FromMilliseconds(250),
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
-        };
-
-        var scaleAnimation = new DoubleAnimation
-        {
-            To = show ? 1.0 : 0.95,
-            Duration = TimeSpan.FromMilliseconds(250),
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
-        };
-
-        System.Windows.Media.Animation.Timeline.SetDesiredFrameRate(opacityAnimation, VNotch.Services.AnimationConfig.TargetFps);
-        ChargingBolt.BeginAnimation(OpacityProperty, opacityAnimation);
-        System.Windows.Media.Animation.Timeline.SetDesiredFrameRate(scaleAnimation, VNotch.Services.AnimationConfig.TargetFps);
-        ChargingBoltScale.BeginAnimation(ScaleTransform.ScaleXProperty, scaleAnimation);
-        ChargingBoltScale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleAnimation);
+        Motion.To(ChargingBolt, OpacityProperty, show ? 1 : 0, show ? Motion.Tile : Motion.Exit);
+        Motion.To(ChargingBoltScale, ScaleTransform.ScaleXProperty, show ? 1 : Motion.ExitToScale, show ? Motion.Tile : Motion.Exit);
+        Motion.To(ChargingBoltScale, ScaleTransform.ScaleYProperty, show ? 1 : Motion.ExitToScale, show ? Motion.Tile : Motion.Exit);
     }
 
     private void StartChargingPulse()

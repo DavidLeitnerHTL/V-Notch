@@ -274,7 +274,7 @@ public partial class MainWindow
             var colorAnim = new ColorAnimation
             {
                 To = targetColor,
-                Duration = new Duration(TimeSpan.FromMilliseconds(300)),
+                Duration = new Duration(TimeSpan.FromMilliseconds(180)),
                 EasingFunction = _easeSineInOut
             };
             Timeline.SetDesiredFrameRate(colorAnim, VNotch.Services.AnimationConfig.TargetFps);
@@ -289,18 +289,23 @@ public partial class MainWindow
 
     private static void AnimateDotIn(ScaleTransform scale)
     {
-        var popIn = new DoubleAnimationUsingKeyFrames();
-        popIn.KeyFrames.Add(new EasingDoubleKeyFrame(0.0, KeyTime.FromTimeSpan(TimeSpan.Zero)));
-        popIn.KeyFrames.Add(new EasingDoubleKeyFrame(1.2, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(180)), _easeExpOut7));
-        popIn.KeyFrames.Add(new EasingDoubleKeyFrame(1.0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(400)), _easeSoftSpring));
-        Timeline.SetDesiredFrameRate(popIn, VNotch.Services.AnimationConfig.TargetFps);
-
-        scale.BeginAnimation(ScaleTransform.ScaleXProperty, popIn);
-        scale.BeginAnimation(ScaleTransform.ScaleYProperty, popIn);
+        Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.Tile, from: Motion.TileFromScale);
+        Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.Tile, from: Motion.TileFromScale);
     }
 
-    private static void StartBreathingAnimation(FrameworkElement dot)
+    private bool _privacyBreathing;
+
+    private void RefreshPrivacyBreathing()
     {
+        if (_privacyIndicatorsVisible && !IsPrivacyDotSuppressed && AmbientAnimationsAllowed && PrivacyDot.IsVisible)
+            StartBreathingAnimation(PrivacyDot);
+        else StopBreathingAnimation(PrivacyDot);
+    }
+
+    private void StartBreathingAnimation(FrameworkElement dot)
+    {
+        if (_privacyBreathing || !AmbientAnimationsAllowed || !dot.IsVisible) return;
+        _privacyBreathing = true;
         var breathing = new DoubleAnimation
         {
             From = 1.0,
@@ -316,8 +321,9 @@ public partial class MainWindow
         dot.BeginAnimation(OpacityProperty, breathing);
     }
 
-    private static void StopBreathingAnimation(FrameworkElement dot)
+    private void StopBreathingAnimation(FrameworkElement dot)
     {
+        _privacyBreathing = false;
         dot.BeginAnimation(OpacityProperty, null);
         dot.Opacity = 1.0;
     }

@@ -217,7 +217,8 @@ public sealed class AppNotificationPillTests
         await WpfFrameWaiter.UntilAsync(() => Element<TextBlock>(window, "AppPillSender").Text.EndsWith("+1"), "+1 faded in", ct);
         Assert.StartsWith("Anna", Element<TextBlock>(window, "AppPillSender").Text);
         Invoke(window, "CollapseAppPill");
-        Assert.StartsWith("Ben", Element<TextBlock>(window, "AppPillSender").Text);
+        await WpfFrameWaiter.UntilAsync(() => Element<TextBlock>(window, "AppPillSender").Text.StartsWith("Ben"),
+            "queued sender crossfades into the compact pill", ct);
     });
 
     private static bool Tap(MainWindow window) =>
