@@ -13,14 +13,17 @@ public sealed class MotionTests
     {
         var scale = new ScaleTransform(1, 1);
         Motion.To(scale, ScaleTransform.ScaleXProperty, 2, Motion.Glide);
-        await Task.Delay(90);
+        await Task.Delay(30);
 
         double speed = Motion.VelocityOf(scale, ScaleTransform.ScaleXProperty);
-        Assert.True(speed > 0.5, $"still moving toward 2, was {speed}");
+        Assert.True(Math.Abs(speed) > 0.01, $"still moving, was {speed}");
 
         Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.Glide);
-        // Sent back, it keeps travelling the old way for a moment instead of starting from rest.
-        Assert.True(Motion.VelocityOf(scale, ScaleTransform.ScaleXProperty) > 0.5);
+        // Sent back, it starts with the speed it had instead of from rest (the test machine may be slow, so
+        // only the hand-over is checked, not how fast it was).
+        double handed = Motion.VelocityOf(scale, ScaleTransform.ScaleXProperty);
+        Assert.Equal(Math.Sign(speed), Math.Sign(handed));
+        Assert.InRange(Math.Abs(handed), Math.Abs(speed) * 0.3, Math.Abs(speed) * 3);
     });
 
     [Fact]

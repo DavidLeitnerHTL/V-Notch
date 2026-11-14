@@ -15,26 +15,26 @@ namespace VNotch.Services;
 internal static partial class Motion
 {
     // Shell: the notch itself opening and closing. Width leads, height swings a little longer.
-    public static readonly SpringMotion ShellOpenWidth = Ms(420, 0.32);
-    public static readonly SpringMotion ShellOpenHeight = Ms(460, 0.26);
-    public static readonly SpringMotion ShellCloseWidth = Ms(300, 0.12);
-    public static readonly SpringMotion ShellCloseHeight = Ms(280, 0.05);
+    public static readonly SpringMotion ShellOpenWidth = Ms(400, 0.44);
+    public static readonly SpringMotion ShellOpenHeight = Ms(520, 0.36);
+    public static readonly SpringMotion ShellCloseWidth = Ms(340, 0.24);
+    public static readonly SpringMotion ShellCloseHeight = Ms(300, 0.10);
 
     // Pop: whatever grows out of the closed notch (pills, HUDs, the orb, the phone) and goes back in.
-    public static readonly SpringMotion Pop = Ms(380, 0.38);
-    public static readonly SpringMotion PopBack = Ms(300, 0.10);
+    public static readonly SpringMotion Pop = Ms(440, 0.50);
+    public static readonly SpringMotion PopBack = Ms(340, 0.22);
 
     // Glide: size and layout changes (tab switch, folding sections, sliders settling).
-    public static readonly SpringMotion Glide = Ms(380, 0.15);
+    public static readonly SpringMotion Glide = Ms(420, 0.28);
 
     // Tile: content arriving, staggered by StaggerMs from TileFromScale.
-    public static readonly SpringMotion Tile = Ms(400, 0.38);
-    public const double TileFromScale = 0.72;
-    public const int StaggerMs = 30;
-    public const int StaggerCapMs = 240;
+    public static readonly SpringMotion Tile = Ms(450, 0.50);
+    public const double TileFromScale = 0.5;
+    public const int StaggerMs = 38;
+    public const int StaggerCapMs = 300;
 
     // Press: hover, press release, switches, small glyph hops.
-    public static readonly SpringMotion Press = Ms(300, 0.45);
+    public static readonly SpringMotion Press = Ms(340, 0.58);
     // How fast something gives way under the pointer before Press brings it back.
     public static readonly SpringMotion PressDown = Ms(140, 0);
 
