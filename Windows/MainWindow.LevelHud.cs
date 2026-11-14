@@ -185,10 +185,10 @@ public partial class MainWindow
         VolumeIndicatorContainer.IsHitTestVisible = !mic;
         if (mic)
         {
-            VolumeIndicatorIconScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-            VolumeIndicatorIconScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-            VolumeIndicatorIconScale.ScaleX = VolumeIndicatorIconScale.ScaleY = 1;
-            ApplyMicMuteFace(_micMuteShown);
+            Motion.Stop(VolumeIndicatorIconScale, ScaleTransform.ScaleXProperty, 1);
+            Motion.Stop(VolumeIndicatorIconScale, ScaleTransform.ScaleYProperty, 1);
+            // A tint refresh must not reveal the pending face before the dive's hidden midpoint.
+            if (!Motion.IsRunning(VolumeIndicatorMicShift, TranslateTransform.YProperty)) ApplyMicMuteFace(_micMuteShown);
         }
 
         var (tint, has) = EffectiveHudTint();

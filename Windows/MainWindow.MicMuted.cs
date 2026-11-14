@@ -138,9 +138,9 @@ public partial class MainWindow
             MicMutedGlyph.Visibility = Visibility.Visible;
         }
         Motion.To(MicMutedGlyphScale, ScaleTransform.ScaleXProperty, show ? 1 : Motion.ExitToScale,
-            show ? Motion.Tile : Motion.Exit, from: show && entering ? Motion.TileFromScale : null);
+            show ? Motion.TileScale : Motion.Exit, from: show && entering ? Motion.TileFromScale : null);
         Motion.To(MicMutedGlyphScale, ScaleTransform.ScaleYProperty, show ? 1 : Motion.ExitToScale,
-            show ? Motion.Tile : Motion.Exit, from: show && entering ? Motion.TileFromScale : null);
+            show ? Motion.TileScale : Motion.Exit, from: show && entering ? Motion.TileFromScale : null);
         Motion.To(MicMutedGlyph, OpacityProperty, show ? 1 : 0, show ? Motion.Tile : Motion.Exit,
             from: show && entering ? 0 : null, done: () =>
             {

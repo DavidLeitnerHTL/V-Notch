@@ -31,7 +31,7 @@ public partial class MainWindow
     {
         if (element.Visibility != Visibility.Visible) return;
         Motion.To(element, OpacityProperty, 0, Motion.Exit,
-            done: () => element.Visibility = Visibility.Collapsed);
+            done: () => { if (element.Opacity < .01) element.Visibility = Visibility.Collapsed; });
     }
 
     private void KeepCompactDeparture(UIElement surface)
@@ -42,7 +42,11 @@ public partial class MainWindow
         var size = surface.RenderSize;
         var bitmap = new RenderTargetBitmap((int)Math.Ceiling(size.Width * 2),
             (int)Math.Ceiling(size.Height * 2), 192, 192, PixelFormats.Pbgra32);
-        bitmap.Render(surface);
+        // Render in local coordinates: a child's layout offset otherwise cuts its glyph out of the bitmap.
+        var drawing = new DrawingVisual();
+        using (var dc = drawing.RenderOpen())
+            dc.DrawRectangle(new VisualBrush(surface) { Stretch = Stretch.Fill }, null, new Rect(size));
+        bitmap.Render(drawing);
         bitmap.Freeze();
         Point position = surface.TranslatePoint(new Point(), NotchLiveContent);
         var scale = new ScaleTransform(1, 1);
@@ -126,8 +130,8 @@ public partial class MainWindow
         AnimateCompactWidth(_collapsedWidth, _dur350, _easeExpOut6, 0);
         Motion.To(NotchBorder, HeightProperty, _collapsedHeight, Motion.PopBack);
         CompactThumbnailBorder.BeginAnimation(OpacityProperty, null);
-        Motion.To(CompactThumbnailScale, ScaleTransform.ScaleXProperty, 1, Motion.Tile);
-        Motion.To(CompactThumbnailScale, ScaleTransform.ScaleYProperty, 1, Motion.Tile);
+        Motion.To(CompactThumbnailScale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale);
+        Motion.To(CompactThumbnailScale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale);
         if (MusicCompactContentBlur != null)
         {
             MusicCompactContentBlur.BeginAnimation(System.Windows.Media.Effects.BlurEffect.RadiusProperty, null);
@@ -206,6 +210,8 @@ public partial class MainWindow
         int version = ++_compactWidthAnimationVersion;
         long revision = _compactPillArbiter.Revision;
         bool returningToRest = Math.Abs(targetWidth - _collapsedWidth) < 0.5;
+        if (!double.IsFinite(NotchBorder.Width))
+            Motion.Stop(NotchBorder, WidthProperty, NotchBorder.ActualWidth > 0 ? NotchBorder.ActualWidth : _collapsedWidth);
         Motion.To(NotchBorder, WidthProperty, targetWidth, returningToRest ? Motion.PopBack : Motion.Pop, done: () =>
         {
             if (version != _compactWidthAnimationVersion) return;
@@ -219,7 +225,8 @@ public partial class MainWindow
             bool canCommitTarget = token == 0
                 || _compactPillArbiter.IsTokenCurrent(token)
                 || (returningToRest && _compactPillArbiter.CanRestoreMedia(revision + 1));
-            if (canCommitTarget) Motion.Stop(NotchBorder, WidthProperty, targetWidth);
+            if (canCommitTarget && Math.Abs(NotchBorder.Width - targetWidth) < .5)
+                Motion.Stop(NotchBorder, WidthProperty, targetWidth);
         });
     }
 

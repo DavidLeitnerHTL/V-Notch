@@ -23,6 +23,7 @@ public sealed class MainWindowModulePresentationTests
     {
         await using var fixture = CreateFixture();
         var window = fixture.Window;
+        using var host = new HudContentHost(window);
         var settings = Field<NotchSettings>(window, "_settings");
         settings.EnablePrivacyIndicators = true;
         settings.EnableDynamicIslandMode = island;
@@ -35,11 +36,22 @@ public sealed class MainWindowModulePresentationTests
             await WpfFrameWaiter.UntilAsync(() => window.PrivacyDotBrush.Color.R == expected.R && window.PrivacyDotBrush.Color.G == expected.G && window.PrivacyDotBrush.Color.B == expected.B, "privacy dot color", ct);
             Assert.True(window.PrivacyDot.HasAnimatedProperties);
         }
+        window.NotchBorder.Visibility = Visibility.Hidden;
+        Assert.False(window.PrivacyDot.HasAnimatedProperties);
+        window.NotchBorder.Visibility = Visibility.Visible;
+        Assert.True(window.PrivacyDot.HasAnimatedProperties);
+        Set(window, "_isHiddenByFullscreen", true);
+        Invoke(window, "RefreshAmbientAnimations");
+        Assert.False(window.PrivacyDot.HasAnimatedProperties);
+        Set(window, "_isHiddenByFullscreen", false);
+        Invoke(window, "RefreshAmbientAnimations");
+        Assert.True(window.PrivacyDot.HasAnimatedProperties);
         Set(window, "_isMusicCompactMode", true);
         Invoke(window, "UpdatePrivacyDotPosition", true);
         await WpfFrameWaiter.UntilAsync(() => Math.Abs(window.PrivacyIndicatorPanel.Margin.Right - 34) < 1e-6, "privacy dot follows compact music", ct);
         Set(window, "_isVolumeIndicatorActive", true);
         Invoke(window, "SyncPrivacyDotVisibilityForCurrentView");
+        await WpfFrameWaiter.UntilAsync(() => window.PrivacyIndicatorPanel.Visibility == Visibility.Collapsed, "privacy dot leaves for HUD", ct);
         Assert.Equal(Visibility.Collapsed, window.PrivacyIndicatorPanel.Visibility);
         Assert.False(window.PrivacyDot.HasAnimatedProperties);
         Set(window, "_isVolumeIndicatorActive", false);

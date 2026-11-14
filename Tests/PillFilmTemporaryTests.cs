@@ -37,11 +37,11 @@ public sealed class PillFilmTemporaryTests
         {
             Show(window, "Messages", "The download is ready.");
             Assert.Equal(Visibility.Visible, window.AppNotificationPill.Visibility);
-            await Film(window, "notification-arrive", null, ct);
+            await Film(window, root, "notification-arrive", null, ct);
             Invoke(window, "ExpandAppPill");
-            await Film(window, "notification-expand-reverse", () => Invoke(window, "CollapseAppPill"), ct);
+            await Film(window, root, "notification-expand-reverse", () => Invoke(window, "CollapseAppPill"), ct);
             Invoke(window, "DismissAppPill");
-            await Film(window, "notification-exit", null, ct);
+            await Film(window, root, "notification-exit", null, ct);
 
             var arbiter = (CompactPillArbiter)typeof(MainWindow).GetField("_compactPillArbiter", Private)!.GetValue(window)!;
             arbiter.ForceClear();
@@ -51,7 +51,7 @@ public sealed class PillFilmTemporaryTests
             Motion.Stop(window.NotchBorder, FrameworkElement.WidthProperty, 430);
             host.UpdateLayout();
             Show(window, "Calendar", "Your meeting starts soon.");
-            await Film(window, "pill-a-to-pill-b", null, ct);
+            await Film(window, root, "pill-a-to-pill-b", null, ct);
         }
         finally
         {
@@ -65,22 +65,24 @@ public sealed class PillFilmTemporaryTests
     private static void Show(MainWindow window, string title, string body) => Invoke(window, "ShowAppNotificationPill",
         new WindowsNotification(1, "Test", "test.app", title, body, null, new[] { body, "Open the app to continue." }, null), null, 0);
 
-    private static async Task Film(MainWindow window, string name, Action? interrupt, CancellationToken ct)
+    private static async Task Film(MainWindow window, FrameworkElement root, string name, Action? interrupt, CancellationToken ct)
     {
         var frames = new List<BitmapSource>();
         for (int i = 0; i < 18; i++)
         {
             if (i == 2) interrupt?.Invoke();
             window.NotchBorder.UpdateLayout();
+            var capture = new RenderTargetBitmap(1440, 520, 192, 192, PixelFormats.Pbgra32);
+            capture.Render(root);
             var frame = new DrawingVisual();
             using (var dc = frame.RenderOpen())
             {
                 dc.DrawRectangle(new SolidColorBrush(Color.FromRgb(30, 30, 34)), null, new Rect(0, 0, 500, 180));
                 dc.DrawText(new FormattedText($"{i * 50} ms", CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
                     new Typeface("Segoe UI"), 12, Brushes.White, 2), new Point(10, 4));
-                double width = window.NotchBorder.ActualWidth, height = window.NotchBorder.ActualHeight;
-                dc.DrawRectangle(new VisualBrush(window.NotchBorder) { Stretch = Stretch.Fill }, null,
-                    new Rect((500 - width) / 2, 28, width, height));
+                dc.PushClip(new RectangleGeometry(new Rect(0, 26, 500, 154)));
+                dc.DrawImage(capture, new Rect(-110, 28, 720, 260));
+                dc.Pop();
             }
             var bitmap = new RenderTargetBitmap(1000, 360, 192, 192, PixelFormats.Pbgra32);
             bitmap.Render(frame);

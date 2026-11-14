@@ -107,8 +107,6 @@ public partial class MainWindow
         ExpandedContent.RenderTransform = primaryTranslate;
 
         var fadeOut = MakeAnim(1, 0, durOut, _easeQuadInOut);
-        var slideUp = MakeAnim(ExpandedContentRestY, ExpandedContentRestY - 10, durOut, _easeAppleIn);
-        Timeline.SetDesiredFrameRate(slideUp, fps);
 
         bool useContentBlur = _settings.EnableBlurEffects && !IsLiquidGlassEnabled;
         BlurEffect? expandedBlur = null;
@@ -130,7 +128,7 @@ public partial class MainWindow
         };
 
         ExpandedContent.BeginAnimation(OpacityProperty, fadeOut);
-        primaryTranslate.BeginAnimation(TranslateTransform.YProperty, slideUp);
+        Motion.To(primaryTranslate, TranslateTransform.YProperty, ExpandedContentRestY - 10, Motion.Exit);
         if (expandedBlur != null && blurOutAnim != null)
             expandedBlur.BeginAnimation(BlurEffect.RadiusProperty, blurOutAnim);
 
@@ -214,8 +212,8 @@ public partial class MainWindow
         var clockScale = activeClock.RenderTransform as ScaleTransform ?? new ScaleTransform(Motion.TileFromScale, Motion.TileFromScale);
         activeClock.RenderTransform = clockScale;
         activeClock.RenderTransformOrigin = new Point(0.5, 0.5);
-        Motion.To(clockScale, ScaleTransform.ScaleXProperty, 1, Motion.Tile, delay: baseDelay + Motion.Stagger(1));
-        Motion.To(clockScale, ScaleTransform.ScaleYProperty, 1, Motion.Tile, delay: baseDelay + Motion.Stagger(1));
+        Motion.To(clockScale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale, delay: baseDelay + Motion.Stagger(1));
+        Motion.To(clockScale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale, delay: baseDelay + Motion.Stagger(1));
         FrameworkElement[] rows = [CountdownWidget.TimerControlBar, WhiteNoiseWidget];
         for (int i = 0; i < rows.Length; i++)
         {
@@ -265,9 +263,7 @@ public partial class MainWindow
         TimerContent.RenderTransform = timerTranslate;
         TimerContent.RenderTransformOrigin = new Point(0.5, 0.5);
 
-        var timerSlideDown = MakeAnim(0, 40, durScroll, _easeExpOut6);
         var timerFadeOut = MakeAnim(1, 0, new Duration(TimeSpan.FromMilliseconds(210)), _easeQuadInOut);
-        Timeline.SetDesiredFrameRate(timerSlideDown, fps);
         Timeline.SetDesiredFrameRate(timerFadeOut, fps);
 
         timerFadeOut.Completed += (s, ev) =>
@@ -281,7 +277,7 @@ public partial class MainWindow
         };
 
         TimerContent.BeginAnimation(OpacityProperty, timerFadeOut);
-        timerTranslate.BeginAnimation(TranslateTransform.YProperty, timerSlideDown);
+        Motion.To(timerTranslate, TranslateTransform.YProperty, 40, Motion.Exit);
 
         double currentH = NotchBorder.ActualHeight > 0 ? NotchBorder.ActualHeight : _clockViewHeight;
         double currentWidthExit = NotchBorder.ActualWidth > 0 ? NotchBorder.ActualWidth : _clockViewWidth;
@@ -321,9 +317,7 @@ public partial class MainWindow
         var primaryTranslate = new TranslateTransform(0, ExpandedContentRestY - 16);
         ExpandedContent.RenderTransform = primaryTranslate;
 
-        var primarySlideDown = MakeAnim(ExpandedContentRestY - 16, ExpandedContentRestY, durIn, _easeAppleOut, inDelay);
         var primaryFadeIn = MakeAnim(0, 1, durIn, _easeAppleOut, inDelay);
-        Timeline.SetDesiredFrameRate(primarySlideDown, fps);
         Timeline.SetDesiredFrameRate(primaryFadeIn, fps);
 
         primaryFadeIn.Completed += (s, ev) =>
@@ -343,7 +337,7 @@ public partial class MainWindow
         };
 
         ExpandedContent.BeginAnimation(OpacityProperty, primaryFadeIn);
-        primaryTranslate.BeginAnimation(TranslateTransform.YProperty, primarySlideDown);
+        Motion.To(primaryTranslate, TranslateTransform.YProperty, ExpandedContentRestY, Motion.Tile, delay: inDelay);
         PlayMediaContentReveal(inDelay);
     }
 
@@ -395,8 +389,8 @@ public partial class MainWindow
         ResetAnimationThumbnailOverlay();
         CancelThumbnailSwitchAnimations(_currentMediaInfo?.Thumbnail);
 
-        CompactThumbnailScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-        CompactThumbnailScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        Motion.Stop(CompactThumbnailScale, ScaleTransform.ScaleXProperty);
+        Motion.Stop(CompactThumbnailScale, ScaleTransform.ScaleYProperty);
         CompactThumbnailScale.ScaleX = 1.0;
         CompactThumbnailScale.ScaleY = 1.0;
 
@@ -507,12 +501,12 @@ public partial class MainWindow
         Action onCompletedAction = () =>
         {
             if (transitionId.HasValue && generation != _viewTransitionGeneration) return;
+            // Another surface may have taken over while the shell completion was queued.
+            if (Math.Abs(NotchBorder.Width - targetWidth) > 0.5 || Math.Abs(NotchBorder.Height - targetHeight) > 0.5) return;
             _isAnimating = false;
             NotchBorder.IsHitTestVisible = true;
-            NotchBorder.BeginAnimation(WidthProperty, null);
-            NotchBorder.BeginAnimation(HeightProperty, null);
-            NotchBorder.Width = targetWidth;
-            NotchBorder.Height = targetHeight;
+            Motion.Stop(NotchBorder, WidthProperty, targetWidth);
+            Motion.Stop(NotchBorder, HeightProperty, targetHeight);
             RestoreExpandedWindowSize();
             ShowCompletionOverlayContent();
 
@@ -553,20 +547,8 @@ public partial class MainWindow
         }
         else
         {
-            NotchBorder.BeginAnimation(WidthProperty, null);
-            NotchBorder.BeginAnimation(HeightProperty, null);
-            NotchBorder.Width = currentWidth;
-            NotchBorder.Height = currentHeight;
-
-            var widthAnim = MakeAnim(currentWidth, targetWidth, resizeDuration, _easeExpOut6);
-            var heightAnim = MakeAnim(currentHeight, targetHeight, resizeDuration, _easeExpOut6);
-            Timeline.SetDesiredFrameRate(widthAnim, VNotch.Services.AnimationConfig.TargetFps);
-            Timeline.SetDesiredFrameRate(heightAnim, VNotch.Services.AnimationConfig.TargetFps);
-
-            heightAnim.Completed += (_, _) => onCompletedAction();
-
-            NotchBorder.BeginAnimation(WidthProperty, widthAnim, HandoffBehavior.SnapshotAndReplace);
-            NotchBorder.BeginAnimation(HeightProperty, heightAnim, HandoffBehavior.SnapshotAndReplace);
+            Motion.To(NotchBorder, WidthProperty, targetWidth, Motion.PopBack);
+            Motion.To(NotchBorder, HeightProperty, targetHeight, Motion.PopBack, done: onCompletedAction);
         }
     }
 
@@ -596,22 +578,20 @@ public partial class MainWindow
         if (NavIconsPanel.Visibility == Visibility.Visible || NavIconsPanel.Opacity > 0.01)
         {
             NavIconsPanel.BeginAnimation(OpacityProperty, null);
-            NavIconsTranslate.BeginAnimation(TranslateTransform.YProperty, null);
+            Motion.Stop(NavIconsTranslate, TranslateTransform.YProperty);
 
             var navFade = MakeAnim(NavIconsPanel.Opacity, 0.0, duration, _easeQuadIn);
-            var navSlide = MakeAnim(NavIconsTranslate.Y, -8.0, duration, _easeQuadIn);
             Timeline.SetDesiredFrameRate(navFade, VNotch.Services.AnimationConfig.TargetFps);
-            Timeline.SetDesiredFrameRate(navSlide, VNotch.Services.AnimationConfig.TargetFps);
             navFade.Completed += (_, _) =>
             {
                 NavIconsPanel.BeginAnimation(OpacityProperty, null);
                 NavIconsPanel.Opacity = 0;
                 NavIconsPanel.Visibility = Visibility.Collapsed;
-                NavIconsTranslate.BeginAnimation(TranslateTransform.YProperty, null);
+                Motion.Stop(NavIconsTranslate, TranslateTransform.YProperty);
                 NavIconsTranslate.Y = 0;
             };
             NavIconsPanel.BeginAnimation(OpacityProperty, navFade);
-            NavIconsTranslate.BeginAnimation(TranslateTransform.YProperty, navSlide);
+            Motion.To(NavIconsTranslate, TranslateTransform.YProperty, -8, Motion.Exit);
         }
 
         if (NavIconsBackground.Visibility == Visibility.Visible || NavIconsBackground.Opacity > 0.01)
@@ -695,9 +675,9 @@ public partial class MainWindow
         double initialScale)
     {
         element.BeginAnimation(OpacityProperty, null);
-        translate.BeginAnimation(TranslateTransform.YProperty, null);
-        scale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-        scale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        Motion.Stop(translate, TranslateTransform.YProperty);
+        Motion.Stop(scale, ScaleTransform.ScaleXProperty);
+        Motion.Stop(scale, ScaleTransform.ScaleYProperty);
         element.Opacity = 0;
         translate.Y = -10;
         scale.ScaleX = initialScale;
@@ -715,12 +695,25 @@ public partial class MainWindow
         Motion.To(element, OpacityProperty, 1, Motion.Tile, from: 0, delay: beginTime,
             done: () => completed?.Invoke(element, EventArgs.Empty));
         Motion.To(translate, TranslateTransform.YProperty, 0, Motion.Tile, from: -10, delay: beginTime);
-        Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.Tile, from: Motion.TileFromScale, delay: beginTime);
-        Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.Tile, from: Motion.TileFromScale, delay: beginTime);
+        Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale, from: Motion.TileFromScale, delay: beginTime);
+        Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale, from: Motion.TileFromScale, delay: beginTime);
+    }
+
+    private bool _countdownFlashVisibilityHooked;
+
+    private void RefreshCountdownCompleteTextFlash()
+    {
+        if (AmbientAnimationsAllowed && CountdownCompleteText.IsVisible) return;
+        Motion.Stop(CountdownCompleteText, OpacityProperty, 1);
     }
 
     private void StartCountdownCompleteTextFlash()
     {
+        if (!_countdownFlashVisibilityHooked)
+        {
+            _countdownFlashVisibilityHooked = true;
+            CountdownCompleteText.IsVisibleChanged += (_, _) => RefreshCountdownCompleteTextFlash();
+        }
         if (!AmbientAnimationsAllowed || !CountdownCompleteText.IsVisible) return;
         // Three blinks catch the eye, then settle; hidden content never keeps a clock alive.
         var flash = new DoubleAnimation(1, 0.2, new Duration(TimeSpan.FromMilliseconds(500)))
@@ -803,26 +796,26 @@ public partial class MainWindow
     {
         if (CountdownRestartBtnScale != null)
         {
-            CountdownRestartBtnScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-            CountdownRestartBtnScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+            Motion.Stop(CountdownRestartBtnScale, ScaleTransform.ScaleXProperty);
+            Motion.Stop(CountdownRestartBtnScale, ScaleTransform.ScaleYProperty);
             CountdownRestartBtnScale.ScaleX = 1.0;
             CountdownRestartBtnScale.ScaleY = 1.0;
         }
         if (CountdownRestartBtnRotate != null)
         {
-            CountdownRestartBtnRotate.BeginAnimation(RotateTransform.AngleProperty, null);
+            Motion.Stop(CountdownRestartBtnRotate, RotateTransform.AngleProperty);
             CountdownRestartBtnRotate.Angle = 0.0;
         }
         if (CountdownDismissBtnScale != null)
         {
-            CountdownDismissBtnScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-            CountdownDismissBtnScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+            Motion.Stop(CountdownDismissBtnScale, ScaleTransform.ScaleXProperty);
+            Motion.Stop(CountdownDismissBtnScale, ScaleTransform.ScaleYProperty);
             CountdownDismissBtnScale.ScaleX = 1.0;
             CountdownDismissBtnScale.ScaleY = 1.0;
         }
         if (CountdownDismissBtnRotate != null)
         {
-            CountdownDismissBtnRotate.BeginAnimation(RotateTransform.AngleProperty, null);
+            Motion.Stop(CountdownDismissBtnRotate, RotateTransform.AngleProperty);
             CountdownDismissBtnRotate.Angle = 0.0;
         }
     }
@@ -889,7 +882,7 @@ public partial class MainWindow
         NavIconsPanel.BeginAnimation(OpacityProperty, null);
         NavIconsPanel.Visibility = Visibility.Visible;
         NavIconsPanel.Opacity = 0;
-        NavIconsTranslate.BeginAnimation(TranslateTransform.YProperty, null);
+        Motion.Stop(NavIconsTranslate, TranslateTransform.YProperty);
         NavIconsTranslate.Y = -6;
 
         NavIconsBackground.BeginAnimation(OpacityProperty, null);
@@ -914,13 +907,11 @@ public partial class MainWindow
 
         var durOut = new Duration(TimeSpan.FromMilliseconds(220));
         var durIn = new Duration(TimeSpan.FromMilliseconds(430));
-        var inDelay = TimeSpan.FromMilliseconds(70);
+        var inDelay = Motion.Stagger(1);
         int fps = VNotch.Services.AnimationConfig.TargetFps;
 
         var overlayFade = MakeAnim(CountdownCompleteOverlay.Opacity, 0, durOut, _easeQuadIn);
-        var overlaySlide = MakeAnim(0, 18, durOut, _easeQuadIn);
         Timeline.SetDesiredFrameRate(overlayFade, fps);
-        Timeline.SetDesiredFrameRate(overlaySlide, fps);
 
         overlayFade.Completed += (s, e) =>
         {
@@ -929,14 +920,10 @@ public partial class MainWindow
         };
 
         CountdownCompleteOverlay.BeginAnimation(OpacityProperty, overlayFade);
-        overlayTranslate.BeginAnimation(TranslateTransform.YProperty, overlaySlide);
+        Motion.To(overlayTranslate, TranslateTransform.YProperty, 18, Motion.Exit);
 
         var timerFadeIn = MakeAnim(0, 1, durIn, _easeExpOut6, inDelay);
-        var timerSlideIn = MakeAnim(-22, 0, durIn, _easeExpOut7, inDelay);
-        var timerScaleIn = MakeAnim(0.96, 1, durIn, _easeSoftSpring, inDelay);
         Timeline.SetDesiredFrameRate(timerFadeIn, fps);
-        Timeline.SetDesiredFrameRate(timerSlideIn, fps);
-        Timeline.SetDesiredFrameRate(timerScaleIn, fps);
 
         timerFadeIn.Completed += (s, e) =>
         {
@@ -949,7 +936,7 @@ public partial class MainWindow
 
             NavIconsPanel.BeginAnimation(OpacityProperty, null);
             NavIconsPanel.Opacity = 1;
-            NavIconsTranslate.BeginAnimation(TranslateTransform.YProperty, null);
+            Motion.Stop(NavIconsTranslate, TranslateTransform.YProperty);
             NavIconsTranslate.Y = 0;
             NavIconsBackground.BeginAnimation(OpacityProperty, null);
             NavIconsBackground.Opacity = 1;
@@ -964,19 +951,13 @@ public partial class MainWindow
         };
 
         TimerContent.BeginAnimation(OpacityProperty, timerFadeIn);
-        timerTranslate.BeginAnimation(TranslateTransform.YProperty, timerSlideIn);
-        timerScale.BeginAnimation(ScaleTransform.ScaleXProperty, timerScaleIn);
-        timerScale.BeginAnimation(ScaleTransform.ScaleYProperty, timerScaleIn);
+        Motion.To(timerTranslate, TranslateTransform.YProperty, 0, Motion.Tile, delay: inDelay);
+        Motion.To(timerScale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale, delay: inDelay);
+        Motion.To(timerScale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale, delay: inDelay);
 
-        var navFadeIn = MakeAnim(0, 1, new Duration(TimeSpan.FromMilliseconds(260)), _easeQuadOut, TimeSpan.FromMilliseconds(120));
-        var navSlideIn = MakeAnim(-6, 0, new Duration(TimeSpan.FromMilliseconds(300)), _easeExpOut6, TimeSpan.FromMilliseconds(120));
-        var navBgFadeIn = MakeAnim(0, 1, new Duration(TimeSpan.FromMilliseconds(300)), _easePowerOut3, TimeSpan.FromMilliseconds(140));
-        Timeline.SetDesiredFrameRate(navFadeIn, fps);
-        Timeline.SetDesiredFrameRate(navSlideIn, fps);
-        Timeline.SetDesiredFrameRate(navBgFadeIn, fps);
-        NavIconsPanel.BeginAnimation(OpacityProperty, navFadeIn);
-        NavIconsTranslate.BeginAnimation(TranslateTransform.YProperty, navSlideIn);
-        NavIconsBackground.BeginAnimation(OpacityProperty, navBgFadeIn);
+        Motion.To(NavIconsPanel, OpacityProperty, 1, Motion.Tile, from: 0, delay: Motion.Stagger(1));
+        Motion.To(NavIconsTranslate, TranslateTransform.YProperty, 0, Motion.Tile, delay: Motion.Stagger(1));
+        Motion.To(NavIconsBackground, OpacityProperty, 1, Motion.Tile, from: 0, delay: Motion.Stagger(1));
 
         ApplyClockViewWindowSize();
         PrepareClockViewContentSize();
@@ -1010,12 +991,10 @@ public partial class MainWindow
         _isSecondaryView = false;
 
         _isAnimating = true;
-        var durCollapse = new Duration(TimeSpan.FromMilliseconds(400));
-        var widthAnim = MakeAnim(_collapsedWidth, durCollapse, _easeExpOut6, VNotch.Services.AnimationConfig.TargetFps);
-        var heightAnim = MakeAnim(_collapsedHeight, durCollapse, _easeExpOut6, VNotch.Services.AnimationConfig.TargetFps);
         AnimateCornerRadius(_cornerRadiusCollapsed, TimeSpan.FromMilliseconds(360));
 
-        heightAnim.Completed += (s, ev) =>
+        Motion.To(NotchBorder, WidthProperty, _collapsedWidth, Motion.PopBack);
+        Motion.To(NotchBorder, HeightProperty, _collapsedHeight, Motion.PopBack, done: () =>
         {
             if (transitionId != _transitionCoordinator.ActiveTransitionId) return;
             _transitionCoordinator.CompleteTransition(transitionId);
@@ -1055,10 +1034,7 @@ public partial class MainWindow
                 CollapsedContent.Opacity = 0;
                 AnimateCountdownCollapsedContentIn(CollapsedContent);
             }
-        };
-
-        NotchBorder.BeginAnimation(WidthProperty, widthAnim);
-        NotchBorder.BeginAnimation(HeightProperty, heightAnim);
+        });
 
         CountdownWidget.SetCountdownStartVisual(false);
     }
@@ -1107,9 +1083,13 @@ public partial class MainWindow
         content.RenderTransform = group;
         content.RenderTransformOrigin = new Point(0.5, 0.5);
         Motion.To(content, OpacityProperty, 1, Motion.Tile, from: 0);
-        Motion.To(translate, TranslateTransform.YProperty, 0, Motion.Tile);
-        Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.Tile);
-        Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.Tile);
+        Motion.To(translate, TranslateTransform.YProperty, 0, Motion.Tile, done: () =>
+        {
+            if (content.Visibility == Visibility.Visible && content.Opacity > 0.99 && Math.Abs(translate.Y) < 0.01 &&
+                ReferenceEquals(content.RenderTransform, group)) content.RenderTransform = null;
+        });
+        Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale);
+        Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale);
     }
 
     private void RestoreMusicCompactPillAfterCountdownDismiss()
@@ -1131,8 +1111,8 @@ public partial class MainWindow
         if (CompactThumbnailBorder != null && !_isClipboardPeekActive && !_isVolumeIndicatorActive)
         {
             CompactThumbnailBorder.BeginAnimation(OpacityProperty, null);
-            CompactThumbnailScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-            CompactThumbnailScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+            Motion.Stop(CompactThumbnailScale, ScaleTransform.ScaleXProperty);
+            Motion.Stop(CompactThumbnailScale, ScaleTransform.ScaleYProperty);
             CompactThumbnailBorder.Visibility = Visibility.Visible;
 
             if (_currentMediaInfo?.Thumbnail != null)
@@ -1171,17 +1151,17 @@ public partial class MainWindow
 
         CountdownCompleteText.BeginAnimation(OpacityProperty, null);
         CountdownCompleteText.Opacity = 1;
-        CountdownCompleteTextTranslate.BeginAnimation(TranslateTransform.YProperty, null);
-        CountdownCompleteTextScale?.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-        CountdownCompleteTextScale?.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        Motion.Stop(CountdownCompleteTextTranslate, TranslateTransform.YProperty);
+        Motion.Stop(CountdownCompleteTextScale, ScaleTransform.ScaleXProperty);
+        Motion.Stop(CountdownCompleteTextScale, ScaleTransform.ScaleYProperty);
         CountdownRestartHost.BeginAnimation(OpacityProperty, null);
-        CountdownRestartTranslate.BeginAnimation(TranslateTransform.YProperty, null);
-        CountdownRestartRevealScale?.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-        CountdownRestartRevealScale?.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        Motion.Stop(CountdownRestartTranslate, TranslateTransform.YProperty);
+        Motion.Stop(CountdownRestartRevealScale, ScaleTransform.ScaleXProperty);
+        Motion.Stop(CountdownRestartRevealScale, ScaleTransform.ScaleYProperty);
         CountdownDismissHost.BeginAnimation(OpacityProperty, null);
-        CountdownDismissTranslate.BeginAnimation(TranslateTransform.YProperty, null);
-        CountdownDismissRevealScale?.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-        CountdownDismissRevealScale?.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        Motion.Stop(CountdownDismissTranslate, TranslateTransform.YProperty);
+        Motion.Stop(CountdownDismissRevealScale, ScaleTransform.ScaleXProperty);
+        Motion.Stop(CountdownDismissRevealScale, ScaleTransform.ScaleYProperty);
         CountdownCompleteSurface.BeginAnimation(OpacityProperty, null);
         CountdownCompleteSurface.Opacity = 0;
 

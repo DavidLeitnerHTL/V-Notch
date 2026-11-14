@@ -104,8 +104,12 @@ public sealed class NotificationDropTests
         ct.ThrowIfCancellationRequested();
     });
 
-    private static object? Invoke(MainWindow window, string name, params object?[] arguments) =>
-        typeof(MainWindow).GetMethod(name, Private)!.Invoke(window, arguments);
+    private static object? Invoke(MainWindow window, string name, params object?[] arguments)
+    {
+        var method = typeof(MainWindow).GetMethod(name, Private)!;
+        return method.Invoke(window, arguments.Concat(Enumerable.Repeat<object?>(Type.Missing,
+            method.GetParameters().Length - arguments.Length)).ToArray());
+    }
 
     private static T Field<T>(MainWindow window, string name) => (T)typeof(MainWindow).GetField(name, Private)!.GetValue(window)!;
 }

@@ -42,8 +42,8 @@ public partial class MainWindow
 
     private void PlayBadgeSpringBounce()
     {
-        Motion.To(ClipboardDropBadgeScale, ScaleTransform.ScaleXProperty, 1, Motion.Tile, from: Motion.TileFromScale);
-        Motion.To(ClipboardDropBadgeScale, ScaleTransform.ScaleYProperty, 1, Motion.Tile, from: Motion.TileFromScale);
+        Motion.To(ClipboardDropBadgeScale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale, from: Motion.TileFromScale);
+        Motion.To(ClipboardDropBadgeScale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale, from: Motion.TileFromScale);
     }
 
 

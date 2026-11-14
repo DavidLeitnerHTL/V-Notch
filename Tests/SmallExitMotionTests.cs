@@ -31,10 +31,11 @@ public sealed class SmallExitMotionTests
         Invoke(window, "SetMicMutedGlyph", false);
         Assert.True(window.MicMutedGlyph.Opacity > 0);
         Assert.Equal(Visibility.Visible, window.MicMutedGlyph.Visibility);
-        await Task.Delay(240, ct);
+        await WpfFrameWaiter.UntilAsync(() => window.MicMutedGlyph.Visibility == Visibility.Collapsed, "call glyph exits", ct);
         Assert.Equal(Visibility.Collapsed, window.MicMutedGlyph.Visibility);
-        Assert.Equal(0.6, window.MicMutedGlyphScale.ScaleX, 3);
-        Assert.Equal(0.6, window.MicMutedGlyphScale.ScaleY, 3);
+        await WpfFrameWaiter.UntilAsync(() => !Motion.IsRunning(window.MicMutedGlyphScale, System.Windows.Media.ScaleTransform.ScaleXProperty), "call glyph shrinks", ct);
+        Assert.Equal(Motion.ExitToScale, window.MicMutedGlyphScale.ScaleX, 3);
+        Assert.Equal(Motion.ExitToScale, window.MicMutedGlyphScale.ScaleY, 3);
     });
 
     [Fact]
@@ -44,9 +45,9 @@ public sealed class SmallExitMotionTests
         target.Text = "Before";
         Invoke(window, "CrossFadeText", target, "After", 120);
         Assert.Equal("Before", target.Text);
-        await Task.Delay(80, ct);
+        await WpfFrameWaiter.UntilAsync(() => target.Text == "After", "text swaps at fade midpoint", ct);
         Assert.Equal("After", target.Text);
-        await Task.Delay(80, ct);
+        await WpfFrameWaiter.UntilAsync(() => !target.HasAnimatedProperties, "text fade settles", ct);
         Assert.Equal(1, target.Opacity, 3);
     });
 
@@ -59,8 +60,8 @@ public sealed class SmallExitMotionTests
         Invoke(window, method, false);
         await Task.Delay(60, ct);
         Invoke(window, method, true);
-        await Task.Delay(800, ct);
         FrameworkElement target = method == "ShowIdleGlance" ? window.IdleGlance : window.MicMutedGlyph;
+        await WpfFrameWaiter.UntilAsync(() => !Motion.IsRunning(target, UIElement.OpacityProperty), "reversed entrance settles", ct);
         Assert.Equal(Visibility.Visible, target.Visibility);
         Assert.Equal(1, target.Opacity, 3);
     });
@@ -73,10 +74,10 @@ public sealed class SmallExitMotionTests
         Invoke(window, "CrossFadeText", target, "After", 120);
         await Task.Delay(40, ct);
         Invoke(window, "CrossFadeText", target, "After", 120);
-        await Task.Delay(40, ct);
+        await WpfFrameWaiter.UntilAsync(() => target.Text == "After", "repeated text reaches its midpoint", ct);
         Assert.Equal("After", target.Text);
         Invoke(window, "CrossFadeText", target, "Final", 120);
-        await Task.Delay(160, ct);
+        await WpfFrameWaiter.UntilAsync(() => target.Text == "Final" && !target.HasAnimatedProperties, "latest text fade settles", ct);
         Assert.Equal("Final", target.Text);
         Assert.Equal(1, target.Opacity, 3);
     });

@@ -104,35 +104,20 @@ public partial class MainWindow
         if (show == _micRestShown) return;
         _micRestShown = show;
         int token = ++_micRestToken;
-        double opacity = MicMutedRestGlyph.Opacity;
-        double scale = MicMutedRestScale.ScaleX;
-        MicMutedRestGlyph.BeginAnimation(OpacityProperty, null);
-        MicMutedRestScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-        MicMutedRestScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        bool entering = MicMutedRestGlyph.Visibility != Visibility.Visible;
         if (show) MicMutedRestGlyph.Visibility = Visibility.Visible;
         // The clock makes room by gliding, in step with the glyph.
         var clockMargin = show ? new Thickness(17, 0, 0, 0) : new Thickness(0);
-        if (AnimationConfig.ReduceMotion) { IdleClock.BeginAnimation(MarginProperty, null); IdleClock.Margin = clockMargin; }
-        else
-        {
-            var glide = new ThicknessAnimation(clockMargin, new Duration(TimeSpan.FromMilliseconds(180))) { EasingFunction = _easeQuadOut };
-            Timeline.SetDesiredFrameRate(glide, AnimationConfig.TargetFps);
-            IdleClock.BeginAnimation(MarginProperty, glide);
-        }
-        if (AnimationConfig.ReduceMotion || (!show && opacity <= 0))
-        {
-            MicMutedRestGlyph.Opacity = show ? 1 : 0;
-            MicMutedRestScale.ScaleX = MicMutedRestScale.ScaleY = show ? 1 : 0.6;
-            MicMutedRestGlyph.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-            return;
-        }
-        var duration = TimeSpan.FromMilliseconds(180);
-        var fade = MakeAnim(show && opacity == 0 ? 0 : opacity, show ? 1 : 0, duration, _easeQuadOut);
-        fade.Completed += (_, _) => { if (token == _micRestToken && !_micRestShown) MicMutedRestGlyph.Visibility = Visibility.Collapsed; };
-        MicMutedRestGlyph.BeginAnimation(OpacityProperty, fade);
-        var pop = MakeAnim(show && opacity == 0 ? 0.6 : scale, show ? 1 : 0.6, duration, show ? _easeSoftSpring : _easeQuadOut);
-        MicMutedRestScale.BeginAnimation(ScaleTransform.ScaleXProperty, pop);
-        MicMutedRestScale.BeginAnimation(ScaleTransform.ScaleYProperty, pop);
+        Motion.MarginTo(IdleClock, clockMargin, Motion.Glide);
+        Motion.To(MicMutedRestScale, ScaleTransform.ScaleXProperty, show ? 1 : Motion.ExitToScale,
+            show ? Motion.TileScale : Motion.Exit, from: show && entering ? Motion.TileFromScale : null);
+        Motion.To(MicMutedRestScale, ScaleTransform.ScaleYProperty, show ? 1 : Motion.ExitToScale,
+            show ? Motion.TileScale : Motion.Exit, from: show && entering ? Motion.TileFromScale : null);
+        Motion.To(MicMutedRestGlyph, OpacityProperty, show ? 1 : 0, show ? Motion.Tile : Motion.Exit,
+            from: show && entering ? 0 : null, done: () =>
+            {
+                if (token == _micRestToken && !_micRestShown) MicMutedRestGlyph.Visibility = Visibility.Collapsed;
+            });
     }
 
     private void ApplyMicMuteFace(bool muted)

@@ -34,7 +34,8 @@ public sealed class OrbPhoneMotionTests
         position = window.BubbleSlide.X;
         Invoke(window, "BudBubble");
         Assert.InRange(Math.Abs(window.BubbleSlide.X - position), 0, 0.5);
-        await Task.Delay(800, ct);
+        await WpfFrameWaiter.UntilAsync(() => !Motion.IsRunning(window.BubbleSlide, TranslateTransform.XProperty),
+            "orb settles after its reversal", ct);
         Assert.Equal(Visibility.Visible, window.ActivityBubble.Visibility);
         Assert.InRange(Math.Abs(window.BubbleSlide.X), 0, 0.1);
     });

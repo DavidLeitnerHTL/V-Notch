@@ -36,12 +36,20 @@ public sealed class ClaudeDropFilmTemporaryTests
         await WpfFrameWaiter.UntilAsync(() => window.ClaudeNotification.Opacity > 0.99, "pill shown", ct);
         await Film(window, "drop", () => Invoke(window, "PlayNotificationDrop", IntPtr.Zero),
             () => Invoke(window, "PlayNotificationDrop", IntPtr.Zero), ct);
+        Invoke(window, "CancelClaudeNotificationImmediate");
+        await Film(window, "copied-pop", () => Invoke(window, "ShowCopiedPill"),
+            () => Invoke(window, "AnimateClaudeNotificationOut"), ct);
+        await WpfFrameWaiter.UntilAsync(() => window.ClaudeNotification.Visibility == Visibility.Collapsed, "copied exit", ct);
+        await Film(window, "timer-finished", () => Invoke(window, "ShowCompletionOverlayContent"),
+            () => { }, ct);
+        await Film(window, "timer-exit", () => Invoke(window, "AnimateCountdownCompleteOverlayOut"),
+            () => { }, ct);
     });
 
     private static async Task Film(MainWindow window, string name, Action trigger, Action interrupt, CancellationToken ct)
     {
         var frames = new List<(BitmapSource Image, int Time)>();
-        double width = 470, height = 175;
+        double width = 560, height = 175;
         var position = window.NotchBorder.TranslatePoint(new Point(0, 0), window.NotchContainer);
         double left = position.X + window.NotchBorder.ActualWidth / 2 - width / 2;
         var clock = Stopwatch.StartNew();
@@ -91,6 +99,10 @@ public sealed class ClaudeDropFilmTemporaryTests
         encoder.Save(file);
     }
 
-    private static object? Invoke(MainWindow window, string name, params object?[] args) =>
-        typeof(MainWindow).GetMethod(name, Private)!.Invoke(window, args);
+    private static object? Invoke(MainWindow window, string name, params object?[] args)
+    {
+        var method = typeof(MainWindow).GetMethod(name, Private)!;
+        return method.Invoke(window, args.Concat(Enumerable.Repeat<object?>(Type.Missing,
+            method.GetParameters().Length - args.Length)).ToArray());
+    }
 }

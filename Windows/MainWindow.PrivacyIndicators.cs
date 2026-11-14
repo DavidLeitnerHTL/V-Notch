@@ -14,6 +14,7 @@ public partial class MainWindow
     #region Privacy Indicators (Mic/Camera In-Use — Single Dot)
 
     private bool _privacyIndicatorsVisible = false;
+    private int _privacyVisibilityToken;
     private PrivacyIndicatorState _lastPrivacyState = PrivacyIndicatorState.Empty;
 
     private const double PrivacyDotDefaultRightMargin = 27.0;
@@ -150,17 +151,11 @@ public partial class MainWindow
         if (IsPrivacyDotSuppressed)
             return;
 
-        PrivacyDot.Visibility = Visibility.Visible;
-        PrivacyIndicatorPanel.Visibility = Visibility.Visible;
-
         UpdatePrivacyDotPosition();
 
         ApplyDotColor(state, animate: false);
 
-        var fadeIn = MakeAnim(0d, 1d, _dur350, _easeExpOut7, null);
-        PrivacyIndicatorPanel.BeginAnimation(OpacityProperty, fadeIn);
-
-        AnimateDotIn(PrivacyDotScale);
+        FadePrivacyDot(show: true);
 
         StartBreathingAnimation(PrivacyDot);
 
@@ -175,14 +170,7 @@ public partial class MainWindow
 
         StopBreathingAnimation(PrivacyDot);
 
-        var fadeOut = MakeAnim(1d, 0d, _dur250, _easePowerIn2, null);
-        fadeOut.Completed += (_, _) =>
-        {
-            if (_privacyIndicatorsVisible) return;
-            PrivacyIndicatorPanel.Visibility = Visibility.Collapsed;
-            PrivacyDot.Visibility = Visibility.Collapsed;
-        };
-        PrivacyIndicatorPanel.BeginAnimation(OpacityProperty, fadeOut);
+        FadePrivacyDot(show: false);
 
         RuntimeLog.Log("PRIVACY", "Dot hidden");
     }
@@ -193,9 +181,7 @@ public partial class MainWindow
         if (!_privacyIndicatorsVisible) return;
 
         StopBreathingAnimation(PrivacyDot);
-        PrivacyIndicatorPanel.BeginAnimation(OpacityProperty, null);
-        PrivacyIndicatorPanel.Opacity = 0;
-        PrivacyIndicatorPanel.Visibility = Visibility.Collapsed;
+        FadePrivacyDot(show: false);
     }
 
     private void RestorePrivacyDotVisibility()
@@ -204,15 +190,11 @@ public partial class MainWindow
         if (!_privacyIndicatorsVisible) return;
         if (IsPrivacyDotSuppressed) return;
 
-        PrivacyDot.Visibility = Visibility.Visible;
-        PrivacyIndicatorPanel.Visibility = Visibility.Visible;
-
         UpdatePrivacyDotPosition();
 
         ApplyDotColor(_lastPrivacyState, animate: false);
 
-        var fadeIn = MakeAnim(0d, 1d, _dur250, _easePowerOut3, null);
-        PrivacyIndicatorPanel.BeginAnimation(OpacityProperty, fadeIn);
+        FadePrivacyDot(show: true);
 
         StartBreathingAnimation(PrivacyDot);
     }
@@ -232,25 +214,9 @@ public partial class MainWindow
             if (h > 0) top = Math.Max(0, (h - PrivacyDotSize) / 2.0);
         }
 
-        var current = PrivacyIndicatorPanel.Margin;
         var target = new Thickness(0, top, right, 0);
-
-        PrivacyIndicatorPanel.BeginAnimation(MarginProperty, null);
-        PrivacyIndicatorPanel.Margin = target;
-
-        if (animate && PrivacyIndicatorPanel.Visibility == Visibility.Visible &&
-            (Math.Abs(current.Right - target.Right) > 0.5 || Math.Abs(current.Top - target.Top) > 0.5))
-        {
-            // Matches the 450ms pill width animation in ApplyMusicCompactMode so
-            // the dot glides with the layout instead of snapping to its new spot.
-            var slide = new ThicknessAnimation(current, target, new Duration(TimeSpan.FromMilliseconds(450)))
-            {
-                EasingFunction = _easeExpOut6,
-                FillBehavior = FillBehavior.Stop
-            };
-            Timeline.SetDesiredFrameRate(slide, VNotch.Services.AnimationConfig.TargetFps);
-            PrivacyIndicatorPanel.BeginAnimation(MarginProperty, slide);
-        }
+        if (animate && PrivacyIndicatorPanel.IsVisible) Motion.MarginTo(PrivacyIndicatorPanel, target, Motion.Glide);
+        else PrivacyIndicatorPanel.Margin = target;
     }
 
     // A single dot prioritizes capture, mic, camera, then location.
@@ -269,7 +235,7 @@ public partial class MainWindow
     {
         Color targetColor = GetPrivacyDotColor(state);
 
-        if (animate)
+        if (animate && !AnimationConfig.ReduceMotion)
         {
             var colorAnim = new ColorAnimation
             {
@@ -287,10 +253,35 @@ public partial class MainWindow
         }
     }
 
-    private static void AnimateDotIn(ScaleTransform scale)
+    private void FadePrivacyDot(bool show)
     {
-        Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.Tile, from: Motion.TileFromScale);
-        Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.Tile, from: Motion.TileFromScale);
+        int token = ++_privacyVisibilityToken;
+        bool entering = PrivacyIndicatorPanel.Visibility != Visibility.Visible;
+        if (!show && !PrivacyIndicatorPanel.IsVisible)
+        {
+            Motion.Stop(PrivacyIndicatorPanel, OpacityProperty, 0);
+            Motion.Stop(PrivacyDotScale, ScaleTransform.ScaleXProperty, Motion.ExitToScale);
+            Motion.Stop(PrivacyDotScale, ScaleTransform.ScaleYProperty, Motion.ExitToScale);
+            PrivacyIndicatorPanel.Visibility = Visibility.Collapsed;
+            PrivacyDot.Visibility = Visibility.Collapsed;
+            return;
+        }
+        if (show)
+        {
+            PrivacyDot.Visibility = Visibility.Visible;
+            PrivacyIndicatorPanel.Visibility = Visibility.Visible;
+        }
+        Motion.To(PrivacyDotScale, ScaleTransform.ScaleXProperty, show ? 1 : Motion.ExitToScale,
+            show ? Motion.TileScale : Motion.Exit, from: show && entering ? Motion.TileFromScale : null);
+        Motion.To(PrivacyDotScale, ScaleTransform.ScaleYProperty, show ? 1 : Motion.ExitToScale,
+            show ? Motion.TileScale : Motion.Exit, from: show && entering ? Motion.TileFromScale : null);
+        Motion.To(PrivacyIndicatorPanel, OpacityProperty, show ? 1 : 0, show ? Motion.Tile : Motion.Exit,
+            from: show && entering ? 0 : null, done: () =>
+            {
+                if (token != _privacyVisibilityToken || show) return;
+                PrivacyIndicatorPanel.Visibility = Visibility.Collapsed;
+                PrivacyDot.Visibility = Visibility.Collapsed;
+            });
     }
 
     private bool _privacyBreathing;

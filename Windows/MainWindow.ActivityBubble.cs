@@ -214,8 +214,8 @@ public partial class MainWindow
             PrepareChargeFace();
             ChargeAfter(Motion.Stagger(1), ChargeFaceReady);
         }
-        foreach (var property in new[] { WidthProperty, HeightProperty, MarginProperty })
-            BubbleIcon.BeginAnimation(property, null);
+        Motion.Stop(BubbleIcon, WidthProperty);
+        Motion.Stop(BubbleIcon, HeightProperty);
         double size = FaceSize(activity, _bubbleOpen);
         BubbleIcon.Width = BubbleIcon.Height = size;
         Motion.Stop(this, BubbleFaceInsetProperty, FaceMargin(activity, _bubbleOpen).Left);
@@ -391,8 +391,8 @@ public partial class MainWindow
             if (token != _bubbleToken) return;
             SetBubbleFace(next);
             Motion.To(BubbleIcon, OpacityProperty, 1, Motion.Tile);
-            Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.Tile);
-            Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.Tile);
+            Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale);
+            Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale);
             Motion.To(BubbleScale, ScaleTransform.ScaleXProperty, 1, Motion.Press, velocity: 1.3);
             Motion.To(BubbleScale, ScaleTransform.ScaleYProperty, 1, Motion.Press, velocity: -1.3);
         });
@@ -472,30 +472,26 @@ public partial class MainWindow
     {
         _bubbleOpen = false;
         _bubbleListMode = false;
-        BubbleList.BeginAnimation(OpacityProperty, null);
+        Motion.Stop(BubbleList, OpacityProperty);
         BubbleList.Children.Clear();
         BubbleList.Visibility = Visibility.Collapsed;
         _bubbleListRows.Clear();
-        ActivityBubble.BeginAnimation(WidthProperty, null);
-        ActivityBubble.BeginAnimation(HeightProperty, null);
-        ActivityBubble.Width = ActivityBubble.Height = BubbleSize;
+        Motion.Stop(ActivityBubble, WidthProperty, BubbleSize);
+        Motion.Stop(ActivityBubble, HeightProperty, BubbleSize);
         Motion.Stop(BubbleSlide, TranslateTransform.XProperty, 0);
         Motion.Stop(BubbleScale, ScaleTransform.ScaleXProperty, 1);
         Motion.Stop(BubbleScale, ScaleTransform.ScaleYProperty, 1);
         var iconScale = BubbleIconScale();
-        iconScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-        iconScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-        iconScale.ScaleX = iconScale.ScaleY = 1;
-        foreach (var property in new[] { WidthProperty, HeightProperty, MarginProperty, OpacityProperty })
-            BubbleIcon.BeginAnimation(property, null);
-        BubbleIcon.Width = BubbleIcon.Height = FaceSize(_bubbleActivity, open: false);
+        Motion.Stop(iconScale, ScaleTransform.ScaleXProperty, 1);
+        Motion.Stop(iconScale, ScaleTransform.ScaleYProperty, 1);
+        Motion.Stop(BubbleIcon, WidthProperty, FaceSize(_bubbleActivity, open: false));
+        Motion.Stop(BubbleIcon, HeightProperty, FaceSize(_bubbleActivity, open: false));
         Motion.Stop(this, BubbleFaceInsetProperty, FaceMargin(_bubbleActivity, open: false).Left);
-        BubbleIcon.Opacity = 1;
-        BubbleDetail.BeginAnimation(OpacityProperty, null);
-        BubbleDetail.Opacity = 0;
+        Motion.Stop(BubbleIcon, OpacityProperty, 1);
+        Motion.Stop(BubbleDetail, OpacityProperty, 0);
+        Motion.Stop(BubbleDetailSlide, TranslateTransform.XProperty, 0);
         BubbleDetail.Visibility = Visibility.Collapsed;
-        BubbleDetailBlur.BeginAnimation(BlurEffect.RadiusProperty, null);
-        BubbleDetailBlur.Radius = 0;
+        Motion.Stop(BubbleDetailBlur, BlurEffect.RadiusProperty, 0);
     }
 
     /// <summary>The cover turns like a record while the music plays, and only while the orb is on screen.</summary>
@@ -553,18 +549,40 @@ public partial class MainWindow
     {
         int count = _bubbleActivity == LiveActivity.Claude ? _bubbleClaudeSessions.Count : 0;
         bool show = count > 1 && !_bubbleListMode;
-        BubbleCountBadge.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
         if (!show)
         {
             _bubbleShownCount = 0;
+            if (BubbleCountBadge.Visibility != Visibility.Visible) return;
+            if (!BubbleCountBadge.IsVisible)
+            {
+                Motion.Stop(BubbleCountBadge, OpacityProperty, 0);
+                Motion.Stop(BubbleCountBadgeScale, ScaleTransform.ScaleXProperty, Motion.ExitToScale);
+                Motion.Stop(BubbleCountBadgeScale, ScaleTransform.ScaleYProperty, Motion.ExitToScale);
+                BubbleCountBadge.Visibility = Visibility.Collapsed;
+                return;
+            }
+            Motion.To(BubbleCountBadgeScale, ScaleTransform.ScaleXProperty, Motion.ExitToScale, Motion.Exit);
+            Motion.To(BubbleCountBadgeScale, ScaleTransform.ScaleYProperty, Motion.ExitToScale, Motion.Exit);
+            Motion.To(BubbleCountBadge, OpacityProperty, 0, Motion.Exit, done: () =>
+            {
+                if (_bubbleShownCount == 0) BubbleCountBadge.Visibility = Visibility.Collapsed;
+            });
             return;
         }
-        BubbleCountText.Text = count > 9 ? "9+" : count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        bool entering = !BubbleCountBadge.IsVisible;
+        BubbleCountBadge.Visibility = Visibility.Visible;
+        CrossFadeText(BubbleCountText, count > 9 ? "9+" : count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        Motion.To(BubbleCountBadge, OpacityProperty, 1, Motion.Tile, from: entering ? 0 : null);
         if (count == _bubbleShownCount) return;
         _bubbleShownCount = count;
-        if (AnimationConfig.ReduceMotion || !ActivityBubble.IsVisible) return;
-        Motion.To(BubbleCountBadgeScale, ScaleTransform.ScaleXProperty, 1, Motion.Tile, from: Motion.TileFromScale);
-        Motion.To(BubbleCountBadgeScale, ScaleTransform.ScaleYProperty, 1, Motion.Tile, from: Motion.TileFromScale);
+        if (!ActivityBubble.IsVisible)
+        {
+            Motion.Stop(BubbleCountBadgeScale, ScaleTransform.ScaleXProperty, 1);
+            Motion.Stop(BubbleCountBadgeScale, ScaleTransform.ScaleYProperty, 1);
+            return;
+        }
+        Motion.To(BubbleCountBadgeScale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale, from: entering ? Motion.TileFromScale : null);
+        Motion.To(BubbleCountBadgeScale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale, from: entering ? Motion.TileFromScale : null);
     }
 
     private double BubbleListHeight(int rows) =>
@@ -578,7 +596,7 @@ public partial class MainWindow
     {
         _bubbleOpen = true;
         _bubbleListMode = true;
-        BubbleCountBadge.Visibility = Visibility.Collapsed;
+        UpdateBubbleClaudeCount();
         UpdateBubbleList(animate: true);
         ApplyClaudeLiveMotion();
         Motion.To(ActivityBubble, WidthProperty, BubbleOpenTargetWidth(), Motion.Pop);
@@ -634,12 +652,12 @@ public partial class MainWindow
             var session = sessions[i];
             var row = _bubbleListRows[i];
             row.Star.Fill = ClaudeStarBrush(session);
-            row.Name.Text = session.Name;
-            row.Status.Text = session.Status == ClaudeSessionStatus.Working && session.Activity is { Length: > 0 } activity
+            CrossFadeText(row.Name, session.Name);
+            CrossFadeText(row.Status, session.Status == ClaudeSessionStatus.Working && session.Activity is { Length: > 0 } activity
                 ? activity
-                : Loc.Get(ClaudeLiveStatusKey(session));
+                : Loc.Get(ClaudeLiveStatusKey(session)));
             row.Status.Foreground = session.Status == ClaudeSessionStatus.Waiting ? ClaudeLiveWaitingBrush : BubbleMuted;
-            row.Time.Text = ControlCenterView.FormatElapsed(DateTime.UtcNow - (session.TurnStartedUtc ?? DateTime.UtcNow));
+            CrossFadeText(row.Time, ControlCenterView.FormatElapsed(DateTime.UtcNow - (session.TurnStartedUtc ?? DateTime.UtcNow)));
         }
         BubbleList.BeginAnimation(OpacityProperty, null);
         BubbleList.Opacity = 1;
@@ -713,8 +731,8 @@ public partial class MainWindow
         Motion.To(row, OpacityProperty, 1, Motion.Tile, from: 0, delay: Motion.Stagger(index));
         if (row.RenderTransform is TransformGroup { Children: [ScaleTransform scale, TranslateTransform translate] })
         {
-            Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.Tile, from: Motion.TileFromScale, delay: Motion.Stagger(index));
-            Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.Tile, from: Motion.TileFromScale, delay: Motion.Stagger(index));
+            Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale, from: Motion.TileFromScale, delay: Motion.Stagger(index));
+            Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale, from: Motion.TileFromScale, delay: Motion.Stagger(index));
             Motion.To(translate, TranslateTransform.XProperty, 0, Motion.Tile, from: -10, delay: Motion.Stagger(index));
         }
     }

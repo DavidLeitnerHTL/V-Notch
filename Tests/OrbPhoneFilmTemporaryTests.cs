@@ -26,11 +26,8 @@ public sealed class OrbPhoneFilmTemporaryTests
         window.Top = -20000;
         window.Show();
         await WpfFrameWaiter.UntilAsync(() => window.CollapsedContent.IsVisible, "closed notch", ct);
-        OrbPhoneMotionTests.Set(window, "_bubbleActivity", LiveActivity.Download);
+        OrbPhoneMotionTests.Invoke(window, "SetBubbleFace", LiveActivity.Countdown);
         OrbPhoneMotionTests.Set(window, "_bubbleShown", true);
-        window.BubbleTitle.Text = "Download";
-        window.BubbleSubtitle.Text = "An example file";
-        window.BubbleDownloadFace.Visibility = Visibility.Visible;
         OrbPhoneMotionTests.Invoke(window, "BudBubble");
         await Film(window.NotchContainer, Path.Combine(directory, $"orb-bud-{round}.png"), 650, 50, ct);
         OrbPhoneMotionTests.Invoke(window, "OpenBubble");

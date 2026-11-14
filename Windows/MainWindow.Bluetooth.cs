@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -118,8 +118,8 @@ public partial class MainWindow
 
         Motion.To(activeTranslate, TranslateTransform.YProperty, 0, Motion.Tile, from: 6);
 
-        Motion.To(activeIconScale, ScaleTransform.ScaleXProperty, 1, Motion.Tile, from: Motion.TileFromScale);
-        Motion.To(activeIconScale, ScaleTransform.ScaleYProperty, 1, Motion.Tile, from: Motion.TileFromScale);
+        Motion.To(activeIconScale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale, from: Motion.TileFromScale);
+        Motion.To(activeIconScale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale, from: Motion.TileFromScale);
     }
 
     private void AnimateBluetoothNotificationOut()

@@ -55,6 +55,7 @@ public partial class MainWindow
         ApplyBubbleMusicSpin();
         ApplyClaudeLiveMotion();
         if (!allowed) StopNotificationDrop();
+        RefreshCountdownCompleteTextFlash();
         _phoneMirror?.RefreshMotionVisibility();
     }
 
@@ -221,8 +222,8 @@ public partial class MainWindow
 
         Motion.To(ChargingNotificationTranslate, TranslateTransform.YProperty, 0, Motion.Tile, from: 6);
 
-        Motion.To(ChargingIconScale, ScaleTransform.ScaleXProperty, 1, Motion.Tile, from: Motion.TileFromScale);
-        Motion.To(ChargingIconScale, ScaleTransform.ScaleYProperty, 1, Motion.Tile, from: Motion.TileFromScale);
+        Motion.To(ChargingIconScale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale, from: Motion.TileFromScale);
+        Motion.To(ChargingIconScale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale, from: Motion.TileFromScale);
 
         StopChargingNotificationDismissTimer();
 
@@ -361,8 +362,8 @@ public partial class MainWindow
     private void AnimateChargingBolt(bool show)
     {
         Motion.To(ChargingBolt, OpacityProperty, show ? 1 : 0, show ? Motion.Tile : Motion.Exit);
-        Motion.To(ChargingBoltScale, ScaleTransform.ScaleXProperty, show ? 1 : Motion.ExitToScale, show ? Motion.Tile : Motion.Exit);
-        Motion.To(ChargingBoltScale, ScaleTransform.ScaleYProperty, show ? 1 : Motion.ExitToScale, show ? Motion.Tile : Motion.Exit);
+        Motion.To(ChargingBoltScale, ScaleTransform.ScaleXProperty, show ? 1 : Motion.ExitToScale, show ? Motion.TileScale : Motion.Exit);
+        Motion.To(ChargingBoltScale, ScaleTransform.ScaleYProperty, show ? 1 : Motion.ExitToScale, show ? Motion.TileScale : Motion.Exit);
     }
 
     private void StartChargingPulse()

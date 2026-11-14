@@ -16,6 +16,7 @@ public partial class MainWindow
     private static DoubleAnimationUsingKeyFrames AppNotificationMotion(double from, double to, int milliseconds,
         int delay = 0, bool linear = false, IEasingFunction? easing = null)
     {
+        milliseconds = Math.Clamp(milliseconds, 120, 200);
         var motion = new DoubleAnimationUsingKeyFrames { FillBehavior = FillBehavior.HoldEnd };
         motion.KeyFrames.Add(new DiscreteDoubleKeyFrame(from, KeyTime.FromTimeSpan(TimeSpan.Zero)));
         if (delay > 0) motion.KeyFrames.Add(new DiscreteDoubleKeyFrame(from, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(delay))));
@@ -50,8 +51,7 @@ public partial class MainWindow
 
     private static void SetAppNotificationOpacity(UIElement target, double value)
     {
-        target.BeginAnimation(OpacityProperty, null);
-        target.Opacity = value;
+        Motion.Stop(target, OpacityProperty, value);
     }
 
     private static void AnimateAppNotificationOpacity(UIElement target, double to, int milliseconds, int delay = 0, IEasingFunction? easing = null)
@@ -63,13 +63,12 @@ public partial class MainWindow
             return;
         }
         SetAppNotificationOpacity(target, from);
-        target.BeginAnimation(OpacityProperty, new DoubleAnimation(from, to,
-            TimeSpan.FromMilliseconds(Math.Clamp(milliseconds, 120, 200))));
+        target.BeginAnimation(OpacityProperty, AppNotificationMotion(from, to, milliseconds, easing: easing));
     }
 
     private void PresentAppNotification(bool replacing)
     {
-        if (!replacing && AppNotificationBanner.Opacity <= 0)
+        if (AppNotificationBanner.Opacity <= 0)
         {
             SetAppNotificationOpacity(AppNotificationBanner, 0);
             SetAppNotificationValue(AppNotificationBannerTranslate, TranslateTransform.YProperty,
@@ -79,8 +78,8 @@ public partial class MainWindow
         AnimateAppNotificationOpacity(AppNotificationBanner, 1, NotificationTransitionMs, easing: _easeAppleOut);
         AnimateAppNotificationValue(AppNotificationBannerTranslate, TranslateTransform.YProperty, 0,
             NotificationTransitionMs, easing: _easeAppleOut);
-        Motion.To(AppNotificationBannerScale, ScaleTransform.ScaleXProperty, 1, Motion.Tile);
-        Motion.To(AppNotificationBannerScale, ScaleTransform.ScaleYProperty, 1, Motion.Tile);
+        Motion.To(AppNotificationBannerScale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale);
+        Motion.To(AppNotificationBannerScale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale);
         AppNotificationHoverSurface.Visibility = Visibility.Visible;
         AnimateAppNotificationHoverFeedback();
     }
@@ -107,13 +106,20 @@ public partial class MainWindow
             return;
         }
         var spring = _isAppNotificationBannerExiting ? Motion.PopBack : Motion.Pop;
+        // Auto layout has no numeric width until the first presentation; start at the resting notch.
+        if (!double.IsFinite(NotchBorder.Width))
+            Motion.Stop(NotchBorder, WidthProperty, NotchBorder.ActualWidth > 0 ? NotchBorder.ActualWidth : GetCollapsedWidth());
+        if (!double.IsFinite(NotchBorder.Height))
+            Motion.Stop(NotchBorder, HeightProperty, NotchBorder.ActualHeight > 0 ? NotchBorder.ActualHeight : GetCollapsedHeight());
         Motion.To(NotchBorder, WidthProperty, width, spring, done: () =>
         {
-            if (morph == _appNotificationMorphGeneration) Motion.Stop(NotchBorder, WidthProperty, width);
+            if (morph == _appNotificationMorphGeneration && Math.Abs(NotchBorder.Width - width) < .5)
+                Motion.Stop(NotchBorder, WidthProperty, width);
         });
         Motion.To(NotchBorder, HeightProperty, height, spring, done: () =>
         {
             if (morph != _appNotificationMorphGeneration) return;
+            if (Math.Abs(NotchBorder.Height - height) > .5) return;
             Motion.Stop(NotchBorder, HeightProperty, height);
             completed?.Invoke();
         });
@@ -176,28 +182,27 @@ public partial class MainWindow
 
     private void ResetAppNotificationVisuals()
     {
+        bool visible = AppNotificationBanner.Visibility == Visibility.Visible;
         if (AppNotificationBanner.Visibility == Visibility.Visible && !_isAppNotificationBannerExiting)
         {
             KeepCompactDeparture(AppNotificationBanner);
-            SetAppNotificationOpacity(AppNotificationHoverSurface, 0);
-            SetAppNotificationValue(AppNotificationProgressScale, ScaleTransform.ScaleXProperty, 1);
-            return;
         }
         ResetAppNotificationBlurCover();
-        foreach (var element in new UIElement[] { AppNotificationBanner, AppNotificationIconHost,
+        if (!visible) SetAppNotificationOpacity(AppNotificationBanner, 0);
+        foreach (var element in new UIElement[] { AppNotificationIconHost,
                      AppNotificationAppNameText, AppNotificationTitleText, AppNotificationBodyText })
             SetAppNotificationOpacity(element, 1);
         SetAppNotificationOpacity(HoverGlow, 0);
         SetAppNotificationOpacity(AppNotificationHoverSurface, 0);
         AppNotificationHoverSurface.Visibility = Visibility.Collapsed;
         foreach (var translate in new[] { AppNotificationShellTranslate, AppNotificationShadowTranslate,
-                     AppNotificationBannerTranslate, AppNotificationPressTranslate, AppNotificationIconTranslate, AppNotificationAppNameTranslate,
+                     AppNotificationPressTranslate, AppNotificationIconTranslate, AppNotificationAppNameTranslate,
                      AppNotificationTitleTranslate, AppNotificationBodyTranslate })
         {
             SetAppNotificationValue(translate, TranslateTransform.XProperty, 0);
             SetAppNotificationValue(translate, TranslateTransform.YProperty, 0);
         }
-        foreach (var scale in new[] { AppNotificationBannerScale, AppNotificationIconScale })
+        foreach (var scale in new[] { AppNotificationIconScale })
         {
             SetAppNotificationValue(scale, ScaleTransform.ScaleXProperty, 1);
             SetAppNotificationValue(scale, ScaleTransform.ScaleYProperty, 1);

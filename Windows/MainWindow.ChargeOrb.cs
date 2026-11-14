@@ -372,8 +372,7 @@ public partial class MainWindow
 
     private static void Still(IAnimatable target, DependencyProperty property, double value)
     {
-        target.BeginAnimation(property, null);
-        ((DependencyObject)target).SetValue(property, value);
+        Motion.Stop((DependencyObject)target, property, value);
     }
 
     /// <summary>The orb shows something else (or goes): the cable draws back into it and the light stops.</summary>
@@ -470,8 +469,8 @@ public partial class MainWindow
         var lit = new DoubleAnimation(0, 1, new Duration(Ms(280))) { BeginTime = Motion.Stagger(1) };
         Fps(lit);
         ChargeBolt.BeginAnimation(OpacityProperty, lit);
-        Motion.To(ChargeBoltScale, ScaleTransform.ScaleXProperty, 1, Motion.Tile, from: Motion.TileFromScale, delay: Motion.Stagger(1));
-        Motion.To(ChargeBoltScale, ScaleTransform.ScaleYProperty, 1, Motion.Tile, from: Motion.TileFromScale, delay: Motion.Stagger(1));
+        Motion.To(ChargeBoltScale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale, from: Motion.TileFromScale, delay: Motion.Stagger(1));
+        Motion.To(ChargeBoltScale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale, from: Motion.TileFromScale, delay: Motion.Stagger(1));
         var track = new DoubleAnimation(0, 1, new Duration(Ms(300))) { BeginTime = Motion.Stagger(2) };
         Fps(track);
         ChargeTrack.BeginAnimation(OpacityProperty, track);
@@ -668,8 +667,8 @@ public partial class MainWindow
             Fps(draw);
             ChargeCheck.BeginAnimation(OpacityProperty, show);
             ChargeCheck.BeginAnimation(System.Windows.Shapes.Shape.StrokeDashOffsetProperty, draw);
-            Motion.To(ChargeCheckScale, ScaleTransform.ScaleXProperty, 1, Motion.Tile, from: Motion.TileFromScale, delay: Motion.Stagger(1));
-            Motion.To(ChargeCheckScale, ScaleTransform.ScaleYProperty, 1, Motion.Tile, from: Motion.TileFromScale, delay: Motion.Stagger(1));
+            Motion.To(ChargeCheckScale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale, from: Motion.TileFromScale, delay: Motion.Stagger(1));
+            Motion.To(ChargeCheckScale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale, from: Motion.TileFromScale, delay: Motion.Stagger(1));
             Motion.To(BubbleScale, ScaleTransform.ScaleXProperty, 1, Motion.Press, velocity: 3);
             Motion.To(BubbleScale, ScaleTransform.ScaleYProperty, 1, Motion.Press, velocity: 3);
         });

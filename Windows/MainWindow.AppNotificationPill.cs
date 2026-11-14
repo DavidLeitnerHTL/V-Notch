@@ -289,6 +289,8 @@ public partial class MainWindow
         if (height + 32 > Height) ResizeHostWindowHeight(height);
         var spring = Math.Abs(width - _collapsedWidth) < .5 && Math.Abs(height - _collapsedHeight) < .5
             ? Motion.PopBack : _appPillExpanded ? Motion.Glide : Motion.Pop;
+        if (!double.IsFinite(NotchBorder.Width)) Motion.Stop(NotchBorder, WidthProperty, _collapsedWidth);
+        if (!double.IsFinite(NotchBorder.Height)) Motion.Stop(NotchBorder, HeightProperty, _collapsedHeight);
         Motion.To(NotchBorder, WidthProperty, width, spring);
         Motion.To(NotchBorder, HeightProperty, height, spring, done: () =>
         {
@@ -347,7 +349,7 @@ public partial class MainWindow
             Motion.Stop(NotchBorder, HeightProperty, _collapsedHeight);
         }
         HideCompactSurface(AppNotificationPill);
-        AppPillTranslate.BeginAnimation(TranslateTransform.YProperty, null);
+        Motion.Stop(AppPillTranslate, TranslateTransform.YProperty, 0);
         AppPillLogo.Source = null;
         AppPillImage.Source = null;
     }
@@ -361,9 +363,9 @@ public partial class MainWindow
             element.RenderTransformOrigin = new Point(.5, .5);
             element.RenderTransform = scale = new ScaleTransform(1, 1);
         }
-        Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.Tile,
+        Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale,
             from: entering ? Motion.TileFromScale : null, delay: Motion.Stagger(index));
-        Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.Tile,
+        Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale,
             from: entering ? Motion.TileFromScale : null, delay: Motion.Stagger(index));
         Motion.To(element, OpacityProperty, 1, Motion.Tile,
             from: entering ? 0 : null, delay: Motion.Stagger(index));

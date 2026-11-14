@@ -27,7 +27,9 @@ public sealed class CompactPillMotionTests
         Invoke(window, "AnimateCompactWidth", 300d, TimeSpan.FromMilliseconds(350), new System.Windows.Media.Animation.CubicEase(), 0);
         Assert.Equal(position, window.NotchBorder.Width, 3);
         Assert.InRange(Math.Abs(Motion.VelocityOf(window.NotchBorder, FrameworkElement.WidthProperty) - velocity), 0, 35);
-        await WpfFrameWaiter.UntilAsync(() => window.NotchBorder.Width == 300, "closed width spring settles", ct);
+        await WpfFrameWaiter.UntilAsync(() => !Motion.IsRunning(window.NotchBorder, FrameworkElement.WidthProperty),
+            "closed width spring settles", ct);
+        Assert.Equal(300, window.NotchBorder.Width, 3);
     });
 
     [Fact]

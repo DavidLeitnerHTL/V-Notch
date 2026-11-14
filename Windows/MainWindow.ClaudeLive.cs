@@ -155,7 +155,8 @@ public partial class MainWindow
     /// </summary>
     private void ApplyClaudeLiveMotion()
     {
-        bool allowed = !_cleanedUp && AmbientAnimationsAllowed;
+        // The elapsed time still updates with reduced motion; only the decorative clocks stop.
+        bool allowed = !_cleanedUp && _isNotchVisible && !_isHiddenByFullscreen;
         bool big = allowed && ClaudeLive.IsVisible && _claudeLiveSession != null;
         bool inBubble = allowed && _bubbleShown && _bubbleActivity == LiveActivity.Claude && ActivityBubble.IsVisible;
         ClaudeSession? orbSession = inBubble && _bubbleClaudeSessions.Count > 0 ? _bubbleClaudeSessions[0] : null;
@@ -171,14 +172,14 @@ public partial class MainWindow
             _claudeLiveClock?.Stop();
         }
 
-        ClaudeSessionStatus? bigMotion = big ? _claudeLiveSession!.Status : null;
+        ClaudeSessionStatus? bigMotion = big && !AnimationConfig.ReduceMotion ? _claudeLiveSession!.Status : null;
         if (bigMotion != _bigStarMotion)
         {
             _bigStarMotion = bigMotion;
             AnimateBigStar(bigMotion);
         }
         // In the open list the rows carry the stars; the orb's own is faded out and rests.
-        ClaudeSessionStatus? orbMotion = orbSession != null && !_bubbleListMode ? orbSession.Status : null;
+        ClaudeSessionStatus? orbMotion = orbSession != null && !_bubbleListMode && !AnimationConfig.ReduceMotion ? orbSession.Status : null;
         if (orbMotion != _orbStarMotion)
         {
             _orbStarMotion = orbMotion;

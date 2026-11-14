@@ -22,6 +22,7 @@ public partial class MainWindow
     private const string LocKeyUpdateClickToInstall = "update.clickToInstall";
     private UiScheduledTimer? _updatePulseTimer;
     private DateTime _updatePulseStartedAtUtc;
+    private int _updateTooltipToken;
 
     [System.Runtime.InteropServices.LibraryImport("VNotch.Native.dll")]
     private static partial int vn_animation_compute_update_pulse_rgb(double elapsedMs, out byte outR, out byte outG, out byte outB);
@@ -344,17 +345,10 @@ public partial class MainWindow
 
         _isUpdateTooltipOpen = true;
         _suspendTopmostUntilUtc = DateTime.UtcNow.AddMilliseconds(1200);
-        UpdateInlineTooltip.BeginAnimation(OpacityProperty, null);
+        ++_updateTooltipToken;
+        bool entering = UpdateInlineTooltip.Visibility != Visibility.Visible;
         UpdateInlineTooltip.Visibility = Visibility.Visible;
-
-        var fadeIn = new DoubleAnimation
-        {
-            To = 1.0,
-            Duration = TimeSpan.FromMilliseconds(140),
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
-        };
-        System.Windows.Media.Animation.Timeline.SetDesiredFrameRate(fadeIn, VNotch.Services.AnimationConfig.TargetFps);
-        UpdateInlineTooltip.BeginAnimation(OpacityProperty, fadeIn, HandoffBehavior.SnapshotAndReplace);
+        Motion.To(UpdateInlineTooltip, OpacityProperty, 1, Motion.Tile, from: entering ? 0 : null);
     }
 
     private void HideUpdateInlineTooltip()
@@ -364,22 +358,12 @@ public partial class MainWindow
 
         if (UpdateInlineTooltip.Visibility != Visibility.Visible) return;
 
-        UpdateInlineTooltip.BeginAnimation(OpacityProperty, null);
-        var fadeOut = new DoubleAnimation
+        int token = ++_updateTooltipToken;
+        Motion.To(UpdateInlineTooltip, OpacityProperty, 0, Motion.Exit, done: () =>
         {
-            To = 0.0,
-            Duration = TimeSpan.FromMilliseconds(120),
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
-        };
-
-        fadeOut.Completed += (_, _) =>
-        {
-            UpdateInlineTooltip.Visibility = Visibility.Collapsed;
-            UpdateInlineTooltip.Opacity = 0;
-        };
-
-        System.Windows.Media.Animation.Timeline.SetDesiredFrameRate(fadeOut, VNotch.Services.AnimationConfig.TargetFps);
-        UpdateInlineTooltip.BeginAnimation(OpacityProperty, fadeOut, HandoffBehavior.SnapshotAndReplace);
+            if (token == _updateTooltipToken && !_isUpdateTooltipOpen)
+                UpdateInlineTooltip.Visibility = Visibility.Collapsed;
+        });
     }
 
     #endregion

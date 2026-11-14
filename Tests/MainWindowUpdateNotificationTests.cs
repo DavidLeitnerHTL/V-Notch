@@ -23,6 +23,7 @@ public sealed class MainWindowUpdateNotificationTests
         var service = new PendingUpdateService();
         await using var fixture = CreateFixture(service);
         var window = fixture.Window;
+        using var host = new HudContentHost(window);
         Field<NotchSettings>(window, "_settings").AutoCheckUpdates = true;
         var check = (Task)Invoke(window, "CheckForUpdatesAsync")!;
         service.Requests[0].SetResult(NewRelease("9.5.1"));
@@ -54,6 +55,26 @@ public sealed class MainWindowUpdateNotificationTests
         Invoke(window, "UpdatePulseTimer_Tick", null, EventArgs.Empty);
         Assert.Equal(Color.FromRgb(48, 209, 88), window.UpdateIconBrush.Color);
         Assert.Equal(0, service.InstallCalls);
+    });
+
+    [Fact]
+    public void PulseStopsWithAncestorVisibilityAndFullscreen() => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        await using var fixture = CreateFixture(new PendingUpdateService());
+        var window = fixture.Window;
+        using var host = new HudContentHost(window);
+        window.SetAvailableUpdate(NewRelease("9.5.4"));
+        await WpfFrameWaiter.UntilAsync(() => Field<UiScheduledTimer?>(window, "_updatePulseTimer")?.IsEnabled == true, "update pulse starts", ct);
+        window.NotchBorder.Visibility = Visibility.Hidden;
+        Assert.False(Field<UiScheduledTimer>(window, "_updatePulseTimer").IsEnabled);
+        window.NotchBorder.Visibility = Visibility.Visible;
+        Assert.True(Field<UiScheduledTimer>(window, "_updatePulseTimer").IsEnabled);
+        Set(window, "_isHiddenByFullscreen", true);
+        Invoke(window, "RefreshAmbientAnimations");
+        Assert.False(Field<UiScheduledTimer>(window, "_updatePulseTimer").IsEnabled);
+        Set(window, "_isHiddenByFullscreen", false);
+        Invoke(window, "RefreshAmbientAnimations");
+        Assert.True(Field<UiScheduledTimer>(window, "_updatePulseTimer").IsEnabled);
     });
 
     [Fact]
@@ -98,6 +119,7 @@ public sealed class MainWindowUpdateNotificationTests
     {
         await using var fixture = CreateFixture(new PendingUpdateService());
         var window = fixture.Window;
+        using var host = new HudContentHost(window);
         Set(window, "_availableUpdate", NewRelease("9.5.4"));
         Set(window, "_isUpdateAvailable", true);
         Invoke(window, "ShowUpdateNotification");
@@ -107,6 +129,7 @@ public sealed class MainWindowUpdateNotificationTests
         await WpfFrameWaiter.UntilAsync(() => Field<UiScheduledTimer?>(window, "_updatePulseTimer")?.IsEnabled == true, "latest update survives interrupted hide", ct);
         Assert.Equal(Visibility.Visible, window.UpdateNotificationButton.Visibility);
         Assert.True(window.UpdateNotificationButton.IsHitTestVisible);
+        await WpfFrameWaiter.UntilAsync(() => !Motion.IsRunning(window.UpdateNotificationButton, UIElement.OpacityProperty), "update entrance settles", ct);
         Assert.Equal(1, window.UpdateNotificationButton.Opacity);
         Set(window, "_isUpdateAvailable", false);
         Invoke(window, "HideUpdateNotification");
@@ -282,4 +305,30 @@ public sealed class MainWindowUpdateNotificationTests
         await pending;
         Assert.False(Field<bool>(fixture.Window, "_isUpdateAvailable"));
     });
+}
+
+// A real visual parent exercises effective visibility without starting the notch's desktop services.
+internal sealed class HudContentHost : IDisposable
+{
+    private readonly MainWindow _window;
+    private readonly object _content;
+    private readonly Window _host;
+
+    internal HudContentHost(MainWindow window)
+    {
+        _window = window;
+        _content = window.Content;
+        window.Content = null;
+        _host = new Window { Left = -20000, Top = -20000, Width = 720, Height = 260,
+            ShowActivated = false, ShowInTaskbar = false, Content = _content };
+        _host.Show();
+        _host.UpdateLayout();
+    }
+
+    public void Dispose()
+    {
+        _host.Content = null;
+        _host.Close();
+        _window.Content = _content;
+    }
 }

@@ -31,6 +31,10 @@ public sealed class AppNotificationMotionTests
     {
         await using var fixture = CreateFixture();
         var window = fixture.Window;
+        using var host = new RenderHost(window);
+        // The fixture has not shown its window, so initialize the resting geometry explicitly.
+        Motion.Stop(window.NotchBorder, FrameworkElement.WidthProperty, 300);
+        Motion.Stop(window.NotchBorder, FrameworkElement.HeightProperty, 40);
         double initialWidth = window.NotchBorder.Width;
         double initialHeight = window.NotchBorder.Height;
         window.ShowAppNotification(Notification());
@@ -228,6 +232,28 @@ public sealed class AppNotificationMotionTests
         }, configureServices: services => services.AddSingleton<IMediaDetectionService>(new FakeMediaDetectionService()));
     private static T Get<T>(MainWindow window, string field) => (T)typeof(MainWindow)
         .GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!;
+
+    private sealed class RenderHost : IDisposable
+    {
+        private readonly MainWindow _owner;
+        private readonly Window _window;
+        internal RenderHost(MainWindow owner)
+        {
+            _owner = owner;
+            var content = owner.Content;
+            owner.Content = null;
+            _window = new BackgroundWindow { Left = -20000, Width = 720, Height = 260, Content = content };
+            _window.Show();
+            _window.UpdateLayout();
+        }
+        public void Dispose()
+        {
+            var content = _window.Content;
+            _window.Content = null;
+            _window.Close();
+            _owner.Content = content;
+        }
+    }
 
     private sealed class TestPresentationSource : PresentationSource
     {

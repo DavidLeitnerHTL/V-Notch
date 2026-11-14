@@ -37,7 +37,11 @@ public class ClaudeLiveStatusTests
             configureSettings: settings => settings.EnableLocalOnlyMode = true,
             configureServices: services => services.AddSingleton<IMediaDetectionService>(new FakeMediaDetectionService()));
         var window = fixture.Window;
+        window.Left = -20000;
+        window.Top = -20000;
+        window.ShowActivated = false;
         window.Show();
+        await WpfFrameWaiter.UntilAsync(() => window.CollapsedContent.IsVisible, "closed notch visible", ct);
         var tracker = (ClaudeSessionTracker)typeof(MainWindow).GetField("_claudeTracker", flags)!.GetValue(window)!;
         await tracker.HandleHookAsync(Hook("UserPromptSubmit"));
         typeof(MainWindow).GetField("_claudeLiveSession", flags)!.SetValue(window, Assert.Single(tracker.GetSessions()));
@@ -45,16 +49,26 @@ public class ClaudeLiveStatusTests
         window.ClaudeLive.Visibility = Visibility.Visible;
         typeof(MainWindow).GetMethod("ApplyClaudeLiveMotion", flags)!.Invoke(window, null);
         Assert.True(window.ClaudeLiveStarRotate.HasAnimatedProperties);
-        typeof(MainWindow).GetField("_isHiddenByFullscreen", flags)!.SetValue(window, true);
+        typeof(MainWindow).GetProperty("_isHiddenByFullscreen", flags)!.SetValue(window, true);
         typeof(MainWindow).GetMethod("ApplyClaudeLiveMotion", flags)!.Invoke(window, null);
         Assert.False(window.ClaudeLiveStarRotate.HasAnimatedProperties);
         Assert.False(window.ClaudeLiveStarScale.HasAnimatedProperties);
         var clock = (DispatcherTimer)typeof(MainWindow).GetField("_claudeLiveClock", flags)!.GetValue(window)!;
         Assert.False(clock.IsEnabled);
-        typeof(MainWindow).GetField("_isHiddenByFullscreen", flags)!.SetValue(window, false);
+        typeof(MainWindow).GetProperty("_isHiddenByFullscreen", flags)!.SetValue(window, false);
         typeof(MainWindow).GetMethod("ApplyClaudeLiveMotion", flags)!.Invoke(window, null);
         Assert.True(clock.IsEnabled);
         Assert.True(window.ClaudeLiveStarRotate.HasAnimatedProperties);
+        bool reduced = AnimationConfig.ReduceMotion;
+        try
+        {
+            AnimationConfig.SetReduceMotion(true);
+            typeof(MainWindow).GetMethod("ApplyClaudeLiveMotion", flags)!.Invoke(window, null);
+            Assert.True(clock.IsEnabled);
+            Assert.False(window.ClaudeLiveStarRotate.HasAnimatedProperties);
+            Assert.False(window.ClaudeLiveStarScale.HasAnimatedProperties);
+        }
+        finally { AnimationConfig.SetReduceMotion(reduced); }
         ct.ThrowIfCancellationRequested();
     });
 

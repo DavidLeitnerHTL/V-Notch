@@ -41,16 +41,13 @@ public partial class MainWindow
 
         CancelThumbnailSwitchAnimations();
 
-        CompactThumbnailBorder.BeginAnimation(OpacityProperty, null);
-        CompactThumbnailScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-        CompactThumbnailScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-        var thumbFadeOut = MakeAnim(1.0, 0.0, _dur150, _easeQuadOut);
-        thumbFadeOut.Completed += (s, e) =>
+        Motion.To(CompactThumbnailScale, ScaleTransform.ScaleXProperty, Motion.ExitToScale, Motion.Exit);
+        Motion.To(CompactThumbnailScale, ScaleTransform.ScaleYProperty, Motion.ExitToScale, Motion.Exit);
+        Motion.To(CompactThumbnailBorder, OpacityProperty, 0, Motion.Exit, done: () =>
         {
             if (_isClipboardPeekActive && !IsCompactSlotStale(token))
                 CompactThumbnailBorder.Visibility = Visibility.Collapsed;
-        };
-        CompactThumbnailBorder.BeginAnimation(OpacityProperty, thumbFadeOut);
+        });
 
         MusicViz.BeginAnimation(OpacityProperty, null);
         MusicViz.Opacity = 1;
@@ -63,17 +60,10 @@ public partial class MainWindow
 
         HideCompactSurface(ClipboardCheckIcon);
 
+        bool entering = ClipboardCopiedText.Visibility != Visibility.Visible;
         ClipboardCopiedText.Visibility = Visibility.Visible;
-        ClipboardCopiedText.BeginAnimation(OpacityProperty, null);
-
-
-
-
-        var textFadeIn = MakeAnim(0.0, 1.0, _dur250, _easeQuadOut);
-
-
-        ClipboardCopiedText.BeginAnimation(OpacityProperty, textFadeIn);
-        Motion.To(ClipboardCopiedTranslate, TranslateTransform.XProperty, 0, Motion.Tile, from: -8, delay: Motion.Stagger(1));
+        Motion.To(ClipboardCopiedText, OpacityProperty, 1, Motion.Tile, from: entering ? 0 : null, delay: Motion.Stagger(1));
+        Motion.To(ClipboardCopiedTranslate, TranslateTransform.XProperty, 0, Motion.Tile, from: entering ? -8 : null, delay: Motion.Stagger(1));
 
         StopClipboardRevertTimer();
 
@@ -111,30 +101,17 @@ public partial class MainWindow
         MusicViz.SetCopiedFeedback(false);
         HideCompactSurface(ClipboardCheckIcon);
 
-        ClipboardCopiedText.BeginAnimation(OpacityProperty, null);
-
-
-        var textFadeOut = MakeAnim(1.0, 0.0, _dur250, _easeQuadOut);
-
-
-        textFadeOut.Completed += (s, e) =>
+        Motion.To(ClipboardCopiedText, OpacityProperty, 0, Motion.Exit, done: () =>
         {
             if (!_isClipboardPeekActive)
                 ClipboardCopiedText.Visibility = Visibility.Collapsed;
-        };
-
-        ClipboardCopiedText.BeginAnimation(OpacityProperty, textFadeOut);
+        });
         Motion.To(ClipboardCopiedTranslate, TranslateTransform.XProperty, -8, Motion.Exit);
 
-        CompactThumbnailBorder.BeginAnimation(OpacityProperty, null);
-        CompactThumbnailScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-        CompactThumbnailScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-        CompactThumbnailScale.ScaleX = 1.0;
-        CompactThumbnailScale.ScaleY = 1.0;
         CompactThumbnailBorder.Visibility = Visibility.Visible;
-        CompactThumbnailBorder.Opacity = 0;
-        var thumbFadeIn = MakeAnim(0.0, 1.0, _dur200, _easeQuadOut);
-        CompactThumbnailBorder.BeginAnimation(OpacityProperty, thumbFadeIn);
+        Motion.To(CompactThumbnailBorder, OpacityProperty, 1, Motion.Tile);
+        Motion.To(CompactThumbnailScale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale);
+        Motion.To(CompactThumbnailScale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale);
 
         ShowMusicVisualizer(duration: _dur100);
     }
@@ -154,11 +131,9 @@ public partial class MainWindow
         ClipboardCheckIcon.Opacity = 0;
         ClipboardCheckIcon.Visibility = Visibility.Collapsed;
 
-        ClipboardCopiedText.BeginAnimation(OpacityProperty, null);
-
-        ClipboardCopiedText.Opacity = 0;
+        Motion.Stop(ClipboardCopiedText, OpacityProperty, 0);
+        Motion.Stop(ClipboardCopiedTranslate, TranslateTransform.XProperty, 0);
         ClipboardCopiedText.Visibility = Visibility.Collapsed;
-
     }
 
     private void StopClipboardRevertTimer()

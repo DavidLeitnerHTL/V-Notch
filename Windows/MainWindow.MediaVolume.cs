@@ -209,16 +209,19 @@ public partial class MainWindow
         if (animate) Motion.To(scale, ScaleTransform.ScaleYProperty, target, Motion.Glide);
         else Motion.Stop(scale, ScaleTransform.ScaleYProperty, target);
 
-        MediaVolumeFill.Opacity = _mediaVolumeMuted ? 0.35 : 1.0;
+        if (animate) Motion.To(MediaVolumeFill, OpacityProperty, _mediaVolumeMuted ? 0.35 : 1.0, Motion.Glide);
+        else Motion.Stop(MediaVolumeFill, OpacityProperty, _mediaVolumeMuted ? 0.35 : 1.0);
         string glyph = MediaVolumeGlyph(_mediaVolume, _mediaVolumeMuted);
         if (MediaVolumeIcon.Text != glyph)
         {
             // The speaker hops when it gains or loses a wave or mutes: up for louder, a dip for quieter.
             int before = MediaVolumeLevel(MediaVolumeIcon.Text), after = MediaVolumeLevel(glyph);
-            MediaVolumeIcon.Text = glyph;
+            if (animate) CrossFadeText(MediaVolumeIcon, glyph);
+            else MediaVolumeIcon.Text = glyph;
             if (before >= 0) HopMediaVolumeIcon(after > before ? 1.3 : 0.75);
         }
-        MediaVolumeColumn.Opacity = _mediaVolumeAvailable ? 1.0 : 0.35;
+        if (animate) Motion.To(MediaVolumeColumn, OpacityProperty, _mediaVolumeAvailable ? 1.0 : 0.35, Motion.Glide);
+        else Motion.Stop(MediaVolumeColumn, OpacityProperty, _mediaVolumeAvailable ? 1.0 : 0.35);
         MediaVolumeBar.SetCurrentValue(VNotch.Controls.AccessibleVolumePanel.ValueProperty, target);
     }
 
@@ -369,8 +372,7 @@ public partial class MainWindow
             return;
         }
         MediaVolumeTrack.RenderTransformOrigin = new Point(0.5, up ? 1 : 0);
-        scale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-        scale.ScaleY = 1 + stretch;
+        Motion.Stop(scale, ScaleTransform.ScaleYProperty, 1 + stretch);
     }
 
     /// <summary>Let go: the bar springs back to its length with a wobble.</summary>

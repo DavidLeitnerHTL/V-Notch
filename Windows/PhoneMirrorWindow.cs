@@ -294,8 +294,10 @@ internal sealed class PhoneMirrorWindow : Window
 
     private void RevealScreen()
     {
+        if (State == MirrorState.Hidden || !IsVisible) return;
         SetScreenVisible(true);
-        Activate();
+        // Settling an obscured resize must not steal focus from the fullscreen app.
+        if (_motionAllowed()) Activate();
     }
 
     private void SetScreenVisible(bool visible)
@@ -430,7 +432,7 @@ internal sealed class PhoneMirrorWindow : Window
         double last = -1;
         _frame = (_, _) =>
         {
-            if (!IsVisible || !_motionAllowed()) { RefreshMotionVisibility(); return; }
+            if (!IsVisible || !_motionAllowed() || AnimationConfig.ReduceMotion) { RefreshMotionVisibility(); return; }
             double now = _springClock.Elapsed.TotalSeconds;
             if (now - last < 1.0 / AnimationConfig.TargetFps) return;
             last = now;
