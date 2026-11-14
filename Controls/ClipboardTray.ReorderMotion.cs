@@ -149,13 +149,13 @@ public sealed partial class ClipboardTray
         CategoryReorderGhostScale.ScaleX = CategoryReorderGhostScale.ScaleY = 1.04;
         CategoryReorderMarker.Visibility = Visibility.Collapsed;
         CategoryReorderOverlay.Visibility = Visibility.Visible;
-        Canvas.SetLeft(CategoryReorderGhost, origin.X);
-        Canvas.SetTop(CategoryReorderGhost, origin.Y);
+        // The ghost rests in its slot and only the spring carries it there, so a stopped landing never strands it.
         var target = button.TranslatePoint(new Point(), CategoryScroll);
-        AnimateCategoryReorderValue(CategoryReorderGhost, Canvas.LeftProperty, target.X, 150);
-        AnimateCategoryReorderValue(CategoryReorderGhost, Canvas.TopProperty, target.Y, 150);
-        AnimateCategoryReorderValue(CategoryReorderGhostScale, ScaleTransform.ScaleXProperty, 1, 150);
-        AnimateCategoryReorderValue(CategoryReorderGhostScale, ScaleTransform.ScaleYProperty, 1, 150);
+        Canvas.SetLeft(CategoryReorderGhost, target.X);
+        Canvas.SetTop(CategoryReorderGhost, target.Y);
+        Motion.To(CategoryReorderGhost, Canvas.LeftProperty, target.X, Motion.Glide, from: origin.X);
+        Motion.To(CategoryReorderGhost, Canvas.TopProperty, target.Y, Motion.Glide, from: origin.Y);
+        Motion.To(CategoryReorderGhostScale, ScaleTransform.ScaleXProperty, 1, Motion.Glide);
         Motion.To(CategoryReorderGhostScale, ScaleTransform.ScaleYProperty, 1, Motion.Glide,
             done: () => { if (version == _categoryLandingVersion) StopCategoryReorderLanding(); });
     }

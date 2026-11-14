@@ -40,7 +40,11 @@ public sealed class WeatherMotionTests
         AnimationConfig.SetReduceMotion(false);
         try
         {
-            var row = new Border();
+            var row = new Border { Width = 80, Height = 40, Background = System.Windows.Media.Brushes.White };
+            var window = new BackgroundWindow { Content = row, Width = 100, Height = 100, Left = -20000 };
+            window.Show();
+            using var closing = new Closer(window.Close);
+            await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
             WeatherMotion.Rise(row, 0, dx: 16);
             var shift = WeatherMotion.Transform<TranslateTransform>(row);
             typeof(WeatherView).GetMethod("PressSquish", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, [row, 1d]);
@@ -83,4 +87,6 @@ public sealed class WeatherMotionTests
         }
         finally { AnimationConfig.SetReduceMotion(reduced); }
     });
+
+    private sealed class Closer(Action close) : IDisposable { public void Dispose() => close(); }
 }

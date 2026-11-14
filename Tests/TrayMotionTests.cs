@@ -178,7 +178,7 @@ public sealed class TrayMotionTests
             item.RaiseEvent(new RoutedEventArgs(FrameworkElement.LoadedEvent));
 
             Assert.Same(entrance, item.RenderTransform);
-            Assert.True(entrance.HasAnimatedProperties);
+            Assert.True(entrance.Children.OfType<TranslateTransform>().Single().HasAnimatedProperties);
             Assert.True(item.HasAnimatedProperties);
         }
         finally { window.Close(); VNotch.Services.AnimationConfig.SetReduceMotion(previous); }

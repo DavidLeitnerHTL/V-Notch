@@ -140,8 +140,7 @@ public sealed class ClipboardTrayMotionRegressionTests
         Assert.InRange(item.Opacity, 0, 0.99);
         if (reducedMotion) Assert.Equal(Matrix.Identity, item.RenderTransform.Value);
         animate.Invoke(null, new object[] { item, true, false });
-        await Task.Delay(300);
-        await NextRenderFrame();
+        await WpfFrameWaiter.UntilAsync(() => item.Opacity == 1 && item.RenderTransform.Value == Matrix.Identity, "reversed card spring settles");
         Assert.Equal(1, item.Opacity);
         Assert.Equal(Matrix.Identity, item.RenderTransform.Value);
         Assert.Equal(size, item.RenderSize);
@@ -225,7 +224,8 @@ public sealed class ClipboardTrayMotionRegressionTests
 
         list.UpdateLayout();
         container = (ListBoxItem)list.ItemContainerGenerator.ContainerFromItem(first);
-        var motion = Assert.IsType<TranslateTransform>(container.RenderTransform);
+        var layer = Assert.IsType<TransformGroup>(container.RenderTransform);
+        var motion = layer.Children.OfType<TranslateTransform>().Single();
         Assert.Equal(0d, motion.GetAnimationBaseValue(TranslateTransform.XProperty));
         // WPF initializes the replacement animation clock on the next render tick.
         await NextRenderFrame();
@@ -236,7 +236,7 @@ public sealed class ClipboardTrayMotionRegressionTests
         Assert.InRange(Math.Abs(renderedX - positions[first.Entry.Id]), 0, travelDistance);
         Assert.InRange(renderedX, Math.Min(positions[first.Entry.Id], targetX) - 1, Math.Max(positions[first.Entry.Id], targetX) + 1);
         await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
-        Assert.Same(motion, container.RenderTransform);
+        Assert.Same(layer, container.RenderTransform);
         Assert.Null(Field<object?>(tray, "_pendingCardPositions"));
     });
 

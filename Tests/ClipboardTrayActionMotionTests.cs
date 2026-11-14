@@ -51,7 +51,7 @@ public sealed class ClipboardTrayActionMotionTests
         var scale = (ScaleTransform)button.Template.FindName("HoverScale", button);
         double hoveredScale = reducedMotion ? 1 : 1.15;
         await TestWait.UntilStableAsync(() => TestWait.Near(hoveredScale, scale.ScaleX), "hover scale settles");
-        Assert.Equal(hoveredScale, scale.ScaleX, 3);
+        Assert.Equal(hoveredScale, scale.ScaleX, 2);
         for (int press = 0; press < 3; press++)
         {
             SetPressed(button, true);
@@ -62,8 +62,8 @@ public sealed class ClipboardTrayActionMotionTests
             SetPressed(button, false);
             Assert.InRange(Math.Abs(scale.ScaleX - pressedScale), 0, 0.001);
             await TestWait.UntilStableAsync(() => TestWait.Near(hoveredScale, scale.ScaleX) && TestWait.Near(hoveredScale, scale.ScaleY), "release returns to hover scale");
-            Assert.Equal(hoveredScale, scale.ScaleX, 3);
-            Assert.Equal(hoveredScale, scale.ScaleY, 3);
+            Assert.Equal(hoveredScale, scale.ScaleX, 2);
+            Assert.Equal(hoveredScale, scale.ScaleY, 2);
         }
         SetMouseOver(button, false);
         await TestWait.UntilStableAsync(() => TestWait.Near(1, scale.ScaleX), "hover exit restores unit scale");

@@ -161,7 +161,7 @@ public partial class ControlCenterView
                 RenderTransformOrigin = new Point(0.5, 0.5)
             };
             Squish(_pill, () => OnScreen && _button.IsEnabled, 60);
-            _scale = (ScaleTransform)_pill.RenderTransform;
+            _scale = FeedbackScale(_pill);
             var host = new Border { Child = _pill, RenderTransform = _lift };
             System.Windows.Controls.Grid.SetColumn(host, 3);
             Grid.Children.Add(host);

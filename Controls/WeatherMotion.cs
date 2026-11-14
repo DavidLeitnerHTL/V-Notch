@@ -180,7 +180,8 @@ internal static class WeatherMotion
         if (FindTransform<T>(element) is { } existing) return existing;
         var transform = new T();
         if (element.RenderTransform is TransformGroup group && !group.IsFrozen) group.Children.Add(transform);
-        else if (element.RenderTransform is { } old && !old.Value.IsIdentity)
+        // A live transform stays even while it reads identity: an entrance that has not ticked yet sits at its base value.
+        else if (element.RenderTransform is { } old && (!old.IsFrozen || !old.Value.IsIdentity))
             element.RenderTransform = new TransformGroup { Children = { old, transform } };
         else element.RenderTransform = transform;
         return transform;
