@@ -35,6 +35,7 @@ public partial class ControlCenterView
         public required TextBlock Name, Sub;
         public required ScaleTransform Fill;
         public required RotateTransform Chevron;
+        public required RollingNumber Number;
     }
 
     private OutputTile? _outputTile;
@@ -44,8 +45,17 @@ public partial class ControlCenterView
     private List<OutputDevice> _outputs = new();
     private string _outputKey = "";
     private string _appsKey = "";
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<FrameworkElement, WeatherTween> HeightTweens = new();
+
+    private static void GlideHeight(FrameworkElement element, double to, Action? done = null, double? from = null)
+    {
+        var tween = HeightTweens.GetValue(element, e => new WeatherTween { Value = e.ActualHeight,
+            Step = height => e.Height = Math.Max(0, height) });
+        Motion.To(tween, WeatherTween.ValueProperty, to, Motion.Glide, from: from, done: done);
+    }
     private readonly StackPanel _appsSection = new();
     private readonly Dictionary<uint, (ScaleTransform Fill, TextBlock Value)> _appBars = new();
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<TextBlock, RollingNumber> AppNumbers = new();
 
     /// <summary>For the <see cref="ControlCenterPage.System"/> page: the default speaker's volume and the app mixer.</summary>
     internal void AttachOutput(MasterVolumeWatcher volume, Func<AudioMixerService?> mixer)
@@ -160,7 +170,8 @@ public partial class ControlCenterView
         Grid.SetColumnSpan(card, span);
         grid.Children.Add(card);
 
-        var tile = new OutputTile { Card = card, Name = name, Sub = sub, Fill = fill, Chevron = chevron };
+        var tile = new OutputTile { Card = card, Name = name, Sub = sub, Fill = fill, Chevron = chevron,
+            Number = new RollingNumber(n => sub.Text = sub.Tag is true ? "🔇" : $"{Math.Round(n)} %", sub) };
         if (_volume != null)
         {
             var (v, m) = _volume.Current;
@@ -178,14 +189,16 @@ public partial class ControlCenterView
     private static void SetOutputLevel(OutputTile tile, float volume, bool muted, bool animate)
     {
         double target = muted ? 0 : Math.Clamp(volume, 0, 1);
-        tile.Sub.Text = muted ? "🔇" : $"{Math.Round(volume * 100)} %";
+        tile.Sub.Tag = muted;
+        tile.Number.To(volume * 100, animate ? 650 : 0);
+        if (muted) tile.Sub.Text = "🔇";
         if (!animate || AnimationConfig.ReduceMotion)
         {
             tile.Fill.BeginAnimation(ScaleTransform.ScaleXProperty, null);
             tile.Fill.ScaleX = target;
             return;
         }
-        tile.Fill.BeginAnimation(ScaleTransform.ScaleXProperty, WeatherMotion.To(tile.Fill.ScaleX, target, 260, WeatherMotion.Out));
+        Motion.To(tile.Fill, ScaleTransform.ScaleXProperty, target, Motion.Glide);
     }
 
     private void ShowOutputName(OutputTile tile)
@@ -231,28 +244,32 @@ public partial class ControlCenterView
         _outputOpen = open;
         if (_outputTile is { } tile)
         {
-            if (AnimationConfig.ReduceMotion) tile.Chevron.Angle = open ? 180 : 0;
-            else tile.Chevron.BeginAnimation(RotateTransform.AngleProperty, WeatherMotion.To(tile.Chevron.Angle, open ? 180 : 0, 320, ReleaseSpring));
+            Motion.To(tile.Chevron, RotateTransform.AngleProperty, open ? 180 : 0, Motion.Press);
         }
         if (open)
         {
-            BuildOutputRow(animate: true);
+            if (_outputDrawer.Children.Count == 0) BuildOutputRow(animate: true);
+            else RevealOutputDrawer(fresh: _outputDrawer.Visibility != Visibility.Visible);
             return;
         }
         if (AnimationConfig.ReduceMotion || !IsVisible)
         {
+            if (HeightTweens.TryGetValue(_outputDrawer, out var height)) Motion.Stop(height, WeatherTween.ValueProperty, 0);
+            _outputDrawer.BeginAnimation(OpacityProperty, null);
+            if (_outputDrawer.RenderTransform is TranslateTransform shift) Motion.Stop(shift, TranslateTransform.YProperty, -10);
+            _outputDrawer.Height = 0;
             _outputDrawer.Visibility = Visibility.Collapsed;
             return;
         }
         // Folds back up into the tile.
         var lift = _outputDrawer.RenderTransform as TranslateTransform ?? new TranslateTransform();
         _outputDrawer.RenderTransform = lift;
-        lift.BeginAnimation(TranslateTransform.YProperty, WeatherMotion.To(lift.Y, -10, 180, WeatherMotion.Out));
-        var fade = WeatherMotion.To(_outputDrawer.Opacity, 0, 170, WeatherMotion.Out);
-        fade.Completed += (_, _) =>
+        Motion.To(lift, TranslateTransform.YProperty, -10, Motion.Exit);
+        GlideHeight(_outputDrawer, 0, done: () =>
         {
             if (!_outputOpen) _outputDrawer.Visibility = Visibility.Collapsed;
-        };
+        });
+        var fade = WeatherMotion.To(_outputDrawer.Opacity, 0, 170, WeatherMotion.Out);
         _outputDrawer.BeginAnimation(OpacityProperty, fade);
     }
 
@@ -286,18 +303,11 @@ public partial class ControlCenterView
             if (_outputDrawer.RenderTransform is TranslateTransform still) { still.BeginAnimation(TranslateTransform.YProperty, null); still.Y = 0; }
             return;
         }
-        // Drops out of the tile with a spring, the chips one after another.
-        var drop = new TranslateTransform(0, -10);
-        _outputDrawer.RenderTransform = drop;
-        _outputDrawer.BeginAnimation(OpacityProperty, WeatherMotion.To(0, 1, 220, WeatherMotion.Out));
-        drop.BeginAnimation(TranslateTransform.YProperty, WeatherMotion.To(-10, 0, 520, ReleaseSpring));
+        RevealOutputDrawer(fresh: true);
         int n = 0;
-        foreach (UIElement chip in _outputDrawer.Children)
+        foreach (FrameworkElement chip in _outputDrawer.Children)
         {
-            if (chip.RenderTransform is not ScaleTransform pop) continue;
-            pop.BeginAnimation(ScaleTransform.ScaleXProperty, WeatherMotion.To(0.86, 1, 480, ReleaseSpring, n * 45));
-            pop.BeginAnimation(ScaleTransform.ScaleYProperty, WeatherMotion.To(0.86, 1, 480, ReleaseSpring, n * 45));
-            n++;
+            PopIn(chip, Motion.Stagger(n++).TotalMilliseconds);
         }
 
         void Place(Border chip)
@@ -306,6 +316,18 @@ public partial class ControlCenterView
             _outputDrawer.Children.Add(chip);
             index++;
         }
+    }
+
+    private void RevealOutputDrawer(bool fresh)
+    {
+        var drop = _outputDrawer.RenderTransform as TranslateTransform ?? new TranslateTransform();
+        _outputDrawer.RenderTransform = drop;
+        _outputDrawer.Visibility = Visibility.Visible;
+        _outputDrawer.Measure(new Size(Math.Max(1, ActualWidth), double.PositiveInfinity));
+        double height = _outputDrawer.Children.Cast<FrameworkElement>().Select(c => c.DesiredSize.Height).DefaultIfEmpty(0).Max();
+        GlideHeight(_outputDrawer, height, from: fresh ? 0 : null);
+        _outputDrawer.BeginAnimation(OpacityProperty, WeatherMotion.To(fresh ? 0 : _outputDrawer.Opacity, 1, 160, WeatherMotion.Out));
+        Motion.To(drop, TranslateTransform.YProperty, 0, Motion.Tile, from: fresh ? -10 : null);
     }
 
     private Border Chip(string name, string sub, bool active, Action onClick)
@@ -328,7 +350,8 @@ public partial class ControlCenterView
             chip.BorderThickness = new Thickness(1);
             chip.Padding = new Thickness(10, 7, 10, 7);
         }
-        else Pressable(chip, () => CardBg, CardHover);
+        Brush rest = chip.Background;
+        Pressable(chip, () => rest, CardHover);
         System.Windows.Automation.AutomationProperties.SetName(chip, name);
         chip.MouseLeftButtonDown += (_, e) =>
         {
@@ -449,14 +472,18 @@ public partial class ControlCenterView
     private static void SetAppBar((ScaleTransform Fill, TextBlock Value) bar, float volume, bool muted, bool animate)
     {
         double target = muted ? 0 : Math.Clamp(volume, 0, 1);
-        bar.Value.Text = muted ? "🔇" : $"{Math.Round(volume * 100)} %";
+        bar.Value.Tag = muted;
+        var number = AppNumbers.GetValue(bar.Value, label => new RollingNumber(
+            n => label.Text = label.Tag is true ? "🔇" : $"{Math.Round(n)} %", label));
+        number.To(volume * 100, animate ? 650 : 0);
+        if (muted) bar.Value.Text = "🔇";
         if (!animate || AnimationConfig.ReduceMotion || Math.Abs(bar.Fill.ScaleX - target) < 0.005)
         {
             bar.Fill.BeginAnimation(ScaleTransform.ScaleXProperty, null);
             bar.Fill.ScaleX = target;
             return;
         }
-        bar.Fill.BeginAnimation(ScaleTransform.ScaleXProperty, WeatherMotion.To(bar.Fill.ScaleX, target, 260, WeatherMotion.Out));
+        Motion.To(bar.Fill, ScaleTransform.ScaleXProperty, target, Motion.Glide);
     }
 
     #endregion

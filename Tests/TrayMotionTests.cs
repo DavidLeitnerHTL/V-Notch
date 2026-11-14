@@ -22,7 +22,7 @@ public sealed class TrayMotionTests
             await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
             typeof(ClipboardTray).GetMethod("AnimateLayer", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!
                 .Invoke(null, [layer, true, 0, false, 40, 6d, null]);
-            await Task.Delay(180);
+            await Task.Delay(240);
             await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
             Assert.Equal(1, layer.Opacity);
             layer.Opacity = .5;
@@ -134,10 +134,10 @@ public sealed class TrayMotionTests
             var second = (ListBoxItem)list.ItemContainerGenerator.ContainerFromIndex(1);
 
             tray.BeginEntrance();
-            Assert.IsType<TranslateTransform>(first.RenderTransform);
-            Assert.IsType<TranslateTransform>(second.RenderTransform);
-            Assert.True(((TranslateTransform)first.RenderTransform).HasAnimatedProperties);
-            Assert.True(((TranslateTransform)second.RenderTransform).HasAnimatedProperties);
+            Assert.IsType<TransformGroup>(first.RenderTransform);
+            Assert.IsType<TransformGroup>(second.RenderTransform);
+            Assert.True(((TransformGroup)first.RenderTransform).Children.OfType<TranslateTransform>().Single().HasAnimatedProperties);
+            Assert.True(((TransformGroup)second.RenderTransform).Children.OfType<TranslateTransform>().Single().HasAnimatedProperties);
 
             var lockContent = (FrameworkElement)tray.FindName("LockContent");
             Assert.NotNull(lockContent);
@@ -170,15 +170,15 @@ public sealed class TrayMotionTests
             var list = (ListBox)tray.FindName("Cards");
             var item = (ListBoxItem)list.ItemContainerGenerator.ContainerFromIndex(0);
             tray.BeginEntrance();
-            var entrance = Assert.IsType<TranslateTransform>(item.RenderTransform);
-            Assert.True(entrance.HasAnimatedProperties);
+            var entrance = Assert.IsType<TransformGroup>(item.RenderTransform);
+            Assert.True(entrance.Children.OfType<TranslateTransform>().Single().HasAnimatedProperties);
 
             // WPF can realize a container during layout and raise Loaded after
             // BeginEntrance has already prepared that container's stagger.
             item.RaiseEvent(new RoutedEventArgs(FrameworkElement.LoadedEvent));
 
             Assert.Same(entrance, item.RenderTransform);
-            Assert.True(entrance.HasAnimatedProperties);
+            Assert.True(entrance.Children.OfType<TranslateTransform>().Single().HasAnimatedProperties);
             Assert.True(item.HasAnimatedProperties);
         }
         finally { window.Close(); VNotch.Services.AnimationConfig.SetReduceMotion(previous); }
@@ -217,6 +217,34 @@ public sealed class TrayMotionTests
                 Math.Abs(last.RenderTransform.Value.OffsetY) < 1e-6, "cached card reveal settled");
             Assert.Equal(0, last.RenderTransform.Value.OffsetY);
             SaveTrayArtifact(tray);
+        }
+        finally { window.Close(); VNotch.Services.AnimationConfig.SetReduceMotion(previous); }
+    });
+
+    [Fact]
+    public void PressReleaseCarriesTheLiveVelocityAndReusesTheTransform() => SharedStaTestRunner.RunAsync(async () =>
+    {
+        bool previous = VNotch.Services.AnimationConfig.ReduceMotion;
+        VNotch.Services.AnimationConfig.SetReduceMotion(false);
+        var layer = new Border { Width = 80, Height = 40, Background = Brushes.White };
+        var window = new BackgroundWindow { Content = layer, Width = 100, Height = 100, Left = -20000 };
+        var press = typeof(ClipboardTray).GetMethod("AnimateCardPress", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+        try
+        {
+            window.Show();
+            await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            press.Invoke(null, [layer, true]);
+            await Task.Delay(60);
+            await WpfFrameWaiter.NextAsync();
+            var group = Assert.IsType<TransformGroup>(layer.RenderTransform);
+            var scale = group.Children.OfType<ScaleTransform>().Single();
+            double position = scale.ScaleX;
+            Assert.True(VNotch.Services.Motion.VelocityOf(scale, ScaleTransform.ScaleXProperty) < 0);
+            press.Invoke(null, [layer, false]);
+            Assert.Same(group, layer.RenderTransform);
+            Assert.Equal(position, scale.ScaleX, 3);
+            Assert.True(VNotch.Services.Motion.VelocityOf(scale, ScaleTransform.ScaleXProperty) < 0);
+            await WpfFrameWaiter.UntilAsync(() => scale.ScaleX == 1 && scale.ScaleY == 1, "release spring settles");
         }
         finally { window.Close(); VNotch.Services.AnimationConfig.SetReduceMotion(previous); }
     });

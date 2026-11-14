@@ -122,11 +122,13 @@ public partial class ControlCenterView
         DockPanel.SetDock(number, Dock.Right);
         bar.Children.Add(number);
         bar.Children.Add(hit);
+        var shownLevel = new RollingNumber(n => number.Text = $"{Math.Round(n)} %", number);
+        shownLevel.To(value.Value);
         void SetLevel(int level)
         {
             level = Math.Clamp(level, 0, 100);
-            fill.ScaleX = level / 100.0;
-            number.Text = $"{level} %";
+            Motion.To(fill, ScaleTransform.ScaleXProperty, level / 100.0, Motion.Glide);
+            shownLevel.To(level);
             DisplayBrightness.Set(id, level);
         }
         void SetFrom(MouseEventArgs e)
@@ -145,6 +147,7 @@ public partial class ControlCenterView
         host.Children.Add(label);
         host.Children.Add(bar);
         host.Visibility = Visibility.Visible;
+        PopIn(host, 0);
     }
 
     private DdcBrightness DisplayBrightness => _displayBrightness ??= new DdcBrightness(new DisplayBrightnessPort(this), () => DateTime.UtcNow);
@@ -198,7 +201,7 @@ public partial class ControlCenterView
         if (!Changes.NeedsConfirm) return;
         var text = MakeLabel(Loc.Get("control.displays.keepPrompt"), 12, UiPalette.PrimaryBrush);
         var seconds = MakeLabel("", 11, Muted);
-        _displaySeconds = new RollingNumber(n => seconds.Text = string.Format(Loc.Get("control.displays.backIn"), (int)Math.Round(n)));
+        _displaySeconds = new RollingNumber(n => seconds.Text = string.Format(Loc.Get("control.displays.backIn"), (int)Math.Round(n)), seconds);
         _displaySeconds.To(Changes.SecondsLeft);
         var button = new Border { Background = Wash(_mood, .25), CornerRadius = new CornerRadius(6), Padding = new Thickness(9, 5, 9, 5), Cursor = Cursors.Hand, Child = MakeLabel(Loc.Get("control.displays.keep"), 11, _moodInk) };
         Squish(button);
@@ -211,7 +214,7 @@ public partial class ControlCenterView
         {
             var shift = new TranslateTransform(); bar.RenderTransform = shift;
             bar.BeginAnimation(OpacityProperty, WeatherMotion.To(0, 1, 180, WeatherMotion.Out));
-            shift.BeginAnimation(TranslateTransform.YProperty, WeatherMotion.To(8, 0, 180, WeatherMotion.Out));
+            Motion.To(shift, TranslateTransform.YProperty, 0, Motion.Tile, from: 8);
         }
     }
 
@@ -228,9 +231,36 @@ public partial class ControlCenterView
         {
             var rect = new Rectangle { Width = Math.Max(4, d.Bounds.Width * scale), Height = Math.Max(4, d.Bounds.Height * scale), RadiusX = 4, RadiusY = 4, Stroke = _moodInk, StrokeThickness = 1.5, Fill = d.Id == _selectedDisplay ? Wash(_mood, .25) : CardBg, Opacity = d.Active ? 1 : .45, StrokeDashArray = d.Active ? null : new DoubleCollection { 3, 2 }, Cursor = Cursors.Hand, Tag = d.Id };
             Canvas.SetLeft(rect, (d.Bounds.X - minX) * scale); Canvas.SetTop(rect, (d.Bounds.Y - minY) * scale);
-            Point start = default; double left = 0, top = 0; bool dragged = false;
-            rect.MouseLeftButtonDown += (_, e) => { start = e.GetPosition(canvas); left = Canvas.GetLeft(rect); top = Canvas.GetTop(rect); dragged = false; rect.CaptureMouse(); e.Handled = true; };
-            rect.MouseMove += (_, e) => { if (!rect.IsMouseCaptured) return; var p = e.GetPosition(canvas); if ((p - start).Length > 3) dragged = true; if (dragged) { Canvas.SetLeft(rect, left + p.X - start.X); Canvas.SetTop(rect, top + p.Y - start.Y); } };
+            Point start = default, sample = default; double left = 0, top = 0; bool dragged = false;
+            long sampledAt = 0; Vector speed = default;
+            var feedback = new ScaleTransform(1, 1);
+            rect.RenderTransform = feedback;
+            rect.RenderTransformOrigin = new Point(0.5, 0.5);
+            void SetScale(double value, SpringMotion spring)
+            {
+                Motion.To(feedback, ScaleTransform.ScaleXProperty, value, spring);
+                Motion.To(feedback, ScaleTransform.ScaleYProperty, value, spring);
+            }
+            rect.MouseEnter += (_, _) => SetScale(1.035, Motion.Press);
+            rect.MouseLeave += (_, _) => { if (!rect.IsMouseCaptured) SetScale(1, Motion.Press); };
+            rect.LostMouseCapture += (_, _) => SetScale(rect.IsMouseOver ? 1.035 : 1, Motion.Press);
+            rect.MouseLeftButtonDown += (_, e) =>
+            {
+                Motion.Stop(rect, Canvas.LeftProperty); Motion.Stop(rect, Canvas.TopProperty);
+                start = sample = e.GetPosition(canvas); sampledAt = System.Diagnostics.Stopwatch.GetTimestamp(); speed = default;
+                left = Canvas.GetLeft(rect); top = Canvas.GetTop(rect); dragged = false;
+                SetScale(0.96, Motion.PressDown); rect.CaptureMouse(); e.Handled = true;
+            };
+            rect.MouseMove += (_, e) =>
+            {
+                if (!rect.IsMouseCaptured) return;
+                var p = e.GetPosition(canvas);
+                double elapsed = System.Diagnostics.Stopwatch.GetElapsedTime(sampledAt).TotalSeconds;
+                if (elapsed > 0) speed = (p - sample) / elapsed;
+                sample = p; sampledAt = System.Diagnostics.Stopwatch.GetTimestamp();
+                if ((p - start).Length > 3) dragged = true;
+                if (dragged) { Canvas.SetLeft(rect, left + p.X - start.X); Canvas.SetTop(rect, top + p.Y - start.Y); }
+            };
             rect.MouseLeftButtonUp += (_, e) =>
             {
                 rect.ReleaseMouseCapture(); e.Handled = true;
@@ -248,10 +278,9 @@ public partial class ControlCenterView
                 if (AnimationConfig.ReduceMotion) ApplyPosition();
                 else
                 {
-                    var move = WeatherMotion.To(Canvas.GetLeft(rect), targetX, 220, KnobSpring);
-                    move.Completed += (_, _) => ApplyPosition();
-                    rect.BeginAnimation(Canvas.LeftProperty, move);
-                    rect.BeginAnimation(Canvas.TopProperty, WeatherMotion.To(Canvas.GetTop(rect), targetY, 220, KnobSpring));
+                    bool recent = System.Diagnostics.Stopwatch.GetElapsedTime(sampledAt).TotalMilliseconds < 100;
+                    Motion.To(rect, Canvas.LeftProperty, targetX, Motion.Glide, velocity: recent ? speed.X : 0, done: ApplyPosition);
+                    Motion.To(rect, Canvas.TopProperty, targetY, Motion.Glide, velocity: recent ? speed.Y : 0);
                 }
             };
             canvas.Children.Add(rect);

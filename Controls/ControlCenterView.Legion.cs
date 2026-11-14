@@ -359,38 +359,30 @@ public partial class ControlCenterView
         {
             parts.PillShift.BeginAnimation(TranslateTransform.XProperty, null);
             parts.PillShift.X = PillX(parts, index);
-            parts.Pill.BeginAnimation(OpacityProperty, WeatherMotion.To(parts.Pill.Opacity, 1, 360, WeatherMotion.Out, first ? 180 : 0));
+            parts.Pill.BeginAnimation(OpacityProperty, WeatherMotion.To(parts.Pill.Opacity, 1, 160, WeatherMotion.Out));
             if (!AnimationConfig.ReduceMotion)
             {
-                parts.PillScale.BeginAnimation(ScaleTransform.ScaleXProperty, WeatherMotion.To(0.78, 1, 640, SoftSpring, first ? 180 : 0));
-                parts.PillScale.BeginAnimation(ScaleTransform.ScaleYProperty, WeatherMotion.To(0.78, 1, 640, SoftSpring, first ? 180 : 0));
+                Motion.To(parts.PillScale, ScaleTransform.ScaleXProperty, 1, Motion.Tile, from: Motion.TileFromScale);
+                Motion.To(parts.PillScale, ScaleTransform.ScaleYProperty, 1, Motion.Tile, from: Motion.TileFromScale);
             }
         }
         else
         {
             // The pill flies over: it stretches along the way (more the further it goes) and lands with a wobble.
-            double from = parts.PillShift.X, to = PillX(parts, index);
+            double to = PillX(parts, index);
             int distance = Math.Abs(index - previous);
-            // The same small overshoot (about a tenth of a tile) however far it flies, so it never leaves the row.
-            var fly = WeatherMotion.To(from, to, 520 + distance * 60, FreezeEase(new BackEase { Amplitude = 0.4 / distance, EasingMode = EasingMode.EaseOut }));
-            parts.PillShift.BeginAnimation(TranslateTransform.XProperty, fly);
-            var stretch = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromMilliseconds(620) };
-            stretch.KeyFrames.Add(new EasingDoubleKeyFrame(1 + 0.09 * distance, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(140)), PressEase));
-            stretch.KeyFrames.Add(new EasingDoubleKeyFrame(1, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(620)), SoftSpring));
-            var squash = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromMilliseconds(620) };
-            squash.KeyFrames.Add(new EasingDoubleKeyFrame(1 - 0.045 * distance, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(140)), PressEase));
-            squash.KeyFrames.Add(new EasingDoubleKeyFrame(1, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(620)), SoftSpring));
-            Timeline.SetDesiredFrameRate(stretch, AnimationConfig.TargetFps);
-            Timeline.SetDesiredFrameRate(squash, AnimationConfig.TargetFps);
-            parts.PillScale.BeginAnimation(ScaleTransform.ScaleXProperty, stretch);
-            parts.PillScale.BeginAnimation(ScaleTransform.ScaleYProperty, squash);
+            Motion.To(parts.PillShift, TranslateTransform.XProperty, to, Motion.Glide);
+            Motion.To(parts.PillScale, ScaleTransform.ScaleXProperty, 1 + 0.09 * distance, Motion.PressDown,
+                done: () => Motion.To(parts.PillScale, ScaleTransform.ScaleXProperty, 1, Motion.Press));
+            Motion.To(parts.PillScale, ScaleTransform.ScaleYProperty, 1 - 0.045 * distance, Motion.PressDown,
+                done: () => Motion.To(parts.PillScale, ScaleTransform.ScaleYProperty, 1, Motion.Press));
             parts.Pill.BeginAnimation(OpacityProperty, WeatherMotion.To(parts.Pill.Opacity, 1, 200, WeatherMotion.Out));
             Bounce(activeGlyph, 1.4);
             if (previous >= 0) Bounce(parts.Modes[previous].Glyph, 0.85);
         }
 
         // The lit mode breathes softly while the page is open.
-        if (IsVisible)
+        if (IsVisible && activeGlyph.IsVisible)
         {
             _legionLoops.Swing(activeGlyph, OpacityProperty, 1, 0.55, 1.4, delaySeconds: 0.8);
             _legionLoops.Swing(parts.PillGlow, DropShadowEffect.BlurRadiusProperty, 18, 28, 1.4, delaySeconds: 0.8);

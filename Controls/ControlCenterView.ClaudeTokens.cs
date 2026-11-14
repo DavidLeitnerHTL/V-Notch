@@ -52,7 +52,7 @@ public partial class ControlCenterView
         {
             SessionId = lead.Id,
             Host = stack,
-            Context = new RollingNumber(v => context.Text = FormatTokens(v)),
+            Context = new RollingNumber(v => context.Text = FormatTokens(v), context),
             Share = share
         };
         _tokenRow = row;

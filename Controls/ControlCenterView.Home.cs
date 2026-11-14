@@ -283,22 +283,22 @@ public partial class ControlCenterView
             if (turnedOn)
             {
                 // The light blooms out of the bulb with a little overshoot, rays burst outwards and the bulb hops.
-                GlowScale.BeginAnimation(ScaleTransform.ScaleXProperty, WeatherMotion.To(0.15, 1, 720, WeatherMotion.OutBack));
-                GlowScale.BeginAnimation(ScaleTransform.ScaleYProperty, WeatherMotion.To(0.15, 1, 720, WeatherMotion.OutBack));
+                Motion.To(GlowScale, ScaleTransform.ScaleXProperty, 1, Motion.Tile);
+                Motion.To(GlowScale, ScaleTransform.ScaleYProperty, 1, Motion.Tile);
                 var burst = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromMilliseconds(620) };
-                burst.KeyFrames.Add(new EasingDoubleKeyFrame(0.95, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(110)), PressEase));
+                burst.KeyFrames.Add(new EasingDoubleKeyFrame(0.95, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(110)), WeatherMotion.Out));
                 burst.KeyFrames.Add(new EasingDoubleKeyFrame(0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(620)), WeatherMotion.Out));
                 Timeline.SetDesiredFrameRate(burst, AnimationConfig.TargetFps);
                 Rays.BeginAnimation(OpacityProperty, burst);
-                RaysScale.BeginAnimation(ScaleTransform.ScaleXProperty, WeatherMotion.To(0.6, 1.55, 620, WeatherMotion.OutQuint));
-                RaysScale.BeginAnimation(ScaleTransform.ScaleYProperty, WeatherMotion.To(0.6, 1.55, 620, WeatherMotion.OutQuint));
+                Motion.To(RaysScale, ScaleTransform.ScaleXProperty, 1.55, Motion.Tile);
+                Motion.To(RaysScale, ScaleTransform.ScaleYProperty, 1.55, Motion.Tile);
                 Bounce(Icon, 1.38);
             }
             else if (turnedOff)
             {
                 // The glow folds back into the bulb, which sinks a little.
-                GlowScale.BeginAnimation(ScaleTransform.ScaleXProperty, WeatherMotion.To(GlowScale.ScaleX, 0.2, 340, WeatherMotion.Out));
-                GlowScale.BeginAnimation(ScaleTransform.ScaleYProperty, WeatherMotion.To(GlowScale.ScaleY, 0.2, 340, WeatherMotion.Out));
+                Motion.To(GlowScale, ScaleTransform.ScaleXProperty, 0.2, Motion.Exit);
+                Motion.To(GlowScale, ScaleTransform.ScaleYProperty, 0.2, Motion.Exit);
                 Bounce(Icon, 0.84);
             }
         }
@@ -319,7 +319,7 @@ public partial class ControlCenterView
     private void Breathe(LightTile tile)
     {
         tile.Glow.BeginAnimation(OpacityProperty, null);
-        if (tile.On != true || !IsVisible || AnimationConfig.ReduceMotion) return;
+        if (tile.On != true || !IsVisible || !tile.Glow.IsVisible || AnimationConfig.ReduceMotion) return;
         _homeLoops.Run(tile.Glow, OpacityProperty, new DoubleAnimation(1, 0.62, TimeSpan.FromSeconds(2.6))
         {
             AutoReverse = true,
@@ -426,6 +426,7 @@ public partial class ControlCenterView
             GlowCore = core, GlowMid = mid, Glow = glow, GlowScale = glowScale, Rays = rays, RaysScale = raysScale, RayInk = rayInk,
             Color = light.Color ?? LampLight
         };
+        glow.IsVisibleChanged += (_, _) => Breathe(tile);
         if (light.Rgb) content.Children.Add(StripDots(tile, colors));
         Pressable(card, () => tile.On == true ? new SolidColorBrush(Alpha(tile.LitColor, 0.16)) : CardBg, CardHover, grow: true);
         card.MouseLeftButtonDown += (_, e) =>
@@ -442,8 +443,8 @@ public partial class ControlCenterView
         // Arriving lit: the glow blooms in with the tab instead of just being there.
         if (light.On && IsVisible && !AnimationConfig.ReduceMotion)
         {
-            glowScale.BeginAnimation(ScaleTransform.ScaleXProperty, WeatherMotion.To(0.2, 1, 900, WeatherMotion.OutQuint, 200));
-            glowScale.BeginAnimation(ScaleTransform.ScaleYProperty, WeatherMotion.To(0.2, 1, 900, WeatherMotion.OutQuint, 200));
+            Motion.To(glowScale, ScaleTransform.ScaleXProperty, 1, Motion.Tile, from: 0.2);
+            Motion.To(glowScale, ScaleTransform.ScaleYProperty, 1, Motion.Tile, from: 0.2);
         }
         return tile;
     }
@@ -510,15 +511,21 @@ public partial class ControlCenterView
             };
             dot.MouseEnter += (_, _) => Grow(scale, 1.3);
             dot.MouseLeave += (_, _) => Grow(scale, 1);
+            dot.PreviewMouseLeftButtonDown += (_, _) =>
+            {
+                Motion.To(scale, ScaleTransform.ScaleXProperty, 0.9, Motion.PressDown);
+                Motion.To(scale, ScaleTransform.ScaleYProperty, 0.9, Motion.PressDown);
+            };
+            dot.PreviewMouseLeftButtonUp += (_, _) => Grow(scale, dot.IsMouseOver ? 1.3 : 1);
+            dot.LostMouseCapture += (_, _) => Grow(scale, 1);
             return dot;
         }
     }
 
     private static void Grow(ScaleTransform scale, double to)
     {
-        if (AnimationConfig.ReduceMotion) return;
-        scale.BeginAnimation(ScaleTransform.ScaleXProperty, WeatherMotion.To(scale.ScaleX, to, 420, ReleaseSpring));
-        scale.BeginAnimation(ScaleTransform.ScaleYProperty, WeatherMotion.To(scale.ScaleY, to, 420, ReleaseSpring));
+        Motion.To(scale, ScaleTransform.ScaleXProperty, to, Motion.Press);
+        Motion.To(scale, ScaleTransform.ScaleYProperty, to, Motion.Press);
     }
 
     /// <summary>A wave of the picked colour that spreads from the dot across the tile.</summary>
@@ -552,8 +559,8 @@ public partial class ControlCenterView
         var fade = WeatherMotion.To(0.9, 0, 700, WeatherMotion.Out);
         fade.Completed += (_, _) => tile.Body.Children.Remove(wave);
         wave.BeginAnimation(OpacityProperty, fade);
-        scale.BeginAnimation(ScaleTransform.ScaleXProperty, WeatherMotion.To(0.2, 9, 700, WeatherMotion.OutQuint));
-        scale.BeginAnimation(ScaleTransform.ScaleYProperty, WeatherMotion.To(0.2, 9, 700, WeatherMotion.OutQuint));
+        Motion.To(scale, ScaleTransform.ScaleXProperty, 9, Motion.Tile, from: 0.2);
+        Motion.To(scale, ScaleTransform.ScaleYProperty, 9, Motion.Tile, from: 0.2);
     }
 
     /// <summary>Right after a tap the tab's colour follows what the tiles now show, before the dashboard confirms it.</summary>
@@ -605,7 +612,7 @@ public partial class ControlCenterView
         var head = new StackPanel { Orientation = Orientation.Horizontal, Children = { title, status } };
 
         var current = MakeLabel("–", 26, VNotch.Services.UiPalette.PrimaryBrush);
-        var roll = new RollingNumber(v => current.Text = v.ToString("0.0", CultureInfo.CurrentCulture) + "°");
+        var roll = new RollingNumber(v => current.Text = v.ToString("0.0", CultureInfo.CurrentCulture) + "°", current);
         var target = MakeLabel("", 15, _moodInk);
         target.MinWidth = 44;
         target.TextAlignment = TextAlignment.Center;
