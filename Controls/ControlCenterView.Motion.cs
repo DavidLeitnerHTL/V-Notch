@@ -65,6 +65,16 @@ public partial class ControlCenterView
     private const double HoverGrow = 1.035;
 
     /// <summary>
+    /// How far an element rises under the pointer. A scale is pixels on a wide tile, and one that reaches the edge
+    /// of its tab got its sides cut off, so the rise is capped at three pixels a side, spring overshoot included.
+    /// </summary>
+    internal static double HoverScale(FrameworkElement element, double grow = HoverGrow)
+    {
+        double extent = Math.Max(element.ActualWidth, element.ActualHeight);
+        return extent > 0 ? 1 + Math.Min(grow - 1, 5 / extent) : grow;
+    }
+
+    /// <summary>
     /// Makes a card feel physical: its background fades to <paramref name="hover"/> under the pointer, a press
     /// squishes it a little (wider than tall, like a soft key) and letting go springs it back. With
     /// <paramref name="grow"/> it also rises a little toward the pointer, with a spring.
@@ -80,7 +90,7 @@ public partial class ControlCenterView
         card.MouseEnter += (_, _) =>
         {
             WeatherMotion.Tint(fill, HoverColor(), 140);
-            if (grow) Release(scale, gentle, HoverGrow);
+            if (grow) Release(scale, gentle, HoverScale(card));
         };
         card.MouseLeave += (_, _) =>
         {
@@ -92,7 +102,7 @@ public partial class ControlCenterView
             Motion.To(scale, ScaleTransform.ScaleXProperty, gentle ? 0.975 : 0.965, Motion.PressDown);
             Motion.To(scale, ScaleTransform.ScaleYProperty, gentle ? 0.945 : 0.93, Motion.PressDown);
         };
-        card.PreviewMouseLeftButtonUp += (_, _) => Release(scale, gentle, grow && card.IsMouseOver ? HoverGrow : 1);
+        card.PreviewMouseLeftButtonUp += (_, _) => Release(scale, gentle, grow && card.IsMouseOver ? HoverScale(card) : 1);
         card.LostMouseCapture += (_, _) => Release(scale, gentle);
         card.IsVisibleChanged += (_, _) => { if (!card.IsVisible) StopScale(scale); };
     }
@@ -104,7 +114,7 @@ public partial class ControlCenterView
         button.RenderTransformOrigin = new Point(0.5, 0.5);
         void Settle()
         {
-            double to = active?.Invoke() != false && button.IsMouseOver ? HoverGrow : 1;
+            double to = active?.Invoke() != false && button.IsMouseOver ? HoverScale(button) : 1;
             Motion.To(scale, ScaleTransform.ScaleXProperty, to, Motion.Press, fps: fps);
             Motion.To(scale, ScaleTransform.ScaleYProperty, to, Motion.Press, fps: fps);
         }

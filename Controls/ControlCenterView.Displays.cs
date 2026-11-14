@@ -241,9 +241,9 @@ public partial class ControlCenterView
                 Motion.To(feedback, ScaleTransform.ScaleXProperty, value, spring);
                 Motion.To(feedback, ScaleTransform.ScaleYProperty, value, spring);
             }
-            rect.MouseEnter += (_, _) => SetScale(1.035, Motion.Press);
+            rect.MouseEnter += (_, _) => SetScale(HoverScale(rect), Motion.Press);
             rect.MouseLeave += (_, _) => { if (!rect.IsMouseCaptured) SetScale(1, Motion.Press); };
-            rect.LostMouseCapture += (_, _) => SetScale(rect.IsMouseOver ? 1.035 : 1, Motion.Press);
+            rect.LostMouseCapture += (_, _) => SetScale(rect.IsMouseOver ? HoverScale(rect) : 1, Motion.Press);
             rect.MouseLeftButtonDown += (_, e) =>
             {
                 Motion.Stop(rect, Canvas.LeftProperty); Motion.Stop(rect, Canvas.TopProperty);

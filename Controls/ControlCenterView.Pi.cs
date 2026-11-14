@@ -425,10 +425,10 @@ public partial class ControlCenterView
                 Motion.To(scale, ScaleTransform.ScaleXProperty, value, spring);
                 Motion.To(scale, ScaleTransform.ScaleYProperty, value, spring);
             }
-            element.MouseEnter += (_, _) => Grow(1.02, Motion.Press);
+            element.MouseEnter += (_, _) => Grow(HoverScale(element, 1.02), Motion.Press);
             element.MouseLeave += (_, _) => Grow(1, Motion.Press);
             element.PreviewMouseLeftButtonDown += (_, _) => Grow(0.96, Motion.PressDown);
-            element.PreviewMouseLeftButtonUp += (_, _) => Grow(element.IsMouseOver ? 1.02 : 1, Motion.Press);
+            element.PreviewMouseLeftButtonUp += (_, _) => Grow(element.IsMouseOver ? HoverScale(element, 1.02) : 1, Motion.Press);
             element.LostMouseCapture += (_, _) => Grow(1, Motion.Press);
         }
         element.MouseLeftButtonDown += async (_, e) =>
