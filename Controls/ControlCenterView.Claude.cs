@@ -223,6 +223,7 @@ public partial class ControlCenterView
         ForgetAnsweredQuestions(pending);
         StopRipples();
         _ripples.Clear();
+        _rebuildingResetRows = true;
         _claudeSection.Children.Clear();
 
         if (!_claudeInstalled) _claudeSection.Children.Add(SetupCard(listening));
@@ -235,6 +236,7 @@ public partial class ControlCenterView
         _claudeSection.Children.Add(LimitStrip(limits));
         AddResetRows(limits);
         if (_codexUsage?.HasSource == true) AddCodexLimits();
+        _rebuildingResetRows = false;
 
         RevealNewCards(_cardScratch);
         _cardScratch.Clear();
@@ -913,21 +915,27 @@ public partial class ControlCenterView
     }
 
     /// <summary>Glides in from a little above with a soft overshoot, the way new sessions and requests arrive.</summary>
-    private static void GlideIn(FrameworkElement element, double delayMs)
+    private static void GlideIn(FrameworkElement element, double delayMs, int? fps = null)
     {
         if (AnimationConfig.ReduceMotion) return;
+        DoubleAnimation Motion(double from, double to, double ms, IEasingFunction ease)
+        {
+            var animation = WeatherMotion.To(from, to, ms, ease, delayMs);
+            if (fps.HasValue) Timeline.SetDesiredFrameRate(animation, fps.Value);
+            return animation;
+        }
         var (scale, shift) = LiftParts(element);
         element.Opacity = 0;
-        var fade = WeatherMotion.To(0, 1, 320, WeatherMotion.Out, delayMs);
+        var fade = Motion(0, 1, 320, WeatherMotion.Out);
         fade.Completed += (_, _) =>
         {
             element.BeginAnimation(OpacityProperty, null);
             element.Opacity = 1;
         };
         element.BeginAnimation(OpacityProperty, fade);
-        shift.BeginAnimation(TranslateTransform.YProperty, WeatherMotion.To(-8, 0, 560, WeatherMotion.OutBack, delayMs));
-        scale.BeginAnimation(ScaleTransform.ScaleXProperty, WeatherMotion.To(0.98, 1, 560, WeatherMotion.OutBack, delayMs));
-        scale.BeginAnimation(ScaleTransform.ScaleYProperty, WeatherMotion.To(0.98, 1, 560, WeatherMotion.OutBack, delayMs));
+        shift.BeginAnimation(TranslateTransform.YProperty, Motion(-8, 0, 560, WeatherMotion.OutBack));
+        scale.BeginAnimation(ScaleTransform.ScaleXProperty, Motion(0.98, 1, 560, WeatherMotion.OutBack));
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty, Motion(0.98, 1, 560, WeatherMotion.OutBack));
     }
 
     /// <summary>When the tab opens: the hero, then the chips, then the strip glide in; the bars fill from empty.</summary>
@@ -942,6 +950,11 @@ public partial class ControlCenterView
             {
                 foreach (UIElement chip in chips.Children)
                     if (chip is FrameworkElement c) GlideIn(c, start + Math.Min(index++, 6) * 70);
+                continue;
+            }
+            if (element is StackPanel resets && resets.Children.OfType<Grid>().Any(g => g.Tag is string tag && tag.StartsWith("reset-row:", StringComparison.Ordinal)))
+            {
+                foreach (var row in resets.Children.OfType<Grid>()) GlideIn(row, start + Math.Min(index++, 6) * 70, 60);
                 continue;
             }
             GlideIn(element, start + Math.Min(index++, 6) * 70);

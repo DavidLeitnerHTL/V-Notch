@@ -118,6 +118,7 @@ public partial class ControlCenterView : UserControl, IDisposable
         ControlRoot.Children.Add(_displaysSection);
         _expanded["displays"] = false;
         ControlRoot.Children.Add(_claudeSection);
+        Grid.SetIsSharedSizeScope(_claudeSection, true);
         ControlRoot.Children.Add(_appsSection);
 
         _refreshTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = RefreshInterval };
@@ -127,6 +128,7 @@ public partial class ControlCenterView : UserControl, IDisposable
 
         IsVisibleChanged += OnIsVisibleChanged;
         Loc.LanguageChanged += OnLanguageChanged;
+        AnimationConfig.ReduceMotionChanged += OnResetMotionChanged;
     }
 
     /// <summary>
@@ -232,6 +234,7 @@ public partial class ControlCenterView : UserControl, IDisposable
         _stats.Dispose();
         IsVisibleChanged -= OnIsVisibleChanged;
         Loc.LanguageChanged -= OnLanguageChanged;
+        AnimationConfig.ReduceMotionChanged -= OnResetMotionChanged;
         if (_claude != null)
         {
             _claude.Changed -= OnClaudeChanged;
@@ -2508,7 +2511,7 @@ public partial class ControlCenterView : UserControl, IDisposable
         foreach (var (key, element) in cards)
         {
             if (animate && !_shownCards.Contains(key))
-                GlideIn(element, 60 + Math.Min(index++ * 50, 200));
+                GlideIn(element, 60 + Math.Min(index++ * 50, 200), element.Tag is string tag && tag.StartsWith("reset-row:", StringComparison.Ordinal) ? 60 : null);
         }
         _shownCards.Clear();
         foreach (var (key, _) in cards) _shownCards.Add(key);

@@ -99,19 +99,31 @@ public partial class ControlCenterView
     }
 
     /// <summary>A button sinks a little while pressed and springs back on release.</summary>
-    private static void Squish(Border button)
+    private static void Squish(Border button, Func<bool>? active = null, int? fps = null)
     {
         var scale = new ScaleTransform(1, 1);
         button.RenderTransform = scale;
         button.RenderTransformOrigin = new Point(0.5, 0.5);
+        DoubleAnimation Motion(double from, double to, double ms, IEasingFunction ease)
+        {
+            var animation = WeatherMotion.To(from, to, ms, ease);
+            if (fps.HasValue) Timeline.SetDesiredFrameRate(animation, fps.Value);
+            return animation;
+        }
+        void Settle()
+        {
+            if (active?.Invoke() == false || AnimationConfig.ReduceMotion) return;
+            scale.BeginAnimation(ScaleTransform.ScaleXProperty, Motion(scale.ScaleX, 1, 520, ReleaseSpring));
+            scale.BeginAnimation(ScaleTransform.ScaleYProperty, Motion(scale.ScaleY, 1, 520, ReleaseSpring));
+        }
         button.PreviewMouseLeftButtonDown += (_, _) =>
         {
-            if (AnimationConfig.ReduceMotion) return;
-            scale.BeginAnimation(ScaleTransform.ScaleXProperty, WeatherMotion.To(scale.ScaleX, 0.92, 100, PressEase));
-            scale.BeginAnimation(ScaleTransform.ScaleYProperty, WeatherMotion.To(scale.ScaleY, 0.92, 100, PressEase));
+            if (active?.Invoke() == false || AnimationConfig.ReduceMotion) return;
+            scale.BeginAnimation(ScaleTransform.ScaleXProperty, Motion(scale.ScaleX, 0.96, 100, PressEase));
+            scale.BeginAnimation(ScaleTransform.ScaleYProperty, Motion(scale.ScaleY, 0.92, 100, PressEase));
         };
-        button.PreviewMouseLeftButtonUp += (_, _) => Release(scale);
-        button.MouseLeave += (_, _) => Release(scale);
+        button.PreviewMouseLeftButtonUp += (_, _) => Settle();
+        button.MouseLeave += (_, _) => Settle();
     }
 
     private static void Release(ScaleTransform scale, bool gentle = false, double to = 1)

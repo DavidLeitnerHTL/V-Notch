@@ -75,7 +75,7 @@ public partial class ControlCenterView
         });
         row.Children.Add(new TextBlock
         {
-            Text = Loc.Get("control.claude.codex"), FontFamily = ControlFont, FontSize = 11,
+            Text = Loc.Get("control.claude.codex"), FontFamily = ControlFont, FontSize = 11.5, FontWeight = FontWeights.SemiBold,
             Foreground = CodexAccent, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(7, 0, 0, 0)
         });
         var fill = new SolidColorBrush(CardRest);
@@ -99,9 +99,9 @@ public partial class ControlCenterView
     private void AddCodexLimits()
     {
         var limits = _codexUsage?.Latest;
-        var panel = new StackPanel { Margin = new Thickness(4, 12, 4, 2) };
+        var panel = new StackPanel { Margin = new Thickness(4, 18, 4, 2) };
         panel.Children.Add(QuietText(Loc.Get("control.claude.codex"), CodexAccent));
-        var grid = new Grid { Margin = new Thickness(0, 6, 0, 0) };
+        var grid = new Grid { Margin = new Thickness(0, 10, 0, 0) };
         grid.ColumnDefinitions.Add(new ColumnDefinition());
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(22) });
         grid.ColumnDefinitions.Add(new ColumnDefinition());
@@ -177,64 +177,16 @@ public partial class ControlCenterView
         Foreground = brush, VerticalAlignment = VerticalAlignment.Center
     };
 
-    private void AddResetRow(string provider, List<ResetOption> options)
-    {
-        var results = _resetStates.Where(s => s.Key.StartsWith(provider + ":", StringComparison.Ordinal) && s.Value.Result != null).ToList();
-        if (options.Count == 0 && results.Count == 0) return;
-        var wrap = new WrapPanel { Margin = new Thickness(4, 6, 4, 0) };
-        var label = QuietText(Loc.Get("control.claude.resets"), ChipSoft);
-        label.Margin = new Thickness(0, 0, 5, 0);
-        wrap.Children.Add(label);
-        bool busy = _resetStates.Any(s => s.Key.StartsWith(provider + ":", StringComparison.Ordinal) && s.Value.Running);
-        foreach (var option in options)
-        {
-            var group = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 8, 3) };
-            string name = "· " + option.Name;
-            if (option.Expiry is { } expiry)
-                name += " " + Loc.Get("control.claude.resetUntil", expiry.ToLocalTime().ToString("dd.MM.", CultureInfo.CurrentCulture));
-            group.Children.Add(QuietText(name, LimitLabel));
-            string key = provider + ":" + option.Id;
-            _resetStates.TryGetValue(key, out var state);
-            bool confirm = state is { Running: false, Result: null } && state.Until > DateTimeOffset.UtcNow;
-            string text = state?.Running == true ? "…" : Loc.Get(confirm ? "control.claude.resetConfirm" : "control.claude.resetRedeem");
-            var button = new Button
-            {
-                Content = text, FontFamily = ControlFont, FontSize = 11, FontWeight = FontWeights.SemiBold,
-                Foreground = confirm ? _moodInk : LimitValue, Background = LimitTrack, BorderThickness = new Thickness(0),
-                Padding = new Thickness(6, 2, 6, 2), Margin = new Thickness(5, 0, 0, 0), Cursor = Cursors.Hand,
-                IsEnabled = option.Usable && !busy && !_isLocalOnly()
-            };
-            var border = new FrameworkElementFactory(typeof(Border));
-            border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Control.BackgroundProperty));
-            border.SetValue(Border.CornerRadiusProperty, new CornerRadius(4));
-            border.SetValue(Border.PaddingProperty, new TemplateBindingExtension(Control.PaddingProperty));
-            border.AppendChild(new FrameworkElementFactory(typeof(ContentPresenter)));
-            button.Template = new ControlTemplate(typeof(Button)) { VisualTree = border };
-            if (!button.IsEnabled) button.Opacity = 0.5;
-            button.Click += (_, _) => RedeemReset(provider, option.Id);
-            group.Children.Add(button);
-            if (!option.Usable)
-            {
-                var reason = QuietText(Loc.Get(option.Reason ?? "control.claude.resetUnavailable"), ChipSoft);
-                reason.Margin = new Thickness(5, 0, 0, 0);
-                group.Children.Add(reason);
-            }
-            wrap.Children.Add(group);
-        }
-        foreach (var result in results)
-        {
-            var feedback = QuietText(Loc.Get("control.claude." + result.Value.Result), _moodInk);
-            feedback.Margin = new Thickness(0, 0, 8, 3);
-            wrap.Children.Add(feedback);
-        }
-        _claudeSection.Children.Add(wrap);
-    }
-
     private async void RedeemReset(string provider, string id)
     {
         if (_disposed || !IsVisible || Page != ControlCenterPage.Claude || _isLocalOnly()) return;
+        bool usable = provider == "codex"
+            ? _codexUsage?.Latest?.Credits.Any(c => c.Id == id) == true
+            : _usage?.Latest?.Grants.Any(g => g.Id == id && g.UsableNow) == true;
+        if (!usable) return;
         string key = provider + ":" + id;
         if (_resetStates.Any(s => s.Key.StartsWith(provider + ":", StringComparison.Ordinal) && s.Value.Running)) return;
+        if (_resetStates.TryGetValue(key, out var current) && current.Result == "resetDone") return;
         if (!_resetStates.TryGetValue(key, out var state) || state.Result != null || state.Until <= DateTimeOffset.UtcNow)
         {
             _resetStates[key] = new ResetState(DateTimeOffset.UtcNow.AddSeconds(4));
@@ -260,14 +212,14 @@ public partial class ControlCenterView
         }
         catch (Exception ex) { RuntimeLog.Warn("LIMIT-RESET", $"Reset failed: {ex.Message}"); }
         if (_disposed) return;
-        _resetStates[key] = new ResetState(DateTimeOffset.UtcNow.AddSeconds(5), Result: result);
+        _resetStates[key] = new ResetState(DateTimeOffset.UtcNow.AddSeconds(result == "resetDone" ? 1.1 : 5), Result: result);
         StartResetFeedback();
         BuildClaudeSection();
     }
 
     private void StartResetFeedback()
     {
-        if (!IsVisible || _disposed) return;
+        if (!IsVisible || _disposed || Page != ControlCenterPage.Claude) return;
         if (_resetFeedbackTimer == null)
         {
             _resetFeedbackTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(250) };
@@ -286,5 +238,6 @@ public partial class ControlCenterView
     {
         _resetFeedbackTimer?.Stop();
         foreach (string key in _resetStates.Where(s => !s.Value.Running).Select(s => s.Key).ToList()) _resetStates.Remove(key);
+        foreach (var row in _resetRows.Values) row.Stop();
     }
 }
