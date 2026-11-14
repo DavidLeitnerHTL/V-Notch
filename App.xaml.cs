@@ -93,6 +93,15 @@ public partial class App : Application
         try
         {
             RegisterExceptionHandlers();
+            // The notch explains itself; a tooltip there is a second, white window popping up over it.
+            // Settings and the other windows keep theirs.
+            System.Windows.EventManager.RegisterClassHandler(typeof(System.Windows.FrameworkElement),
+                System.Windows.FrameworkElement.ToolTipOpeningEvent,
+                new System.Windows.Controls.ToolTipEventHandler((sender, args) =>
+                {
+                    if (sender is System.Windows.DependencyObject element &&
+                        System.Windows.Window.GetWindow(element) is VNotch.MainWindow) args.Handled = true;
+                }));
 
             bool specialStartup = IsSetupOrUninstall(e.Args) ||
                 e.Args.Contains("--test-integrity") || e.Args.Contains("--test-hash");
