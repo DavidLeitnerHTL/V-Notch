@@ -17,6 +17,9 @@ public partial class MainWindow
 {
     private FrameworkElement? _navDragItem;
     private Point _navDragStartPoint;
+    private double _navReleaseVelocity;
+    private double _navSampleX;
+    private long _navSampleTick;
     private bool _isNavDragging = false;
     private bool _hasCapturedNavMouse = false;
     private long _navMouseDownTick;
@@ -91,6 +94,9 @@ public partial class MainWindow
             _navDragItem = fe;
             _navDragStartPoint = e.GetPosition(NavTabsStackPanel);
             _navMouseDownTick = Environment.TickCount64;
+            _navSampleTick = _navMouseDownTick;
+            _navSampleX = _navDragStartPoint.X;
+            _navReleaseVelocity = 0;
             _isNavDragging = false;
             _hasCapturedNavMouse = false;
             _dragInitialSlot = -1;
@@ -106,6 +112,11 @@ public partial class MainWindow
 
         Point current = e.GetPosition(NavTabsStackPanel);
         double deltaX = current.X - _navDragStartPoint.X;
+        long sampleTick = Environment.TickCount64;
+        long elapsed = sampleTick - _navSampleTick;
+        if (elapsed > 0) _navReleaseVelocity = Math.Clamp((current.X - _navSampleX) * 1000 / elapsed, -1200, 1200);
+        _navSampleTick = sampleTick;
+        _navSampleX = current.X;
 
         if (!_isNavDragging)
         {
@@ -141,7 +152,7 @@ public partial class MainWindow
                 var translate = FindTranslateTransform(group);
                 if (translate != null)
                 {
-                    translate.X = deltaX;
+                    Motion.Stop(translate, TranslateTransform.XProperty, deltaX);
                 }
             }
 
@@ -212,14 +223,7 @@ public partial class MainWindow
 
         _neighborTargetOffsets[element] = targetX;
 
-        var anim = new DoubleAnimation
-        {
-            To = targetX,
-            Duration = new Duration(TimeSpan.FromMilliseconds(240)),
-            EasingFunction = _easeAppleOut
-        };
-        Timeline.SetDesiredFrameRate(anim, VNotch.Services.AnimationConfig.TargetFps);
-        translate.BeginAnimation(TranslateTransform.XProperty, anim);
+        Motion.To(translate, TranslateTransform.XProperty, targetX, Motion.Glide);
     }
 
     private void NavIcon_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -353,60 +357,20 @@ public partial class MainWindow
         var translate = FindTranslateTransform(group);
         var shadow = item.Effect as DropShadowEffect;
 
-        if (lifted)
+        if (!lifted) return;
+        if (scale != null)
         {
-            var liftDuration = new Duration(TimeSpan.FromMilliseconds(200));
-
-            // Scale up smoothly to 1.14x
-            if (scale != null)
-            {
-                var animScale = new DoubleAnimation(1.14, liftDuration)
-                {
-                    EasingFunction = _easeAppleOut
-                };
-                Timeline.SetDesiredFrameRate(animScale, VNotch.Services.AnimationConfig.TargetFps);
-                scale.BeginAnimation(ScaleTransform.ScaleXProperty, animScale);
-                scale.BeginAnimation(ScaleTransform.ScaleYProperty, animScale);
-            }
-
-            // Lift upward slightly (-2.5px)
-            if (translate != null)
-            {
-                var animY = new DoubleAnimation(-2.5, liftDuration)
-                {
-                    EasingFunction = _easeAppleOut
-                };
-                Timeline.SetDesiredFrameRate(animY, VNotch.Services.AnimationConfig.TargetFps);
-                translate.BeginAnimation(TranslateTransform.YProperty, animY);
-            }
-
-            // Smoothly brighten dragged item to full opacity
-            var animOpacity = new DoubleAnimation(1.0, new Duration(TimeSpan.FromMilliseconds(180)))
-            {
-                EasingFunction = _easeAppleOut
-            };
-            Timeline.SetDesiredFrameRate(animOpacity, VNotch.Services.AnimationConfig.TargetFps);
-            item.BeginAnimation(UIElement.OpacityProperty, animOpacity);
-
-            // Elevate drop shadow smoothly for physical lift-off feel
-            if (shadow != null)
-            {
-                if (shadow.IsFrozen)
-                {
-                    shadow = shadow.Clone();
-                    item.Effect = shadow;
-                }
-                var animBlur = new DoubleAnimation(14.0, liftDuration) { EasingFunction = _easeAppleOut };
-                var animDepth = new DoubleAnimation(2.5, liftDuration) { EasingFunction = _easeAppleOut };
-                var animShadowOpacity = new DoubleAnimation(0.95, liftDuration) { EasingFunction = _easeAppleOut };
-                Timeline.SetDesiredFrameRate(animBlur, VNotch.Services.AnimationConfig.TargetFps);
-                Timeline.SetDesiredFrameRate(animDepth, VNotch.Services.AnimationConfig.TargetFps);
-                Timeline.SetDesiredFrameRate(animShadowOpacity, VNotch.Services.AnimationConfig.TargetFps);
-
-                shadow.BeginAnimation(DropShadowEffect.BlurRadiusProperty, animBlur);
-                shadow.BeginAnimation(DropShadowEffect.ShadowDepthProperty, animDepth);
-                shadow.BeginAnimation(DropShadowEffect.OpacityProperty, animShadowOpacity);
-            }
+            Motion.To(scale, ScaleTransform.ScaleXProperty, 1.14, Motion.Press);
+            Motion.To(scale, ScaleTransform.ScaleYProperty, 1.14, Motion.Press);
+        }
+        if (translate != null) Motion.To(translate, TranslateTransform.YProperty, -2.5, Motion.Press);
+        Motion.To(item, OpacityProperty, 1, Motion.Press);
+        if (shadow != null)
+        {
+            if (shadow.IsFrozen) { shadow = shadow.Clone(); item.Effect = shadow; }
+            Motion.To(shadow, DropShadowEffect.BlurRadiusProperty, 14, Motion.Press);
+            Motion.To(shadow, DropShadowEffect.ShadowDepthProperty, 2.5, Motion.Press);
+            Motion.To(shadow, DropShadowEffect.OpacityProperty, 0.95, Motion.Press);
         }
     }
 
@@ -425,26 +389,12 @@ public partial class MainWindow
         var translate = FindTranslateTransform(group);
         var shadow = item.Effect as DropShadowEffect;
 
-        const int settleDurationMs = 220;
-        var settleDuration = new Duration(TimeSpan.FromMilliseconds(settleDurationMs));
-
         if (shadow != null)
         {
-            if (shadow.IsFrozen)
-            {
-                shadow = shadow.Clone();
-                item.Effect = shadow;
-            }
-            var animBlur = new DoubleAnimation(8.0, settleDuration) { EasingFunction = _easeAppleOut };
-            var animDepth = new DoubleAnimation(0.0, settleDuration) { EasingFunction = _easeAppleOut };
-            var animShadowOpacity = new DoubleAnimation(0.9, settleDuration) { EasingFunction = _easeAppleOut };
-            Timeline.SetDesiredFrameRate(animBlur, VNotch.Services.AnimationConfig.TargetFps);
-            Timeline.SetDesiredFrameRate(animDepth, VNotch.Services.AnimationConfig.TargetFps);
-            Timeline.SetDesiredFrameRate(animShadowOpacity, VNotch.Services.AnimationConfig.TargetFps);
-
-            shadow.BeginAnimation(DropShadowEffect.BlurRadiusProperty, animBlur);
-            shadow.BeginAnimation(DropShadowEffect.ShadowDepthProperty, animDepth);
-            shadow.BeginAnimation(DropShadowEffect.OpacityProperty, animShadowOpacity);
+            if (shadow.IsFrozen) { shadow = shadow.Clone(); item.Effect = shadow; }
+            Motion.To(shadow, DropShadowEffect.BlurRadiusProperty, 8, Motion.Press);
+            Motion.To(shadow, DropShadowEffect.ShadowDepthProperty, 0, Motion.Press);
+            Motion.To(shadow, DropShadowEffect.OpacityProperty, 0.9, Motion.Press);
         }
 
         // Determine target resting opacity for the dropped item based on active view state
@@ -462,47 +412,21 @@ public partial class MainWindow
             targetOpacity = 1.0;
         }
 
-        if (Math.Abs(item.Opacity - targetOpacity) > 0.01)
-        {
-            var animOpacity = new DoubleAnimation(targetOpacity, settleDuration) { EasingFunction = _easeAppleOut };
-            Timeline.SetDesiredFrameRate(animOpacity, VNotch.Services.AnimationConfig.TargetFps);
-            item.BeginAnimation(UIElement.OpacityProperty, animOpacity);
-        }
-
-        // Settle scale back to 1.0
+        Motion.To(item, OpacityProperty, targetOpacity, Motion.Press);
         if (scale != null)
         {
-            var animScale = new DoubleAnimation(1.0, settleDuration)
-            {
-                EasingFunction = _easeAppleOut
-            };
-            Timeline.SetDesiredFrameRate(animScale, VNotch.Services.AnimationConfig.TargetFps);
-            scale.BeginAnimation(ScaleTransform.ScaleXProperty, animScale);
-            scale.BeginAnimation(ScaleTransform.ScaleYProperty, animScale);
+            Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.Press);
+            Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.Press);
         }
-
-        // Settle Y back to 0
         if (translate != null)
         {
-            var animY = new DoubleAnimation(0.0, settleDuration)
-            {
-                EasingFunction = _easeAppleOut
-            };
-            Timeline.SetDesiredFrameRate(animY, VNotch.Services.AnimationConfig.TargetFps);
-            translate.BeginAnimation(TranslateTransform.YProperty, animY);
-
-            // Settle X into slot
-            var animX = new DoubleAnimation(targetX, settleDuration)
-            {
-                EasingFunction = _easeAppleOut
-            };
-            Timeline.SetDesiredFrameRate(animX, VNotch.Services.AnimationConfig.TargetFps);
-            animX.Completed += (s, e) =>
+            Motion.To(translate, TranslateTransform.YProperty, 0, Motion.Glide);
+            double velocity = Environment.TickCount64 - _navSampleTick <= 100 ? _navReleaseVelocity : 0;
+            Motion.To(translate, TranslateTransform.XProperty, targetX, Motion.Glide, velocity: velocity, done: () =>
             {
                 Panel.SetZIndex(item, 0);
                 onCompleted?.Invoke();
-            };
-            translate.BeginAnimation(TranslateTransform.XProperty, animX);
+            });
         }
         else
         {

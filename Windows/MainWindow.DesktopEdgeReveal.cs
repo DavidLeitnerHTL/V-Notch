@@ -438,26 +438,21 @@ public partial class MainWindow
     {
         // Keep the layered HWND's alpha stable while changing z-order. A separate
         // visual also lets idle and desktop transitions animate independently.
-        double from = Math.Clamp(DesktopRevealRoot.Opacity, 0, 1);
         int version = ++_desktopRevealAnimationVersion;
-        DesktopRevealRoot.BeginAnimation(UIElement.OpacityProperty, null);
-        DesktopRevealRoot.Opacity = from;
-
-        var animation = new DoubleAnimation(from, target, DesktopRevealDuration(durationMs))
+        TimeSpan duration = DesktopRevealDuration(Math.Clamp(durationMs, 120, 200));
+        if (duration == TimeSpan.Zero)
         {
-            EasingFunction = new CubicEase
-            {
-                EasingMode = target > from ? EasingMode.EaseOut : EasingMode.EaseIn
-            },
-            FillBehavior = FillBehavior.HoldEnd
-        };
+            Motion.Stop(DesktopRevealRoot, UIElement.OpacityProperty, target);
+            completed?.Invoke();
+            return;
+        }
+        var animation = new DoubleAnimation(target, duration);
         Timeline.SetDesiredFrameRate(animation, AnimationConfig.TargetFps);
         animation.Completed += (_, _) =>
         {
             if (version != _desktopRevealAnimationVersion) return;
 
-            DesktopRevealRoot.Opacity = target;
-            DesktopRevealRoot.BeginAnimation(UIElement.OpacityProperty, null);
+            Motion.Stop(DesktopRevealRoot, UIElement.OpacityProperty, target);
             completed?.Invoke();
         };
         DesktopRevealRoot.BeginAnimation(
@@ -469,10 +464,8 @@ public partial class MainWindow
     private void SetDesktopRevealOpacityImmediate(double opacity)
     {
         _desktopRevealAnimationVersion++;
-        DesktopRevealRoot.BeginAnimation(UIElement.OpacityProperty, null);
-        DesktopRevealRoot.Opacity = opacity;
-        DesktopRevealTranslate.BeginAnimation(TranslateTransform.YProperty, null);
-        DesktopRevealTranslate.Y = 0;
+        Motion.Stop(DesktopRevealRoot, UIElement.OpacityProperty, opacity);
+        Motion.Stop(DesktopRevealTranslate, TranslateTransform.YProperty, 0);
     }
 
     private static TimeSpan DesktopRevealDuration(int milliseconds) =>
@@ -481,28 +474,23 @@ public partial class MainWindow
 
     private void AnimateDesktopReveal(bool revealing, Action? completed = null)
     {
-        double fromY = DesktopRevealTranslate.Y;
         double targetY = revealing ? 0 : -NotchVisibilitySlideDistance;
         AnimateDesktopRevealOpacity(revealing ? 1 : 0,
             revealing ? NotchRevealFadeDurationMs : NotchHideFadeDurationMs, null);
         int version = _desktopRevealAnimationVersion;
-        DesktopRevealTranslate.BeginAnimation(TranslateTransform.YProperty, null);
-        DesktopRevealTranslate.Y = fromY;
-        var animation = new DoubleAnimation(fromY, targetY,
-            DesktopRevealDuration(revealing ? NotchRevealSlideDurationMs : NotchHideSlideDurationMs))
+        if (!SystemParameters.ClientAreaAnimation)
         {
-            EasingFunction = new CubicEase { EasingMode = revealing ? EasingMode.EaseOut : EasingMode.EaseIn },
-            FillBehavior = FillBehavior.HoldEnd
-        };
-        Timeline.SetDesiredFrameRate(animation, AnimationConfig.TargetFps);
-        animation.Completed += (_, _) =>
+            Motion.Stop(DesktopRevealTranslate, TranslateTransform.YProperty, targetY);
+            completed?.Invoke();
+            return;
+        }
+        Motion.To(DesktopRevealTranslate, TranslateTransform.YProperty, targetY,
+            revealing ? Motion.Pop : Motion.Exit, done: () =>
         {
             if (!IsDesktopRevealCurrent(version)) return;
-            DesktopRevealTranslate.Y = targetY;
-            DesktopRevealTranslate.BeginAnimation(TranslateTransform.YProperty, null);
+            Motion.Stop(DesktopRevealTranslate, TranslateTransform.YProperty, targetY);
             completed?.Invoke();
-        };
-        DesktopRevealTranslate.BeginAnimation(TranslateTransform.YProperty, animation, HandoffBehavior.SnapshotAndReplace);
+        });
     }
 
     private void ResetDesktopEdgePromotionIfDisabled()

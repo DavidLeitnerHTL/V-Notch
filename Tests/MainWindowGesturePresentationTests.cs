@@ -71,6 +71,20 @@ public sealed class MainWindowGesturePresentationTests
         await WpfFrameWaiter.UntilAsync(() => window.NotchScale.ScaleX == 1 && window.NotchScale.ScaleY == 1, "gesture command feedback settled", ct);
     });
 
+    [Fact]
+    public void SnapBackUsesThePointersReleaseVelocityWithoutJumping() => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        await using var fixture = CreateFixture(new FakeMediaDetectionService());
+        var window = fixture.Window;
+        Invoke(window, "ApplyGestureDragFeedback", 30d);
+        Set(window, "_gestureReleaseVelocity", 120d);
+        Set(window, "_gestureSampleAt", DateTime.UtcNow);
+        Invoke(window, "AnimateGestureSnapBack");
+        Assert.InRange(Math.Abs(window.NotchGestureTranslate.X - 9), 0, 0.1);
+        Assert.True(Motion.VelocityOf(window.NotchGestureTranslate, TranslateTransform.XProperty) > 0);
+        await WpfFrameWaiter.UntilAsync(() => window.NotchGestureTranslate.X == 0, "release velocity settles", ct);
+    });
+
     private static GreetingAcceptanceTests.MainWindowFixture CreateFixture(FakeMediaDetectionService media) => new("en", greeting: false,
         configureSettings: settings => settings.EnableLocalOnlyMode = true,
         configureServices: services => services.AddSingleton<IMediaDetectionService>(media));

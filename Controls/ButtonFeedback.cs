@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using static VNotch.Services.AnimationPrimitives;
+using VNotch.Services;
 
 namespace VNotch.Controls;
 
@@ -29,112 +30,43 @@ internal static class ButtonFeedback
         var fromTransform = fromIcon.RenderTransform as ScaleTransform ?? new ScaleTransform(1, 1);
         var toTransform = toIcon.RenderTransform as ScaleTransform ?? new ScaleTransform(1, 1);
 
-        // Read the effective values before removing clocks. A play/pause reversal
-        // can arrive while both glyphs are only partly visible.
-        double fromOpacity = fromIcon.Visibility == Visibility.Visible ? fromIcon.Opacity : 0;
-        double toOpacity = toIcon.Visibility == Visibility.Visible ? toIcon.Opacity : 0;
-        double fromX = fromTransform.ScaleX, fromY = fromTransform.ScaleY;
-        double toX = toIcon.Visibility == Visibility.Visible ? toTransform.ScaleX : .3;
-        double toY = toIcon.Visibility == Visibility.Visible ? toTransform.ScaleY : .3;
         fromIcon.RenderTransform = fromTransform;
-        fromTransform.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-        fromTransform.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-        fromIcon.BeginAnimation(UIElement.OpacityProperty, null);
-
         toIcon.RenderTransform = toTransform;
-        toTransform.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-        toTransform.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-        toIcon.BeginAnimation(UIElement.OpacityProperty, null);
-
-        if (VNotch.Services.AnimationConfig.ReduceMotion || duration <= TimeSpan.Zero || ReferenceEquals(fromIcon, toIcon))
+        bool entering = toIcon.Visibility != Visibility.Visible;
+        toIcon.Visibility = Visibility.Visible;
+        if (ReferenceEquals(fromIcon, toIcon)) return;
+        Motion.To(fromTransform, ScaleTransform.ScaleXProperty, Motion.ExitToScale, Motion.Exit);
+        Motion.To(fromTransform, ScaleTransform.ScaleYProperty, Motion.ExitToScale, Motion.Exit);
+        Motion.To(fromIcon, UIElement.OpacityProperty, 0, Motion.Exit, done: () =>
         {
+            if (!IsTransitionVersionCurrent(fromIcon, fromVersion)) return;
             fromIcon.Visibility = Visibility.Collapsed;
-            fromTransform.ScaleX = fromTransform.ScaleY = 1;
-            fromIcon.Opacity = 1;
-            toIcon.Visibility = Visibility.Visible;
-            toTransform.ScaleX = toTransform.ScaleY = 1;
-            toIcon.Opacity = 1;
-            return;
-        }
-
-        fromIcon.Visibility = toIcon.Visibility = Visibility.Visible;
-        fromTransform.ScaleX = fromX;
-        fromTransform.ScaleY = fromY;
-        fromIcon.Opacity = fromOpacity;
-        toTransform.ScaleX = toX;
-        toTransform.ScaleY = toY;
-        toIcon.Opacity = toOpacity;
-
-        var dur = new Duration(duration);
-        var scaleDownX = MakeAnim(fromX, .3, dur, easing);
-        var scaleDownY = MakeAnim(fromY, .3, dur, easing);
-        var fadeOut = MakeAnim(fromOpacity, 0, dur, easing);
-        var scaleUpX = MakeAnim(toX, 1, dur, easing);
-        var scaleUpY = MakeAnim(toY, 1, dur, easing);
-        var fadeIn = MakeAnim(toOpacity, 1, dur, easing);
-
-        var capturedFromIcon = fromIcon;
-        var capturedFromTransform = fromTransform;
-
-        fadeOut.Completed += (s, e) =>
-        {
-            if (!IsTransitionVersionCurrent(capturedFromIcon, fromVersion)) return;
-
-            capturedFromTransform.ScaleX = 1;
-            capturedFromTransform.ScaleY = 1;
-            capturedFromIcon.Opacity = 1;
-
-            capturedFromIcon.Visibility = Visibility.Collapsed;
-            capturedFromTransform.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-            capturedFromTransform.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-            capturedFromIcon.BeginAnimation(UIElement.OpacityProperty, null);
-        };
-
-        fadeIn.Completed += (_, _) =>
+            Motion.Stop(fromTransform, ScaleTransform.ScaleXProperty, 1);
+            Motion.Stop(fromTransform, ScaleTransform.ScaleYProperty, 1);
+            Motion.Stop(fromIcon, UIElement.OpacityProperty, 1);
+        });
+        Motion.To(toTransform, ScaleTransform.ScaleXProperty, 1, Motion.Press, from: entering ? Motion.TileFromScale : null);
+        Motion.To(toTransform, ScaleTransform.ScaleYProperty, 1, Motion.Press, from: entering ? Motion.TileFromScale : null);
+        Motion.To(toIcon, UIElement.OpacityProperty, 1, Motion.Press, from: entering ? 0 : null, done: () =>
         {
             if (!IsTransitionVersionCurrent(toIcon, toVersion)) return;
-            toTransform.ScaleX = toTransform.ScaleY = 1;
-            toIcon.Opacity = 1;
-            toTransform.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-            toTransform.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-            toIcon.BeginAnimation(UIElement.OpacityProperty, null);
-        };
-
-        fromTransform.BeginAnimation(ScaleTransform.ScaleXProperty, scaleDownX);
-        fromTransform.BeginAnimation(ScaleTransform.ScaleYProperty, scaleDownY);
-        fromIcon.BeginAnimation(UIElement.OpacityProperty, fadeOut);
-
-        toTransform.BeginAnimation(ScaleTransform.ScaleXProperty, scaleUpX);
-        toTransform.BeginAnimation(ScaleTransform.ScaleYProperty, scaleUpY);
-        toIcon.BeginAnimation(UIElement.OpacityProperty, fadeIn);
+            Motion.Stop(toIcon, UIElement.OpacityProperty, 1);
+        });
     }
 
-    internal static void PlayButtonPressAnimation(Border button)
+    internal static void PlayButtonPressAnimation(Border button, double pressedScale = 0.82)
     {
         var transform = button.RenderTransform as ScaleTransform ?? new ScaleTransform(1, 1);
         button.RenderTransform = transform;
         button.RenderTransformOrigin = new Point(0.5, 0.5);
-
-        transform.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-        transform.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-
-        var squish = MakeAnim(1d, 0.82d, _dur80, _easeQuadIn, null);
-
-        var bounce = new DoubleAnimation(0.82, 1.0, _dur250)
+        int version = NextTransitionVersion(button);
+        Motion.To(transform, ScaleTransform.ScaleYProperty, pressedScale, Motion.PressDown);
+        Motion.To(transform, ScaleTransform.ScaleXProperty, pressedScale, Motion.PressDown, done: () =>
         {
-            EasingFunction = _easeHapticBounce,
-            BeginTime = TimeSpan.Zero
-        };
-        Timeline.SetDesiredFrameRate(bounce, VNotch.Services.AnimationConfig.TargetFps);
-
-        squish.Completed += (s, e) =>
-        {
-            transform.BeginAnimation(ScaleTransform.ScaleXProperty, bounce);
-            transform.BeginAnimation(ScaleTransform.ScaleYProperty, bounce);
-        };
-
-        transform.BeginAnimation(ScaleTransform.ScaleXProperty, squish);
-        transform.BeginAnimation(ScaleTransform.ScaleYProperty, squish);
+            if (!IsTransitionVersionCurrent(button, version)) return;
+            Motion.To(transform, ScaleTransform.ScaleXProperty, 1, Motion.Press);
+            Motion.To(transform, ScaleTransform.ScaleYProperty, 1, Motion.Press);
+        });
     }
 
     internal static void PlayNextSkipAnimation(System.Windows.Shapes.Path arrow0, System.Windows.Shapes.Path arrow1)

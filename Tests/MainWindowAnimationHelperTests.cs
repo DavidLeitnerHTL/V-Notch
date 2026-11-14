@@ -84,6 +84,9 @@ public sealed class MainWindowAnimationHelperTests
     {
         await using var fixture = CreateFixture();
         var window = fixture.Window;
+        window.ShowActivated = false;
+        window.Show();
+        window.MusicCompactContent.Visibility = Visibility.Visible;
         Field<NotchSettings>(window, "_settings").EnableDynamicIslandMode = island;
         Set(window, "_isMusicCompactMode", true);
         Set(window, "_currentMediaInfo", new MediaInfo { CurrentTrack = new string('W', 120), CurrentArtist = "Fixture artist" });
@@ -227,6 +230,38 @@ public sealed class MainWindowAnimationHelperTests
         await WpfFrameWaiter.UntilAsync(() => Math.Abs(window.NotchBorder.Width - 300) < 1e-6 && Math.Abs(window.NotchBorder.Height - 40) < 1e-6 && Math.Abs(window.NotchScale.ScaleY - 1) < 1e-6, "settings feedback restores pill", ct);
         Assert.Equal(1, window.NotchShadowScale.ScaleY);
         Assert.Equal(window.NotchBorder.CornerRadius, window.NotchBorderShadow.CornerRadius);
+    });
+
+    [Fact]
+    public void HoverReversalKeepsTheLiveScaleAndCarriesMomentum() => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        await using var fixture = CreateFixture();
+        var window = fixture.Window;
+        Invoke(window, "AnimateNotchHover", true);
+        await WpfFrameWaiter.UntilAsync(() => window.NotchScale.ScaleX > 1.015, "hover starts growing", ct);
+        double before = window.NotchScale.ScaleX;
+        double velocity = Motion.VelocityOf(window.NotchScale, ScaleTransform.ScaleXProperty);
+        Assert.True(velocity > 0);
+        Invoke(window, "AnimateNotchHover", false);
+        Assert.InRange(Math.Abs(window.NotchScale.ScaleX - before), 0, 0.005);
+        Assert.True(Motion.VelocityOf(window.NotchScale, ScaleTransform.ScaleXProperty) > 0);
+        await WpfFrameWaiter.UntilAsync(() => window.NotchScale.ScaleX == 1, "hover reversal settles", ct);
+    });
+
+    [Fact]
+    public void ContentHeightRetargetKeepsMovingDuringAnotherTransition() => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        await using var fixture = CreateFixture();
+        var window = fixture.Window;
+        window.NotchBorder.Height = 300;
+        var content = new Border { Height = 280 };
+        Invoke(window, "SettleNotchToContent", content, 200d, (Func<bool>)(() => true));
+        await WpfFrameWaiter.UntilAsync(() => window.NotchBorder.Height < 285, "content starts shrinking", ct);
+        double before = window.NotchBorder.Height;
+        Invoke(window, "SettleNotchToContent", content, 360d, (Func<bool>)(() => true));
+        Assert.InRange(Math.Abs(window.NotchBorder.Height - before), 0, 1);
+        Assert.True(Motion.VelocityOf(window.NotchBorder, FrameworkElement.HeightProperty) < 0);
+        await WpfFrameWaiter.UntilAsync(() => window.NotchBorder.Height == 360 && content.Height == 360, "latest content height wins", ct);
     });
 
     private static GreetingAcceptanceTests.MainWindowFixture CreateFixture()
