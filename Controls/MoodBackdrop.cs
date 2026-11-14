@@ -120,7 +120,7 @@ public sealed class MoodBackdrop : Grid
     /// </summary>
     public void SetDrifting(bool on)
     {
-        if (on && AnimationConfig.ReduceMotion) on = false;
+        if (on && (AnimationConfig.ReduceMotion || Suppressed)) on = false;
         if (on == _drifting) return;
         _drifting = on;
         foreach (var field in _fields)
