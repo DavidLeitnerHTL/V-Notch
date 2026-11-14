@@ -323,12 +323,9 @@ public partial class MainWindow
 
     private void AnimateUpdateNotificationHover(bool isEnter)
     {
-        if (isEnter) UpdateNotificationButton.CacheMode ??= new BitmapCache(1.5);
+        UpdateNotificationButton.CacheMode = null;
         Motion.To(UpdateNotificationScale, ScaleTransform.ScaleXProperty, isEnter ? 1.10 : 1, Motion.Press);
-        Motion.To(UpdateNotificationScale, ScaleTransform.ScaleYProperty, isEnter ? 1.10 : 1, Motion.Press, done: () =>
-        {
-            if (!isEnter && !UpdateNotificationButton.IsMouseOver) UpdateNotificationButton.CacheMode = null;
-        });
+        Motion.To(UpdateNotificationScale, ScaleTransform.ScaleYProperty, isEnter ? 1.10 : 1, Motion.Press);
     }
 
     private void SetUpdateInlineTooltipContent(string status, string hint)

@@ -191,7 +191,7 @@ public partial class MainWindow
     {
         if (sender is Border button && button.RenderTransform is ScaleTransform transform)
         {
-            button.CacheMode ??= new System.Windows.Media.BitmapCache(1.5);
+            button.CacheMode = null;
 
             var animX = new DoubleAnimation(transform.ScaleX, 1.18, _dur150) { EasingFunction = _easeQuadOut };
             var animY = new DoubleAnimation(transform.ScaleY, 1.18, _dur150) { EasingFunction = _easeQuadOut };

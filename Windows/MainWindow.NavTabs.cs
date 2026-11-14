@@ -424,7 +424,8 @@ public partial class MainWindow
             (_isClaudeView && item == ClaudeIconButton) ||
             (_isPiView && item == PiIconButton) ||
             (_isSchoolView && item == SchoolIconButton) ||
-            (!_isAudioView && !_isTimerView && !_isSecondaryView && !_isClaudeView && !_isPiView && !_isSchoolView && item == HomeIconButton))
+            (_isAiUsageView && item == AiUsageIconButton) ||
+            (!_isAudioView && !_isTimerView && !_isSecondaryView && !_isCameraView && !_isAiUsageView && !_isClaudeView && !_isPiView && !_isSchoolView && item == HomeIconButton))
         {
             targetOpacity = 1.0;
         }
@@ -592,6 +593,7 @@ public partial class MainWindow
         if ((_isAudioView && !visibleTokens.Contains("AudioMixer")) ||
             (_isTimerView && !visibleTokens.Contains("Timer")) ||
             (_isSecondaryView && !visibleTokens.Contains("Secondary")) || (_isCameraView && !visibleTokens.Contains("Camera")) ||
+            (_isAiUsageView && !visibleTokens.Contains("AiUsage")) ||
             (_isClaudeView && !visibleTokens.Contains("Claude")) ||
             (_isPiView && !visibleTokens.Contains("Pi")) ||
             (_isSchoolView && !visibleTokens.Contains("School")))

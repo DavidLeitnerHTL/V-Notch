@@ -15,7 +15,7 @@ public partial class MainWindow
 {
 
     #region Notch Expand/Collapse
-    private enum LastExpandedView { Primary, Secondary, Timer, Audio, Camera, Claude, Pi, School }
+    private enum LastExpandedView { Primary, Secondary, Timer, Audio, Camera, AiUsage, Claude, Pi, School }
     private LastExpandedView _lastExpandedViewBeforeCollapse = LastExpandedView.Primary;
 
     private const double ExpandedContentHorizontalInset = 16;
@@ -44,7 +44,7 @@ public partial class MainWindow
         if (ExpandedContent == null || NotchBorder == null) return;
 
         bool inMediaView = _isExpanded &&
-            !_isTimerView && !_isSecondaryView && !_isAudioView && !_isCameraView &&
+            !_isTimerView && !_isSecondaryView && !_isAudioView && !_isCameraView && !_isAiUsageView &&
             !_isMusicExpanded &&
             _transitionCoordinator.Snapshot.TargetView == VNotch.Models.NotchView.Media;
 
@@ -414,21 +414,7 @@ public partial class MainWindow
             DismissVolumeIndicatorImmediate(animateExit: true);
         }
 
-        CancelChargingGlanceImmediate();
-        if (_isBluetoothNotificationVisible)
-        {
-            _bluetoothController.MarkDismissed();
-            BluetoothNotification.BeginAnimation(OpacityProperty, null);
-            BluetoothNotification.Opacity = 0;
-            BluetoothNotification.Visibility = Visibility.Collapsed;
-            BluetoothDisconnectNotification.BeginAnimation(OpacityProperty, null);
-            BluetoothDisconnectNotification.Opacity = 0;
-            BluetoothDisconnectNotification.Visibility = Visibility.Collapsed;
-            _isBluetoothNotificationVisible = false;
-        }
-        CancelClaudeNotificationImmediate();
-        CancelAppPillImmediate();
-        _compactPillArbiter.ForceClear();
+        DismissTransientCompactNotifications();
 
         if (_isCompactThumbnailHovered)
         {
@@ -465,7 +451,7 @@ public partial class MainWindow
         MediaBackground2.BeginAnimation(OpacityProperty, null);
 
         ExpandedContentBlur.BeginAnimation(BlurEffect.RadiusProperty, null);
-        CollapsedContentBlur.BeginAnimation(BlurEffect.RadiusProperty, null);
+        CollapsedContent.Effect = null;
         MusicCompactContentBlur.BeginAnimation(BlurEffect.RadiusProperty, null);
 
         MediaBackground.Opacity = 0;
@@ -695,7 +681,7 @@ public partial class MainWindow
 
     private bool CanShowLyricsBlurBackground => _settings.EnableBlurEffects && !IsLiquidGlassEnabled &&
         ShouldShowMediaBlurBackground && !_isSpotifyCanvasMediaOpen &&
-        _isExpanded && !_isTimerView && !_isAudioView && !_isSecondaryView;
+        _isExpanded && !_isTimerView && !_isAudioView && !_isSecondaryView && !_isCameraView && !_isAiUsageView;
 
     private void FadeInLyricsBlurBackgroundIfActive(bool force = false)
     {
@@ -797,6 +783,7 @@ public partial class MainWindow
         _isClaudeView = effectiveTarget == VNotch.Models.NotchView.Claude;
         _isPiView = effectiveTarget == VNotch.Models.NotchView.Pi;
         _isSchoolView = effectiveTarget == VNotch.Models.NotchView.School;
+        _isAiUsageView = effectiveTarget == VNotch.Models.NotchView.AiUsage;
 
         if (effectiveTarget == VNotch.Models.NotchView.Timer)
         {
@@ -866,6 +853,15 @@ public partial class MainWindow
             ResizeHostWindowHeight(_schoolViewHeight);
             Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, SettleSchoolNotchToFit);
         }
+        else if (effectiveTarget == VNotch.Models.NotchView.AiUsage)
+        {
+            _isTimerView = false;
+            _isSecondaryView = false;
+            _isAudioView = false;
+            if (AiUsageContent != null)
+                VNotch.Presenters.NotchContentTransitionPresenter.ClearTransformAndEffects(AiUsageContent);
+            FitAiUsageView();
+        }
         else
         {
             _isTimerView = false;
@@ -922,8 +918,7 @@ public partial class MainWindow
             ThumbnailFallback.Visibility = Visibility.Collapsed;
         }
 
-        CollapsedContentBlur.BeginAnimation(BlurEffect.RadiusProperty, null);
-        CollapsedContentBlur.Radius = 0;
+        CollapsedContent.Effect = null;
         MusicCompactContentBlur.BeginAnimation(BlurEffect.RadiusProperty, null);
         MusicCompactContentBlur.Radius = 0;
 
@@ -1128,6 +1123,21 @@ public partial class MainWindow
                 ResizeHostWindowHeight(targetHeight);
             UpdateNavIconsActiveState();
         }
+        else if (effectiveTarget == VNotch.Models.NotchView.AiUsage)
+        {
+            if (!switchingExpandedViews && AiUsageContent != null)
+                VNotch.Presenters.NotchContentTransitionPresenter.ClearTransformAndEffects(AiUsageContent);
+            targetWidth = AiUsageViewWidth;
+            targetHeight = MeasureAiUsageViewHeight();
+            if (AiUsageContent != null)
+            {
+                AiUsageContent.Width = targetWidth - AiUsageContent.Margin.Left - AiUsageContent.Margin.Right;
+                AiUsageContent.Height = System.Math.Max(0, targetHeight - AiUsageContent.Margin.Top - AiUsageContent.Margin.Bottom);
+            }
+            if (targetHeight > currentHeight)
+                ResizeHostWindowHeight(targetHeight);
+            UpdateNavIconsActiveState();
+        }
         else if (effectiveTarget == VNotch.Models.NotchView.AudioMixer)
         {
             if (!switchingExpandedViews) VNotch.Presenters.NotchContentTransitionPresenter.ClearTransformAndEffects(AudioContent);
@@ -1222,7 +1232,7 @@ public partial class MainWindow
 
         // Opacity/transform clocks keep the transition on the compositor without
         // changing the blur kernel and intermediate surface on every tick.
-        CollapsedContentBlur.Radius = 0;
+        CollapsedContent.Effect = null;
         MusicCompactContentBlur.Radius = 0;
 
         if (_notchContentPresenter != null)
@@ -1462,6 +1472,7 @@ public partial class MainWindow
 
     private LastExpandedView DetermineCurrentExpandedView()
     {
+        if (_isAiUsageView) return LastExpandedView.AiUsage;
         if (_isCameraView) return LastExpandedView.Camera;
         if (_isClaudeView) return LastExpandedView.Claude;
         if (_isPiView) return LastExpandedView.Pi;
@@ -1489,6 +1500,7 @@ public partial class MainWindow
                 LastExpandedView.Claude => VNotch.Models.NotchView.Claude,
                 LastExpandedView.Pi => VNotch.Models.NotchView.Pi,
                 LastExpandedView.School => VNotch.Models.NotchView.School,
+                LastExpandedView.AiUsage => VNotch.Models.NotchView.AiUsage,
                 _ => VNotch.Models.NotchView.Media
             };
         }
@@ -1603,6 +1615,12 @@ public partial class MainWindow
 
     private void DismissCollapseNotificationsAndOverlays()
     {
+        DismissTransientCompactNotifications();
+        CollapseNavIconsImmediate();
+    }
+
+    private void DismissTransientCompactNotifications()
+    {
         CancelChargingGlanceImmediate();
         if (_isBluetoothNotificationVisible)
         {
@@ -1618,7 +1636,10 @@ public partial class MainWindow
         CancelClaudeNotificationImmediate();
         CancelAppPillImmediate();
         _compactPillArbiter.ForceClear();
+    }
 
+    private void CollapseNavIconsImmediate()
+    {
         NavIconsPanel.BeginAnimation(OpacityProperty, null);
         NavIconsPanel.Opacity = 0;
         NavIconsPanel.Visibility = Visibility.Collapsed;
@@ -1779,6 +1800,8 @@ public partial class MainWindow
         VNotch.Presenters.NotchContentTransitionPresenter.ResetElementVisualState(ClaudeContent);
         VNotch.Presenters.NotchContentTransitionPresenter.ResetElementVisualState(PiContent);
         VNotch.Presenters.NotchContentTransitionPresenter.ResetElementVisualState(SchoolContent);
+        if (AiUsageContent != null)
+            VNotch.Presenters.NotchContentTransitionPresenter.ResetElementVisualState(AiUsageContent);
 
         ResetMediaContentReveal();
         ResetClockViewUnfoldIn();
@@ -1787,8 +1810,7 @@ public partial class MainWindow
 
         ExpandedContentBlur.BeginAnimation(BlurEffect.RadiusProperty, null);
         ExpandedContentBlur.Radius = 0;
-        CollapsedContentBlur.BeginAnimation(BlurEffect.RadiusProperty, null);
-        CollapsedContentBlur.Radius = 0;
+        CollapsedContent.Effect = null;
         MusicCompactContentBlur.BeginAnimation(BlurEffect.RadiusProperty, null);
         MusicCompactContentBlur.Radius = 0;
 
@@ -1799,6 +1821,7 @@ public partial class MainWindow
         _isClaudeView = false;
         _isPiView = false;
         _isSchoolView = false;
+        _isAiUsageView = false;
     }
 
     private void PrepareStateBeforeCollapse()
@@ -1863,7 +1886,7 @@ public partial class MainWindow
         if (!_isThumbnailExpandAnimating && !_isThumbnailCollapseAnimating) ResetAnimationThumbnailOverlay();
 
         ExpandedContentBlur.BeginAnimation(BlurEffect.RadiusProperty, null);
-        CollapsedContentBlur.BeginAnimation(BlurEffect.RadiusProperty, null);
+        CollapsedContent.Effect = null;
         MusicCompactContentBlur.BeginAnimation(BlurEffect.RadiusProperty, null);
     }
 
@@ -1887,6 +1910,22 @@ public partial class MainWindow
         _isAnimating = true;
 
         PrepareStateBeforeCollapse();
+        if (fromView.HasValue && fromView.Value != VNotch.Models.NotchView.Compact)
+        {
+            _lastExpandedViewBeforeCollapse = fromView.Value switch
+            {
+                VNotch.Models.NotchView.Timer => LastExpandedView.Timer,
+                VNotch.Models.NotchView.Secondary => LastExpandedView.Secondary,
+                VNotch.Models.NotchView.AudioMixer => LastExpandedView.Audio,
+                VNotch.Models.NotchView.Camera => LastExpandedView.Camera,
+                VNotch.Models.NotchView.AiUsage => LastExpandedView.AiUsage,
+                VNotch.Models.NotchView.Claude => LastExpandedView.Claude,
+                VNotch.Models.NotchView.Pi => LastExpandedView.Pi,
+                VNotch.Models.NotchView.School => LastExpandedView.School,
+                _ => LastExpandedView.Primary
+            };
+        }
+
         bool wasAudio = _isAudioView;
         if (wasAudio)
         {

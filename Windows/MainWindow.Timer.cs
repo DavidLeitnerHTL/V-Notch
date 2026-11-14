@@ -116,7 +116,6 @@ public partial class MainWindow
             ExpandedContent.Visibility = Visibility.Collapsed;
             ExpandedContent.RenderTransform = null;
             ExpandedContent.Effect = null;
-            if (expandedBlur != null) expandedBlur.Radius = 0;
         };
 
         ExpandedContent.BeginAnimation(OpacityProperty, fadeOut);
@@ -967,12 +966,7 @@ public partial class MainWindow
             SecondaryContent.Visibility = Visibility.Collapsed;
             SecondaryContent.Opacity = 0;
             SecondaryContent.RenderTransform = null;
-            NavIconsPanel.BeginAnimation(OpacityProperty, null);
-            NavIconsPanel.Opacity = 0;
-            NavIconsPanel.Visibility = Visibility.Collapsed;
-            NavIconsBackground.BeginAnimation(OpacityProperty, null);
-            NavIconsBackground.Opacity = 0;
-            NavIconsBackground.Visibility = Visibility.Collapsed;
+            CollapseNavIconsImmediate();
             DisableKeyboardInput();
 
             if (_isMusicCompactMode)

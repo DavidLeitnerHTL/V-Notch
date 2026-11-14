@@ -1151,17 +1151,9 @@ public partial class SpotlightWindow : Window
         bool canAnimate = animate && !AnimationConfig.ReduceMotion && IsSpotlightOpen && !_isClosing;
         if (!canAnimate)
         {
-            Motion.Stop(QuickActionsPanel, OpacityProperty, 0);
-            Motion.Stop(QuickActionsTranslate, TranslateTransform.XProperty, 0);
-            Motion.Stop(QuickActionsTranslate, TranslateTransform.YProperty, 0);
-            QuickActionsPanel.Visibility = Visibility.Collapsed;
-
-            Motion.Stop(ResultsList, OpacityProperty, 1);
-            Motion.Stop(ResultsListTranslate, TranslateTransform.XProperty, 0);
-            Motion.Stop(ResultsListTranslate, TranslateTransform.YProperty, 0);
-            ResultsList.IsHitTestVisible = true;
-            if (_viewModel.Results.Count > 0)
-                ResultsList.Visibility = Visibility.Visible;
+            ResetQuickActionsPanelImmediate(0, Visibility.Collapsed);
+            ResetResultsListImmediate(hitTestVisible: true,
+                visibility: _viewModel.Results.Count > 0 ? Visibility.Visible : null);
             ScheduleContentResize();
             ScheduleGlideUpdate();
             return;
@@ -1187,10 +1179,7 @@ public partial class SpotlightWindow : Window
         Motion.To(QuickActionsPanel, OpacityProperty, 0, Motion.Exit, done: () =>
         {
             if (slideGen != _quickActionsSlideVersion || _quickActionsOpen) return;
-            Motion.Stop(QuickActionsPanel, OpacityProperty, 0);
-            Motion.Stop(QuickActionsTranslate, TranslateTransform.XProperty, 0);
-            Motion.Stop(QuickActionsTranslate, TranslateTransform.YProperty, 0);
-            QuickActionsPanel.Visibility = Visibility.Collapsed;
+            ResetQuickActionsPanelImmediate(0, Visibility.Collapsed);
         });
 
         Motion.To(ResultsListTranslate, TranslateTransform.XProperty, motion.ResultsToX, Motion.Tile, from: motion.ResultsFromX);
@@ -1419,14 +1408,8 @@ public partial class SpotlightWindow : Window
 
         if (AnimationConfig.ReduceMotion || motion.EnterDurationMs <= 0)
         {
-            Motion.Stop(ResultsList, OpacityProperty, 1);
-            Motion.Stop(ResultsListTranslate, TranslateTransform.XProperty, 0);
-            Motion.Stop(ResultsListTranslate, TranslateTransform.YProperty, 0);
-            ResultsList.Visibility = Visibility.Collapsed;
-
-            Motion.Stop(QuickActionsPanel, OpacityProperty, 1);
-            Motion.Stop(QuickActionsTranslate, TranslateTransform.XProperty, 0);
-            Motion.Stop(QuickActionsTranslate, TranslateTransform.YProperty, 0);
+            ResetResultsListImmediate(visibility: Visibility.Collapsed);
+            ResetQuickActionsPanelImmediate(1);
             ScheduleContentResize();
             return menu;
         }
@@ -1439,11 +1422,7 @@ public partial class SpotlightWindow : Window
         Motion.To(ResultsList, OpacityProperty, 0, Motion.Exit, done: () =>
         {
             if (slideGen != _quickActionsSlideVersion || !_quickActionsOpen) return;
-            Motion.Stop(ResultsList, OpacityProperty, 1);
-            Motion.Stop(ResultsListTranslate, TranslateTransform.XProperty, 0);
-            Motion.Stop(ResultsListTranslate, TranslateTransform.YProperty, 0);
-            ResultsList.IsHitTestVisible = true;
-            ResultsList.Visibility = Visibility.Collapsed;
+            ResetResultsListImmediate(hitTestVisible: true, visibility: Visibility.Collapsed);
         });
 
         Motion.To(QuickActionsTranslate, TranslateTransform.XProperty, motion.ActionsToX, Motion.Tile, from: motion.ActionsFromX);
@@ -2020,14 +1999,7 @@ public partial class SpotlightWindow : Window
 
         if (AnimationConfig.ReduceMotion || (!shown && (!IsSpotlightOpen || _isClosing)))
         {
-            ContentRegion.BeginAnimation(HeightProperty, null);
-            ContentRegion.BeginAnimation(OpacityProperty, null);
-            ContentRegionTranslate.BeginAnimation(TranslateTransform.YProperty, null);
-            ContentRegion.Height = double.NaN;
-            ContentRegion.Opacity = 1;
-            ContentRegionTranslate.Y = 0;
-            ContentRegion.ClipToBounds = false;
-            ContentRegion.Visibility = shown ? Visibility.Visible : Visibility.Collapsed;
+            ResetContentRegionToAuto(shown ? Visibility.Visible : Visibility.Collapsed, resetWidth: false);
             return;
         }
 
@@ -2074,14 +2046,7 @@ public partial class SpotlightWindow : Window
             collapse.Completed += (_, _) =>
             {
                 if (generation != _contentSizeGeneration) return;
-                ContentRegion.BeginAnimation(HeightProperty, null);
-                ContentRegion.BeginAnimation(OpacityProperty, null);
-                ContentRegionTranslate.BeginAnimation(TranslateTransform.YProperty, null);
-                ContentRegion.Height = double.NaN;
-                ContentRegion.Opacity = 1;
-                ContentRegionTranslate.Y = 0;
-                ContentRegion.ClipToBounds = false;
-                ContentRegion.Visibility = Visibility.Collapsed;
+                ResetContentRegionToAuto(Visibility.Collapsed, resetWidth: false);
             };
             ContentRegion.BeginAnimation(OpacityProperty, fadeOut);
             ContentRegionTranslate.BeginAnimation(TranslateTransform.YProperty, slideUp);
@@ -2205,15 +2170,7 @@ public partial class SpotlightWindow : Window
         ContentRegion.ClipToBounds = true;
         if (!IsSpotlightOpen || AnimationConfig.ReduceMotion)
         {
-            ContentRegion.BeginAnimation(WidthProperty, null);
-            ContentRegion.BeginAnimation(HeightProperty, null);
-            ContentRegion.Width = double.NaN;
-            ContentRegion.Height = double.NaN;
-            ContentRegion.HorizontalAlignment = HorizontalAlignment.Stretch;
-            ContentRegion.Opacity = 1;
-            ContentRegionTranslate.Y = 0;
-            ContentRegion.ClipToBounds = false;
-            ContentRegion.Visibility = Visibility.Collapsed;
+            ResetContentRegionToAuto(Visibility.Collapsed, resetWidth: true);
             return;
         }
 
@@ -2222,17 +2179,47 @@ public partial class SpotlightWindow : Window
         collapse.Completed += (_, _) =>
         {
             if (generation != _contentSizeGeneration) return;
-            ContentRegion.BeginAnimation(WidthProperty, null);
-            ContentRegion.BeginAnimation(HeightProperty, null);
-            ContentRegion.Width = double.NaN;
-            ContentRegion.Height = double.NaN;
-            ContentRegion.HorizontalAlignment = HorizontalAlignment.Stretch;
-            ContentRegion.Opacity = 1;
-            ContentRegionTranslate.Y = 0;
-            ContentRegion.ClipToBounds = false;
-            ContentRegion.Visibility = Visibility.Collapsed;
+            ResetContentRegionToAuto(Visibility.Collapsed, resetWidth: true);
         };
         ContentRegion.BeginAnimation(HeightProperty, collapse);
+    }
+
+    private void ResetQuickActionsPanelImmediate(double opacity, Visibility? visibility = null)
+    {
+        Motion.Stop(QuickActionsPanel, OpacityProperty, opacity);
+        Motion.Stop(QuickActionsTranslate, TranslateTransform.XProperty, 0);
+        Motion.Stop(QuickActionsTranslate, TranslateTransform.YProperty, 0);
+        if (visibility.HasValue)
+            QuickActionsPanel.Visibility = visibility.Value;
+    }
+
+    private void ResetResultsListImmediate(bool? hitTestVisible = null, Visibility? visibility = null)
+    {
+        Motion.Stop(ResultsList, OpacityProperty, 1);
+        Motion.Stop(ResultsListTranslate, TranslateTransform.XProperty, 0);
+        Motion.Stop(ResultsListTranslate, TranslateTransform.YProperty, 0);
+        if (hitTestVisible.HasValue)
+            ResultsList.IsHitTestVisible = hitTestVisible.Value;
+        if (visibility.HasValue)
+            ResultsList.Visibility = visibility.Value;
+    }
+
+    private void ResetContentRegionToAuto(Visibility visibility, bool resetWidth)
+    {
+        if (resetWidth)
+        {
+            ContentRegion.BeginAnimation(WidthProperty, null);
+            ContentRegion.Width = double.NaN;
+            ContentRegion.HorizontalAlignment = HorizontalAlignment.Stretch;
+        }
+        ContentRegion.BeginAnimation(HeightProperty, null);
+        ContentRegion.BeginAnimation(OpacityProperty, null);
+        ContentRegionTranslate.BeginAnimation(TranslateTransform.YProperty, null);
+        ContentRegion.Height = double.NaN;
+        ContentRegion.Opacity = 1;
+        ContentRegionTranslate.Y = 0;
+        ContentRegion.ClipToBounds = false;
+        ContentRegion.Visibility = visibility;
     }
 
     private void ScheduleContentResize()
@@ -2764,7 +2751,7 @@ public partial class SpotlightWindow : Window
 
         Shell.RenderTransformOrigin = new Point(0.5, 0.0);
         Shell.CacheMode = null;
-        ShellContent.CacheMode = new BitmapCache { EnableClearType = false, SnapsToDevicePixels = true };
+        ShellContent.CacheMode = null;
         Shell.Margin = MorphShellMargin;
         Shell.HorizontalAlignment = HorizontalAlignment.Center;
         Shell.VerticalAlignment = VerticalAlignment.Top;
@@ -2790,8 +2777,7 @@ public partial class SpotlightWindow : Window
         Shell.BorderThickness = new Thickness(0);
         ShellContent.Opacity = current.ContentOpacity;
         ContentTranslate.Y = current.ContentTranslateY;
-        var contentBlur = EnsureContentBlurEffect();
-        contentBlur.Radius = current.ContentBlurRadius;
+        ShellContent.Effect = null;
 
         // Freeze content layout while the surrounding shell contracts.
         ShellContent.Width = Math.Max(1, ShellContent.ActualWidth);
@@ -3067,19 +3053,9 @@ public partial class SpotlightWindow : Window
         if (_shellBorderBrush != null) _shellBorderBrush.Opacity = snapshot.BorderOpacity;
         ShellContent.Opacity = snapshot.ContentOpacity;
         ContentTranslate.Y = snapshot.ContentTranslateY;
-        EnsureContentBlurEffect().Radius = snapshot.ContentBlurRadius;
+        ShellContent.Effect = null;
         SetMorphShadow();
         return snapshot;
-    }
-
-    private BlurEffect EnsureContentBlurEffect()
-    {
-        if (ShellContent.Effect is BlurEffect blur)
-            return blur;
-
-        blur = new BlurEffect { Radius = 0 };
-        ShellContent.Effect = blur;
-        return blur;
     }
 
     private void ClearMorphAnimations()

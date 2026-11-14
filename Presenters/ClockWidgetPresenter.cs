@@ -28,8 +28,10 @@ public interface IClockWidgetHost
     Brush WhiteBrush { get; }
 
     void SwitchToTimerView();
+    void SwitchToAiUsageView() { }
     void CollapseNotch();
     void OpenWeatherSettings() { }
+    void OpenAiUsageSettings() { }
 
     IntPtr Hwnd { get; }
     int FixedX { get; }
@@ -49,6 +51,7 @@ public sealed class ClockWidgetViewRefs
     public UIElement? DigitalClockWidget { get; init; }
     public UIElement? WeatherWidgetContent { get; init; }
     public UIElement? SystemMonitorWidgetContent { get; init; }
+    public UIElement? AiUsageWidgetContent { get; init; }
     public required UIElement CalendarStripContainer { get; init; }
     public UIElement? MonthText { get; init; }
     public UIElement? DayText { get; init; }
@@ -83,6 +86,18 @@ public sealed class ClockWidgetPresenter : IDisposable
     {
         _refs.CalendarWidget.LostMouseCapture -= OnCalendarWidgetLostMouseCapture;
         _refs.CalendarWidget.LostMouseCapture += OnCalendarWidgetLostMouseCapture;
+        if (_refs.AiUsageWidgetContent is VNotch.Controls.AiUsageStatWidget usage)
+        {
+            usage.OpenDetailsRequested -= OnAiUsageOpenDetailsRequested;
+            usage.OpenDetailsRequested += OnAiUsageOpenDetailsRequested;
+        }
+    }
+
+    private void OnAiUsageOpenDetailsRequested()
+    {
+        if (_disposed || _host.IsAnimating || _host.IsSecondaryView || !IsAiUsageWidgetMode) return;
+        if (!_host.Settings.EnableAiUsageMonitoring || (!_host.Settings.AiUsageShowCodex && !_host.Settings.AiUsageShowClaude)) _host.OpenAiUsageSettings();
+        else _host.SwitchToAiUsageView();
     }
 
     private void OnCalendarWidgetLostMouseCapture(object sender, MouseEventArgs e)
@@ -92,7 +107,7 @@ public sealed class ClockWidgetPresenter : IDisposable
 
     #region Expanded Widget (Calendar / Clock / Word Clock)
 
-    private static readonly string[] _expandedWidgetOrder = { "calendar", "clock", "wordclock", "digitalclock", "weather", "sysmon" };
+    private static readonly string[] _expandedWidgetOrder = { "calendar", "clock", "wordclock", "digitalclock", "weather", "sysmon", "aiusage" };
     private int _expandedWidgetSwitchVersion;
 
     private bool IsClockWidgetMode =>
@@ -113,7 +128,9 @@ public sealed class ClockWidgetPresenter : IDisposable
     private bool IsAnyClockWidgetMode => IsClockWidgetMode || IsWordClockWidgetMode || IsDigitalClockWidgetMode;
     private bool IsNoWidgetMode => string.Equals(_host.Settings.ExpandedWidget, "none", StringComparison.OrdinalIgnoreCase);
 
-    private bool IsNonCalendarWidgetMode => IsAnyClockWidgetMode || IsWeatherWidgetMode || IsSystemMonitorWidgetMode;
+    private bool IsAiUsageWidgetMode =>
+        string.Equals(_host.Settings.ExpandedWidget, "aiusage", StringComparison.OrdinalIgnoreCase);
+    private bool IsNonCalendarWidgetMode => IsAnyClockWidgetMode || IsWeatherWidgetMode || IsSystemMonitorWidgetMode || IsAiUsageWidgetMode;
 
 #pragma warning disable S3776 // Synchronizes visibility and alignments across all expanded widget modes
     public void ApplyExpandedWidgetMode()
@@ -125,7 +142,7 @@ public sealed class ClockWidgetPresenter : IDisposable
         bool useDigitalClock = IsDigitalClockWidgetMode;
         bool useWeather = IsWeatherWidgetMode;
         bool useSystemMonitor = IsSystemMonitorWidgetMode;
-        bool useCalendar = !IsNoWidgetMode && !useAnalogClock && !useWordClock && !useDigitalClock && !useWeather && !useSystemMonitor;
+        bool useCalendar = !IsNoWidgetMode && !IsNonCalendarWidgetMode;
         _refs.CalendarWidget.Visibility = IsNoWidgetMode || _host.IsLyricsActive ? Visibility.Collapsed : Visibility.Visible;
 
         _refs.ClockWidget.Visibility = useAnalogClock ? Visibility.Visible : Visibility.Collapsed;
@@ -137,10 +154,12 @@ public sealed class ClockWidgetPresenter : IDisposable
             _refs.WeatherWidgetContent.Visibility = useWeather ? Visibility.Visible : Visibility.Collapsed;
         if (_refs.SystemMonitorWidgetContent != null)
             _refs.SystemMonitorWidgetContent.Visibility = useSystemMonitor ? Visibility.Visible : Visibility.Collapsed;
+        if (_refs.AiUsageWidgetContent != null)
+            _refs.AiUsageWidgetContent.Visibility = IsAiUsageWidgetMode ? Visibility.Visible : Visibility.Collapsed;
         _refs.CalendarStripContainer.Visibility = useCalendar ? Visibility.Visible : Visibility.Collapsed;
 
         if (_refs.MonthText != null)
-            _refs.MonthText.Visibility = (IsNoWidgetMode || useWeather || useSystemMonitor) ? Visibility.Collapsed : Visibility.Visible;
+            _refs.MonthText.Visibility = (IsNoWidgetMode || useWeather || useSystemMonitor || IsAiUsageWidgetMode) ? Visibility.Collapsed : Visibility.Visible;
         if (_refs.DayText != null)
             _refs.DayText.Visibility = (useWordClock || useDigitalClock) ? Visibility.Visible : Visibility.Collapsed;
 
@@ -234,7 +253,9 @@ public sealed class ClockWidgetPresenter : IDisposable
         // that tab hosts the control center now.
         if (Math.Abs(dx) < WidgetTapThreshold && Math.Abs(dy) < WidgetTapThreshold && !IsClockWidgetMode)
         {
-            if (IsWeatherWidgetMode && (!_host.Settings.EnableWeather || _host.Settings.EnableLocalOnlyMode || !_host.Settings.AllowOnlineWeather))
+            if (IsAiUsageWidgetMode)
+                OnAiUsageOpenDetailsRequested();
+            else if (IsWeatherWidgetMode && (!_host.Settings.EnableWeather || _host.Settings.EnableLocalOnlyMode || !_host.Settings.AllowOnlineWeather))
                 _host.OpenWeatherSettings();
             else if (!IsWeatherWidgetMode || _refs.WeatherWidgetContent is not VNotch.Controls.WeatherWidget weatherWidget || !weatherWidget.RetryIfUnavailable())
                 _host.CollapseNotch();
@@ -622,6 +643,8 @@ public sealed class ClockWidgetPresenter : IDisposable
         _disposed = true;
         ++_expandedWidgetSwitchVersion;
         _refs.CalendarWidget.LostMouseCapture -= OnCalendarWidgetLostMouseCapture;
+        if (_refs.AiUsageWidgetContent is VNotch.Controls.AiUsageStatWidget usage)
+            usage.OpenDetailsRequested -= OnAiUsageOpenDetailsRequested;
         _isWidgetDragging = false;
         if (_refs.CalendarWidget.IsMouseCaptured) _refs.CalendarWidget.ReleaseMouseCapture();
     }

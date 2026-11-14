@@ -17,6 +17,7 @@ public sealed class NotchContentViewRefs
     public FrameworkElement? ClaudeContent { get; init; }
     public FrameworkElement? PiContent { get; init; }
     public FrameworkElement? SchoolContent { get; init; }
+    public FrameworkElement? AiUsageContent { get; init; }
     public FrameworkElement? TimerContent { get; init; }
     public FrameworkElement? AudioContent { get; init; }
     public FrameworkElement? AudioScrollViewer { get; init; }
@@ -84,35 +85,13 @@ public sealed class NotchContentTransitionPresenter : IDisposable
         if (plan.TargetView == NotchView.AudioMixer && _refs.AudioScrollViewer != null &&
             !ReferenceEquals(_refs.AudioScrollViewer, targetElement) && _refs.AudioScrollViewer.Visibility != Visibility.Visible)
         {
-            _refs.AudioScrollViewer.BeginAnimation(UIElement.OpacityProperty, null);
-            _refs.AudioScrollViewer.Visibility = Visibility.Visible;
-            _refs.AudioScrollViewer.Opacity = 1.0;
-            ClearTemporaryAnimationTransforms(_refs.AudioScrollViewer);
+            ShowAudioScrollViewer();
         }
 
         // Reduced motion commits the complete page state immediately.
         if (plan.Motion.ReduceMotion || plan.Motion.Duration.TimeSpan <= TimeSpan.Zero)
         {
-            foreach (var el in allElements)
-            {
-                if (ReferenceEquals(el, targetElement))
-                {
-                    el.BeginAnimation(UIElement.OpacityProperty, null);
-                    el.Visibility = Visibility.Visible;
-                    el.Opacity = 1.0;
-                    ReleasePageOffset(el);
-                    ClearTemporaryAnimationTransforms(el);
-                    el.IsHitTestVisible = true;
-                }
-                else
-                {
-                    ResetContentVisualState(el);
-                }
-            }
-            if (IsCurrent(sessionId, version) && plan.TargetView != NotchView.AudioMixer && _refs.AudioScrollViewer != null && !ReferenceEquals(_refs.AudioScrollViewer, _refs.AudioContent))
-            {
-                ResetElementVisualState(_refs.AudioScrollViewer);
-            }
+            ApplyImmediateExpandedTransition(plan, targetElement, allElements, sessionId, version);
             onCompleted(new TransitionExecutionResult(sessionId, TransitionExecutionStatus.Completed));
             return;
         }
@@ -131,9 +110,8 @@ public sealed class NotchContentTransitionPresenter : IDisposable
             Motion.Stop(targetElement, UIElement.OpacityProperty, 1);
             ReleasePageOffset(targetElement);
             targetElement.IsHitTestVisible = true;
-            if (plan.TargetView != NotchView.AudioMixer && _refs.AudioScrollViewer != null &&
-                !ReferenceEquals(_refs.AudioScrollViewer, _refs.AudioContent))
-                ResetElementVisualState(_refs.AudioScrollViewer);
+            if (plan.TargetView != NotchView.AudioMixer)
+                ResetDetachedAudioScrollViewer();
             onCompleted(new TransitionExecutionResult(sessionId, TransitionExecutionStatus.Completed));
         }
         // One motion instead of two pages on top of each other: the old page is gone within 90 ms, the new one
@@ -149,7 +127,7 @@ public sealed class NotchContentTransitionPresenter : IDisposable
         foreach (var element in allElements)
         {
             if (ReferenceEquals(element, targetElement)) continue;
-            if (element.Visibility != Visibility.Visible)
+            if (element.Visibility != Visibility.Visible || element.Opacity <= 0.01)
             {
                 ResetContentVisualState(element);
                 continue;
@@ -162,9 +140,8 @@ public sealed class NotchContentTransitionPresenter : IDisposable
             {
                 if (!IsCurrent(sessionId, version)) return;
                 ResetContentVisualState(element);
-                if (ReferenceEquals(element, _refs.AudioContent) && _refs.AudioScrollViewer != null &&
-                    !ReferenceEquals(_refs.AudioScrollViewer, _refs.AudioContent))
-                    ResetElementVisualState(_refs.AudioScrollViewer);
+                if (ReferenceEquals(element, _refs.AudioContent))
+                    ResetDetachedAudioScrollViewer();
             });
         }
     }
@@ -436,6 +413,43 @@ public sealed class NotchContentTransitionPresenter : IDisposable
         el.Effect = null;
     }
 
+    private void ApplyImmediateExpandedTransition(
+        TransitionPlan plan, FrameworkElement targetElement, List<FrameworkElement> allElements,
+        long sessionId, long version)
+    {
+        foreach (var element in allElements)
+        {
+            if (ReferenceEquals(element, targetElement))
+            {
+                Motion.Stop(element, UIElement.OpacityProperty, 1);
+                element.Visibility = Visibility.Visible;
+                ReleasePageOffset(element);
+                ClearTemporaryAnimationTransforms(element);
+                element.IsHitTestVisible = true;
+            }
+            else
+            {
+                ResetContentVisualState(element);
+            }
+        }
+        if (IsCurrent(sessionId, version) && plan.TargetView != NotchView.AudioMixer)
+            ResetDetachedAudioScrollViewer();
+    }
+
+    private void ShowAudioScrollViewer()
+    {
+        if (_refs.AudioScrollViewer is not { } scrollViewer) return;
+        Motion.Stop(scrollViewer, UIElement.OpacityProperty, 1);
+        scrollViewer.Visibility = Visibility.Visible;
+        ClearTemporaryAnimationTransforms(scrollViewer);
+    }
+
+    private void ResetDetachedAudioScrollViewer()
+    {
+        if (_refs.AudioScrollViewer != null && !ReferenceEquals(_refs.AudioScrollViewer, _refs.AudioContent))
+            ResetElementVisualState(_refs.AudioScrollViewer);
+    }
+
     private void FadeOutAll(long sessionId, long version, Duration duration, IEasingFunction easing, int fps, bool reduceMotion, Action onCompleted)
     {
         var elements = GetAllElements();
@@ -445,9 +459,9 @@ public sealed class NotchContentTransitionPresenter : IDisposable
             {
                 ResetContentVisualState(el);
             }
-            if (IsCurrent(sessionId, version) && _refs.AudioScrollViewer != null && !ReferenceEquals(_refs.AudioScrollViewer, _refs.AudioContent))
+            if (IsCurrent(sessionId, version))
             {
-                ResetElementVisualState(_refs.AudioScrollViewer);
+                ResetDetachedAudioScrollViewer();
             }
             onCompleted();
             return;
@@ -459,8 +473,7 @@ public sealed class NotchContentTransitionPresenter : IDisposable
         int pendingCount = leaving.Count;
         void Finished()
         {
-            if (_refs.AudioScrollViewer != null && !ReferenceEquals(_refs.AudioScrollViewer, _refs.AudioContent))
-                ResetElementVisualState(_refs.AudioScrollViewer);
+            ResetDetachedAudioScrollViewer();
             onCompleted();
         }
         if (pendingCount == 0)
@@ -494,6 +507,7 @@ public sealed class NotchContentTransitionPresenter : IDisposable
             NotchView.Claude => _refs.ClaudeContent,
             NotchView.Pi => _refs.PiContent,
             NotchView.School => _refs.SchoolContent,
+            NotchView.AiUsage => _refs.AiUsageContent,
             NotchView.Secondary => _refs.SecondaryContent,
             _ => null
         };
@@ -506,6 +520,7 @@ public sealed class NotchContentTransitionPresenter : IDisposable
         if (_refs.ClaudeContent != null) list.Add(_refs.ClaudeContent);
         if (_refs.PiContent != null) list.Add(_refs.PiContent);
         if (_refs.SchoolContent != null) list.Add(_refs.SchoolContent);
+        if (_refs.AiUsageContent != null) list.Add(_refs.AiUsageContent);
         if (_refs.TimerContent != null) list.Add(_refs.TimerContent);
         if (_refs.AudioContent != null) list.Add(_refs.AudioContent);
         else if (_refs.AudioScrollViewer != null) list.Add(_refs.AudioScrollViewer);

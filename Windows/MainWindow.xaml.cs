@@ -283,6 +283,7 @@ public partial class MainWindow : Window
             ClaudeContent = ClaudeContent,
             PiContent = PiContent,
             SchoolContent = SchoolContent,
+            AiUsageContent = AiUsageContent,
             IsSessionCurrent = sessionId => !_cleanedUp && sessionId == _transitionCoordinator.ActiveTransitionId
         });
         _viewModel = viewModel;
@@ -291,6 +292,15 @@ public partial class MainWindow : Window
         _viewModel.Media.PlayPauseToggled += OnViewModelPlayPauseToggled;
         InitializeMusicMotion();
         MediaPlayback.BufferingChanged += value => MusicViz.IsBuffering = value;
+        if (AiUsageViewControl != null)
+        {
+            AiUsageViewControl.ContentSizeChanged += ScheduleAiUsageLayout;
+            AiUsageViewControl.OpenSettingsRequested += () =>
+            {
+                OpenAppSettings();
+                _activeSettingsWindow?.NavigateToAiUsage();
+            };
+        }
         CountdownWidget.Attach(_viewModel.Timer);
         CountdownWidget.Completed += (_, _) =>
         {
@@ -365,6 +375,7 @@ public partial class MainWindow : Window
         _privacyModule.StateChanged += PrivacyModule_StateChanged;
 
         _weatherModule = weatherModule;
+        VNotch.Services.AiUsage.AiAccountUsageMonitor.Shared.ApplySettings(_settings);
         WeatherWidgetView.Attach(_weatherModule,
             _settings.EnableWeather && !_settings.EnableLocalOnlyMode && _settings.AllowOnlineWeather);
 
@@ -827,6 +838,7 @@ public partial class MainWindow : Window
         _isClaudeView = snapshot.CurrentView == VNotch.Models.NotchView.Claude;
         _isPiView = snapshot.CurrentView == VNotch.Models.NotchView.Pi;
         _isSchoolView = snapshot.CurrentView == VNotch.Models.NotchView.School;
+        _isAiUsageView = snapshot.CurrentView == VNotch.Models.NotchView.AiUsage;
         _isAudioView = snapshot.CurrentView == VNotch.Models.NotchView.AudioMixer;
         _isSecondaryView = snapshot.CurrentView == VNotch.Models.NotchView.Secondary;
         _isTimerView = snapshot.CurrentView == VNotch.Models.NotchView.Timer;
@@ -899,8 +911,8 @@ public partial class MainWindow : Window
             FinalizePendingCameraPreviewTeardown();
         if (args.TargetView != VNotch.Models.NotchView.Compact && args.Reason != "CountdownCompletion" &&
             ((args.FromView != VNotch.Models.NotchView.Compact && args.FromView != args.TargetView) ||
-             args.TargetView is VNotch.Models.NotchView.Secondary or VNotch.Models.NotchView.Camera or VNotch.Models.NotchView.Claude or VNotch.Models.NotchView.Pi or VNotch.Models.NotchView.School ||
-             args.FromView is VNotch.Models.NotchView.Secondary or VNotch.Models.NotchView.Camera or VNotch.Models.NotchView.Claude or VNotch.Models.NotchView.Pi or VNotch.Models.NotchView.School))
+             args.TargetView is VNotch.Models.NotchView.Secondary or VNotch.Models.NotchView.Camera or VNotch.Models.NotchView.AiUsage or VNotch.Models.NotchView.Claude or VNotch.Models.NotchView.Pi or VNotch.Models.NotchView.School ||
+             args.FromView is VNotch.Models.NotchView.Secondary or VNotch.Models.NotchView.Camera or VNotch.Models.NotchView.AiUsage or VNotch.Models.NotchView.Claude or VNotch.Models.NotchView.Pi or VNotch.Models.NotchView.School))
         {
             ExpandNotch(args.TransitionId, targetView: args.TargetView, fromView: args.FromView);
             return;
@@ -1443,7 +1455,7 @@ public partial class MainWindow : Window
             KernelType = KernelType.Gaussian,
             RenderingBias = RenderingBias.Performance
         };
-        SpotlightReturnContentHost.Effect = _spotlightReturnContentBlur;
+        SpotlightReturnContentHost.Effect = null;
         SpotlightReturnContentHost.Opacity = 1;
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
         // Make content readable as soon as ownership returns; keep the longer
@@ -1461,7 +1473,7 @@ public partial class MainWindow : Window
         Timeline.SetDesiredFrameRate(contentSharpen, AnimationConfig.TargetFps);
 
         SpotlightReturnContentHost.BeginAnimation(OpacityProperty, contentFade);
-        _spotlightReturnContentBlur.BeginAnimation(BlurEffect.RadiusProperty, contentSharpen);
+        SpotlightReturnContentHost.Effect = null;
     }
 
     private void CompleteSpotlightReturnScaleHandoff()
@@ -1583,13 +1595,13 @@ public partial class MainWindow : Window
         _blurCrossfadeVersion++;
 
         ResetBlur(ExpandedContentBlur);
-        ResetBlur(CollapsedContentBlur);
+        CollapsedContent.Effect = null;
         ResetBlur(MusicCompactContentBlur);
         ResetBlur(CompactThumbnailOutBlur);
         ResetBlur(CompactThumbnailNextBlur);
         ResetBlur(ThumbnailOutBlur);
         ResetBlur(ThumbnailNextBlur);
-        ResetBlur(CalendarGreetingContextBlur);
+        GreetingSection.Effect = null;
         ResetBlur(CameraPreviewBlur);
         MediaPlayback.ResetHoverBlur();
 
@@ -2146,7 +2158,7 @@ public partial class MainWindow : Window
     private void SettingsButton_MouseEnter(object sender, MouseEventArgs e)
     {
         ScheduleSettingsFirstOpenPreparation();
-        SettingsButton.CacheMode ??= new System.Windows.Media.BitmapCache(1.5);
+        SettingsButton.CacheMode = null;
         AnimateSettingsHover(true);
     }
 

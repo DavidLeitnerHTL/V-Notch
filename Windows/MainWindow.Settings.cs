@@ -93,6 +93,7 @@ public partial class MainWindow
         _clipboardHistory?.ApplySettings(_settings);
         if (_settings.HideCamera && IsCameraPreviewLifecycleActive) StopCameraPreviewForViewExit();
         NetworkPrivacy.Current.Apply(_settings);
+        VNotch.Services.AiUsage.AiAccountUsageMonitor.Shared.ApplySettings(_settings);
         ApplyInvisibleMode();
         _liveTranslation?.ApplySettings(_settings);
 
@@ -223,7 +224,7 @@ public partial class MainWindow
         }
     }
 
-    private static bool IsLiquidGlassConfigChanged(NotchSettings? oldSettings, NotchSettings? newSettings)
+    internal static bool IsLiquidGlassConfigChanged(NotchSettings? oldSettings, NotchSettings? newSettings)
     {
         if (oldSettings == null || newSettings == null) return true;
         if (!string.Equals(oldSettings.NotchStyle, newSettings.NotchStyle, StringComparison.OrdinalIgnoreCase))

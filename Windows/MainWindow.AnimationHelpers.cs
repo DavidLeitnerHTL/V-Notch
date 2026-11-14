@@ -663,6 +663,7 @@ public partial class MainWindow
         NavIconsPanel.IsHitTestVisible = show;
         if (show)
         {
+            PlaceSharedStatusBar(targetView);
             bool movedSettingsHost = PlaceSharedSettingsButton(targetView);
             BatterySection.Visibility = showBattery ? Visibility.Visible : Visibility.Collapsed;
             NavIconsPanel.Visibility = Visibility.Visible;
@@ -738,6 +739,25 @@ public partial class MainWindow
             beginTime: updateDelay);
         RetargetChromeValue(UpdateNotificationButton, OpacityProperty, showUpdate ? 1 : 0, duration, animate,
             beginTime: updateDelay);
+    }
+
+    private void PlaceSharedStatusBar(VNotch.Models.NotchView targetView)
+    {
+        if (StatusBar == null || ExpandedStatusBarHost == null || AiUsageStatusBarHost == null) return;
+        bool inAiUsage = targetView == VNotch.Models.NotchView.AiUsage;
+        var desiredHost = inAiUsage ? AiUsageStatusBarHost : ExpandedStatusBarHost;
+        if (!ReferenceEquals(desiredHost.Content, StatusBar))
+        {
+            if (ReferenceEquals(ExpandedStatusBarHost.Content, StatusBar))
+                ExpandedStatusBarHost.Content = null;
+            if (ReferenceEquals(AiUsageStatusBarHost.Content, StatusBar))
+                AiUsageStatusBarHost.Content = null;
+            desiredHost.Content = StatusBar;
+        }
+        if (StatusBarTranslate != null)
+        {
+            StatusBarTranslate.Y = inAiUsage ? 0 : -ExpandedContentRestY;
+        }
     }
 
     private void RetargetChromeValue(IAnimatable target, DependencyProperty property,

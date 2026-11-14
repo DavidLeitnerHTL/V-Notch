@@ -308,15 +308,7 @@ public partial class MainWindow
             var aSlide = MakeAnim(0, 10, durOut, _easeAppleIn);
             Timeline.SetDesiredFrameRate(aSlide, fps);
 
-            bool useContentBlur = _settings.EnableBlurEffects && !IsLiquidGlassEnabled;
-            BlurEffect? outBlur = null;
-            DoubleAnimation? blurOutAnim = null;
-            if (useContentBlur)
-            {
-                outBlur = outgoing.Effect as BlurEffect ?? new BlurEffect { Radius = 0, RenderingBias = RenderingBias.Performance };
-                outgoing.Effect = outBlur;
-                blurOutAnim = MakeAnim(0, 6, durOut, _easeAppleIn);
-            }
+            outgoing.Effect = null;
 
             aFade.Completed += (s, e) =>
             {
@@ -324,15 +316,12 @@ public partial class MainWindow
                 outgoing.Visibility = Visibility.Collapsed;
                 outgoing.RenderTransform = null;
                 outgoing.Effect = null;
-                if (outBlur != null) outBlur.Radius = 0;
                 outgoing.BeginAnimation(OpacityProperty, null);
                 outgoing.Opacity = 1;
                 AudioContent.ResetRowAnimations();
             };
             outgoing.BeginAnimation(OpacityProperty, aFade);
             closeTranslate.BeginAnimation(TranslateTransform.YProperty, aSlide);
-            if (outBlur != null && blurOutAnim != null)
-                outBlur.BeginAnimation(BlurEffect.RadiusProperty, blurOutAnim);
         }
         else
         {
@@ -345,15 +334,7 @@ public partial class MainWindow
             var slideUp = MakeAnim(outRestY, outRestY - 10, durOut, _easeAppleIn);
             Timeline.SetDesiredFrameRate(slideUp, fps);
 
-            bool useContentBlur = _settings.EnableBlurEffects && !IsLiquidGlassEnabled;
-            BlurEffect? outBlur = null;
-            DoubleAnimation? blurOutAnim = null;
-            if (useContentBlur)
-            {
-                outBlur = outgoing.Effect as BlurEffect ?? new BlurEffect { Radius = 0, RenderingBias = RenderingBias.Performance };
-                outgoing.Effect = outBlur;
-                blurOutAnim = MakeAnim(0, 6, durOut, _easeAppleIn);
-            }
+            outgoing.Effect = null;
 
             fadeOut.Completed += (s, e) =>
             {
@@ -361,13 +342,10 @@ public partial class MainWindow
                 outgoing.Visibility = Visibility.Collapsed;
                 outgoing.RenderTransform = null;
                 outgoing.Effect = null;
-                if (outBlur != null) outBlur.Radius = 0;
             };
 
             outgoing.BeginAnimation(OpacityProperty, fadeOut);
             outTranslate.BeginAnimation(TranslateTransform.YProperty, slideUp);
-            if (outBlur != null && blurOutAnim != null)
-                outBlur.BeginAnimation(BlurEffect.RadiusProperty, blurOutAnim);
         }
 
         prepIncoming?.Invoke();
@@ -402,15 +380,7 @@ public partial class MainWindow
             Timeline.SetDesiredFrameRate(aFadeIn, fps);
             Timeline.SetDesiredFrameRate(springSlide, fps);
 
-            bool useContentBlur = _settings.EnableBlurEffects && !IsLiquidGlassEnabled;
-            BlurEffect? inBlur = null;
-            DoubleAnimation? blurInAnim = null;
-            if (useContentBlur)
-            {
-                inBlur = incoming.Effect as BlurEffect ?? new BlurEffect { Radius = 6, RenderingBias = RenderingBias.Performance };
-                incoming.Effect = inBlur;
-                blurInAnim = MakeAnim(6, 0, durIn, _easeAppleOut, inDelay);
-            }
+            incoming.Effect = null;
 
             aFadeIn.Completed += (s, e) =>
             {
@@ -422,7 +392,6 @@ public partial class MainWindow
                 incoming.BeginAnimation(OpacityProperty, null);
                 incoming.RenderTransform = null;
                 incoming.Effect = null;
-                if (inBlur != null) inBlur.Radius = 0;
                 if (AudioScrollViewer != null)
                 {
                     AudioScrollViewer.BeginAnimation(OpacityProperty, null);
@@ -436,8 +405,6 @@ public partial class MainWindow
 
             incoming.BeginAnimation(OpacityProperty, aFadeIn);
             inTranslate.BeginAnimation(TranslateTransform.YProperty, springSlide);
-            if (inBlur != null && blurInAnim != null)
-                inBlur.BeginAnimation(BlurEffect.RadiusProperty, blurInAnim);
 
             AudioContent.RevealRows(inDelay + TimeSpan.FromMilliseconds(20));
         }

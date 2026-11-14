@@ -5,7 +5,6 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using System.Windows.Media.Effects;
 using VNotch.Modules;
 using VNotch.Services;
 using static VNotch.Services.AnimationPrimitives;
@@ -378,6 +377,11 @@ public sealed class CalendarPresenter : IDisposable
 
     private void AnimateCalendarWidgetHover(bool isHovered)
     {
+        if (string.Equals(_refs.SettingsProvider().ExpandedWidget, "aiusage", StringComparison.OrdinalIgnoreCase))
+        {
+            ResetWidgetHoverMotion();
+            return;
+        }
         double targetScale = isHovered ? 1.035 : 1.0;
         double targetLiftY = isHovered ? -3.0 : 0.0;
 
@@ -405,13 +409,8 @@ public sealed class CalendarPresenter : IDisposable
 
         AnimateOpacity(_refs.BatterySection, isFocused ? 0.62 : 1.0, duration, easing);
         AnimateOpacity(_refs.SettingsButton, isFocused ? 0.62 : 1.0, duration, easing);
-        AnimateOpacity(_refs.GreetingSection, isFocused ? 0.62 : 1.0, duration, easing);
-
-        if (_refs.CalendarGreetingContextBlur != null)
-        {
-            _refs.CalendarGreetingContextBlur.BeginAnimation(BlurEffect.RadiusProperty, null);
-            _refs.CalendarGreetingContextBlur.Radius = _refs.SettingsProvider().EnableBlurEffects && isFocused ? 3.0 : 0.0;
-        }
+        // Dim the greeting without an offscreen blur on its text.
+        AnimateOpacity(_refs.GreetingSection, isFocused ? 0.85 : 1.0, duration, easing);
     }
 
     private static void AnimateOpacity(UIElement element, double to, Duration duration, IEasingFunction easing)
@@ -429,27 +428,27 @@ public sealed class CalendarPresenter : IDisposable
 
     public void ResetHoverFocusVisualState()
     {
+        ResetWidgetHoverMotion();
+
+        ResetCalendarContextElement(_refs.BatterySection);
+        ResetCalendarContextElement(_refs.SettingsButton);
+        ResetCalendarContextElement(_refs.GreetingSection);
+    }
+
+    private void ResetWidgetHoverMotion()
+    {
         _refs.CalendarWidgetScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
         _refs.CalendarWidgetScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
         _refs.CalendarWidgetTranslate.BeginAnimation(TranslateTransform.YProperty, null);
         _refs.CalendarWidgetScale.ScaleX = 1.0;
         _refs.CalendarWidgetScale.ScaleY = 1.0;
         _refs.CalendarWidgetTranslate.Y = 0.0;
-
-        ResetCalendarContextElement(_refs.BatterySection, null);
-        ResetCalendarContextElement(_refs.SettingsButton, null);
-        ResetCalendarContextElement(_refs.GreetingSection, _refs.CalendarGreetingContextBlur);
     }
 
-    private static void ResetCalendarContextElement(UIElement element, BlurEffect? effect)
+    private static void ResetCalendarContextElement(UIElement element)
     {
         element.BeginAnimation(UIElement.OpacityProperty, null);
         element.Opacity = 1.0;
-        if (effect != null)
-        {
-            effect.BeginAnimation(BlurEffect.RadiusProperty, null);
-            effect.Radius = 0.0;
-        }
     }
 
     public void HandleMouseWheel(MouseWheelEventArgs e)
