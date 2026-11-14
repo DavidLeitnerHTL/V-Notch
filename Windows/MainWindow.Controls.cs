@@ -256,55 +256,65 @@ public partial class MainWindow
         _isCompactVolumeWheelActive = false;
     }
 
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct VnVolumeWheelState
+    {
+        public double Accumulator;
+        public long LastWheelUtcTicks;
+        public long SuppressUntilUtcTicks;
+        public byte IsWheelActive;
+        public byte Reserved0;
+        public byte Reserved1;
+        public byte Reserved2;
+    }
+
+    [LibraryImport("VNotch.Native.dll")]
+    private static partial int vn_mainwindow_step_volume_wheel(
+        ref VnVolumeWheelState ioState,
+        int rawDelta,
+        long nowUtcTicks,
+        byte isIndicatorActive,
+        out int outVolumeDelta,
+        out byte outAccepted,
+        out byte outSuppressed);
+
     private bool TryGetCompactVolumeWheelDelta(int rawDelta, out int volumeDelta)
     {
         volumeDelta = 0;
         if (rawDelta == 0) return false;
 
-        var now = DateTime.UtcNow;
-        if (now < _suppressCompactVolumeWheelUntilUtc)
+        var state = new VnVolumeWheelState
+        {
+            Accumulator = _compactVolumeWheelAccumulator,
+            LastWheelUtcTicks = _lastCompactVolumeWheelUtc.Ticks,
+            SuppressUntilUtcTicks = _suppressCompactVolumeWheelUntilUtc.Ticks,
+            IsWheelActive = _isCompactVolumeWheelActive ? (byte)1 : (byte)0
+        };
+
+        if (vn_mainwindow_step_volume_wheel(
+                ref state,
+                rawDelta,
+                DateTime.UtcNow.Ticks,
+                _isVolumeIndicatorActive ? (byte)1 : (byte)0,
+                out volumeDelta,
+                out byte accepted,
+                out byte suppressed) != 0)
+        {
+            return false;
+        }
+
+        if (suppressed != 0)
         {
             ResetCompactVolumeWheelIntent();
             return false;
         }
 
-        if ((now - _lastCompactVolumeWheelUtc).TotalMilliseconds > CompactVolumeWheelSessionResetMs)
-        {
-            _compactVolumeWheelAccumulator = 0;
-            _isCompactVolumeWheelActive = false;
-        }
-        _lastCompactVolumeWheelUtc = now;
-
-        if (_isVolumeIndicatorActive || _isCompactVolumeWheelActive)
-        {
-            _isCompactVolumeWheelActive = true;
-            volumeDelta = rawDelta;
-            return true;
-        }
-
-        if (Math.Abs(rawDelta) >= CompactVolumeImmediateWheelDelta)
-        {
-            _isCompactVolumeWheelActive = true;
-            volumeDelta = rawDelta;
-            return true;
-        }
-
-        if (_compactVolumeWheelAccumulator != 0 &&
-            Math.Sign(_compactVolumeWheelAccumulator) != Math.Sign(rawDelta))
-        {
-            _compactVolumeWheelAccumulator = 0;
-        }
-
-        _compactVolumeWheelAccumulator += rawDelta;
-        if (Math.Abs(_compactVolumeWheelAccumulator) < CompactVolumeSmoothActivationDelta)
-        {
-            return false;
-        }
-
-        _compactVolumeWheelAccumulator = 0;
-        _isCompactVolumeWheelActive = true;
-        volumeDelta = Math.Sign(rawDelta) * (int)CompactVolumeImmediateWheelDelta;
-        return true;
+        _compactVolumeWheelAccumulator = state.Accumulator;
+        _lastCompactVolumeWheelUtc = state.LastWheelUtcTicks <= 0
+            ? DateTime.MinValue
+            : new DateTime(state.LastWheelUtcTicks, DateTimeKind.Utc);
+        _isCompactVolumeWheelActive = state.IsWheelActive != 0;
+        return accepted != 0;
     }
 
     private bool _volumeBaselinePending;
