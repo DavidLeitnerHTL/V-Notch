@@ -42,8 +42,9 @@ public sealed partial class WeatherView : UserControl, IDisposable
     private static readonly FontFamily SymbolFont = new("pack://application:,,,/Fonts/#Segoe MDL2 Assets, Segoe Fluent Icons, Segoe MDL2 Assets, Segoe UI Symbol");
 
     private readonly Grid _root = new() { Width = ContentWidth, Height = ContentHeight, ClipToBounds = false };
-    private readonly LoopSet _loops = new();
-    private LoopSet _skyLoops = new();
+    private readonly LoopSet _loops;
+    private readonly LoopSet _chartLoops;
+    private LoopSet _skyLoops;
     private readonly DispatcherTimer _refreshTimer;
     // The forecast is read every 15 minutes; "rain in 20 min" counts down in between.
     private readonly DispatcherTimer _nowcastTimer;
@@ -63,6 +64,9 @@ public sealed partial class WeatherView : UserControl, IDisposable
 
     public WeatherView()
     {
+        _loops = new LoopSet(() => IsVisible && !_disposed);
+        _chartLoops = new LoopSet(() => IsVisible && !_disposed);
+        _skyLoops = new LoopSet(() => IsVisible && !_disposed);
         Content = _root;
         Width = ContentWidth;
         Height = ContentHeight;
@@ -76,6 +80,7 @@ public sealed partial class WeatherView : UserControl, IDisposable
         _nowcastTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(20) };
         _nowcastTimer.Tick += (_, _) => TickNowcast();
         IsVisibleChanged += OnIsVisibleChanged;
+        AnimationConfig.ReduceMotionChanged += OnReduceMotionChanged;
         Loc.LanguageChanged += OnLanguageChanged;
     }
 
@@ -105,11 +110,19 @@ public sealed partial class WeatherView : UserControl, IDisposable
         _loadCts?.Dispose();
         _loops.StopAll();
         _skyLoops.StopAll();
+        _chartLoops.StopAll();
+        _refreshSpin?.BeginAnimation(RotateTransform.AngleProperty, null);
         IsVisibleChanged -= OnIsVisibleChanged;
+        AnimationConfig.ReduceMotionChanged -= OnReduceMotionChanged;
         Loc.LanguageChanged -= OnLanguageChanged;
     }
 
     #region Lifecycle and data
+
+    private void OnReduceMotionChanged() => Dispatcher.BeginInvoke(() =>
+    {
+        if (!_disposed && IsVisible) Render(entrance: false);
+    });
 
     private void OnIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
@@ -128,6 +141,8 @@ public sealed partial class WeatherView : UserControl, IDisposable
             _nowcastLabel = null;
             _loops.StopAll();
             _skyLoops.StopAll();
+            _chartLoops.StopAll();
+            _refreshSpin?.BeginAnimation(RotateTransform.AngleProperty, null);
             _sky = null;
             _skyKey = "";
             _refreshSpin = null;
@@ -187,6 +202,8 @@ public sealed partial class WeatherView : UserControl, IDisposable
     private void Render(bool entrance)
     {
         _loops.StopAll();
+        _chartLoops.StopAll();
+        _refreshSpin?.BeginAnimation(RotateTransform.AngleProperty, null);
         _root.Children.Clear();
         _root.RowDefinitions.Clear();
         _root.ColumnDefinitions.Clear();
@@ -248,7 +265,7 @@ public sealed partial class WeatherView : UserControl, IDisposable
         _chartHost = new Grid { ClipToBounds = false };
         Grid.SetRow(_chartHost, 2);
         right.Children.Add(_chartHost);
-        ShowChart(forecast, entrance ? 260 : -1);
+        ShowChart(forecast, entrance ? 0 : -1);
         var days = BuildDays(forecast, entrance);
         Grid.SetRow(days, 4);
         right.Children.Add(days);
@@ -256,8 +273,8 @@ public sealed partial class WeatherView : UserControl, IDisposable
         if (entrance)
         {
             WeatherMotion.Rise(header, 0, dy: 6);
-            WeatherMotion.Rise(nowcast, 140, dy: 10);
-            WeatherMotion.Rise(_chartHeader, 60, dy: 6);
+            WeatherMotion.Rise(nowcast, Motion.Stagger(1).TotalMilliseconds, dy: 10);
+            WeatherMotion.Rise(_chartHeader, Motion.Stagger(2).TotalMilliseconds, dy: 6);
         }
     }
 
@@ -331,7 +348,7 @@ public sealed partial class WeatherView : UserControl, IDisposable
     private void SetRefreshSpinning(bool on)
     {
         if (_refreshSpin == null) return;
-        if (on && !AnimationConfig.ReduceMotion)
+        if (on && IsVisible && !AnimationConfig.ReduceMotion)
         {
             var spin = new DoubleAnimation(0, 360, TimeSpan.FromSeconds(0.85)) { RepeatBehavior = RepeatBehavior.Forever };
             Timeline.SetDesiredFrameRate(spin, AnimationConfig.TargetFps);
@@ -341,10 +358,9 @@ public sealed partial class WeatherView : UserControl, IDisposable
         {
             // Finish the turn instead of snapping back.
             double angle = _refreshSpin.Angle % 360;
-            _refreshSpin.BeginAnimation(RotateTransform.AngleProperty, null);
-            _refreshSpin.Angle = angle;
-            if (!AnimationConfig.ReduceMotion)
-                _refreshSpin.BeginAnimation(RotateTransform.AngleProperty, WeatherMotion.To(angle, 360, 420, WeatherMotion.OutBack));
+            if (IsVisible)
+                Motion.To(_refreshSpin, RotateTransform.AngleProperty, 360, Motion.Press, from: angle);
+            else Motion.Stop(_refreshSpin, RotateTransform.AngleProperty, 0);
         }
     }
 
@@ -373,7 +389,7 @@ public sealed partial class WeatherView : UserControl, IDisposable
         {
             var oldSky = _sky;
             var oldLoops = _skyLoops;
-            _skyLoops = new LoopSet();
+            _skyLoops = new LoopSet(() => IsVisible && !_disposed);
             _sky = BuildSky(kind, now.IsDay, now.WindKmh, _skyLoops);
             _skyKey = key;
             skyHost.Children.Add(_sky);
@@ -390,16 +406,16 @@ public sealed partial class WeatherView : UserControl, IDisposable
                 oldSky.RenderTransformOrigin = new Point(0.5, 0.5);
                 var shrink = new ScaleTransform(1, 1);
                 oldSky.RenderTransform = shrink;
-                var fade = WeatherMotion.To(oldSky.Opacity, 0, 380, WeatherMotion.Out);
+                var fade = WeatherMotion.To(oldSky.Opacity, 0, 160, WeatherMotion.Out);
                 fade.Completed += (_, _) =>
                 {
                     oldLoops.StopAll();
                     skyHost.Children.Remove(oldSky);
                 };
                 oldSky.BeginAnimation(OpacityProperty, fade);
-                shrink.BeginAnimation(ScaleTransform.ScaleXProperty, WeatherMotion.To(1, 0.8, 380, WeatherMotion.Out));
-                shrink.BeginAnimation(ScaleTransform.ScaleYProperty, WeatherMotion.To(1, 0.8, 380, WeatherMotion.Out));
-                WeatherMotion.Pop(_sky, 120, fromScale: 1.25, ms: 620);
+                Motion.To(shrink, ScaleTransform.ScaleXProperty, Motion.ExitToScale, Motion.Exit);
+                Motion.To(shrink, ScaleTransform.ScaleYProperty, Motion.ExitToScale, Motion.Exit);
+                WeatherMotion.Pop(_sky, 0);
             }
         }
         grid.Children.Add(skyHost);
@@ -425,14 +441,14 @@ public sealed partial class WeatherView : UserControl, IDisposable
         // The number counts to the temperature; on a refresh from the old one.
         var tween = new WeatherTween { Step = v => temperature.Text = Degrees(v) };
         double target = now.Temperature;
-        if (entrance) tween.Play(Math.Round(target) - Math.Clamp(Math.Abs(target), 4, 12), target, 900, WeatherMotion.OutQuint, 120);
-        else if (!double.IsNaN(_shownTemperature) && Math.Round(_shownTemperature) != Math.Round(target)) tween.Play(_shownTemperature, target, 700, WeatherMotion.Out);
+        if (entrance) tween.To(target, from: Math.Round(target) - Math.Clamp(Math.Abs(target), 4, 12));
+        else if (!double.IsNaN(_shownTemperature) && Math.Round(_shownTemperature) != Math.Round(target)) tween.To(target, from: _shownTemperature);
         _shownTemperature = target;
 
         if (entrance)
         {
             for (int i = 0; i < text.Children.Count; i++)
-                WeatherMotion.Rise((UIElement)text.Children[i], 70 + i * 55, dy: 0, dx: 14);
+                WeatherMotion.Rise((UIElement)text.Children[i], Motion.Stagger(i).TotalMilliseconds, dy: 0, dx: 14);
         }
         return grid;
     }
@@ -531,7 +547,7 @@ public sealed partial class WeatherView : UserControl, IDisposable
                 Margin = new Thickness(i == 0 ? 0 : 2, 0, 0, 0)
             };
             panel.Children.Add(bar);
-            if (entrance) WeatherMotion.Grow(bar, 260 + i * 40, horizontal: false, new Point(0.5, 1), 520);
+            if (entrance) WeatherMotion.Grow(bar, Motion.Stagger(i).TotalMilliseconds, horizontal: false, new Point(0.5, 1));
         }
         return panel;
     }
@@ -656,6 +672,7 @@ public sealed partial class WeatherView : UserControl, IDisposable
         stack.Children.Add(detailText);
         if (retry)
         {
+            PressSquish(stack);
             stack.Cursor = Cursors.Hand;
             stack.Background = Brushes.Transparent;
             stack.MouseLeftButtonUp += (_, e) =>

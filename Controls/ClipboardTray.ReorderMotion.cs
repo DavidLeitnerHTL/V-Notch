@@ -149,18 +149,15 @@ public sealed partial class ClipboardTray
         CategoryReorderGhostScale.ScaleX = CategoryReorderGhostScale.ScaleY = 1.04;
         CategoryReorderMarker.Visibility = Visibility.Collapsed;
         CategoryReorderOverlay.Visibility = Visibility.Visible;
-        Canvas.SetLeft(CategoryReorderGhost, origin.X);
-        Canvas.SetTop(CategoryReorderGhost, origin.Y);
+        // The ghost rests in its slot and only the spring carries it there, so a stopped landing never strands it.
         var target = button.TranslatePoint(new Point(), CategoryScroll);
-        AnimateCategoryReorderValue(CategoryReorderGhost, Canvas.LeftProperty, target.X, 150);
-        AnimateCategoryReorderValue(CategoryReorderGhost, Canvas.TopProperty, target.Y, 150);
-        AnimateCategoryReorderValue(CategoryReorderGhostScale, ScaleTransform.ScaleXProperty, 1, 150);
-        AnimateCategoryReorderValue(CategoryReorderGhostScale, ScaleTransform.ScaleYProperty, 1, 150);
-        // A versioned clock owns cleanup. A new press or hide invalidates it.
-        var settle = new DoubleAnimation(1, 1, TimeSpan.FromMilliseconds(160));
-        Timeline.SetDesiredFrameRate(settle, AnimationConfig.TargetFps);
-        settle.Completed += (_, _) => { if (version == _categoryLandingVersion) StopCategoryReorderLanding(); };
-        CategoryReorderGhost.BeginAnimation(OpacityProperty, settle);
+        Canvas.SetLeft(CategoryReorderGhost, target.X);
+        Canvas.SetTop(CategoryReorderGhost, target.Y);
+        Motion.To(CategoryReorderGhost, Canvas.LeftProperty, target.X, Motion.Glide, from: origin.X);
+        Motion.To(CategoryReorderGhost, Canvas.TopProperty, target.Y, Motion.Glide, from: origin.Y);
+        Motion.To(CategoryReorderGhostScale, ScaleTransform.ScaleXProperty, 1, Motion.Glide);
+        Motion.To(CategoryReorderGhostScale, ScaleTransform.ScaleYProperty, 1, Motion.Glide,
+            done: () => { if (version == _categoryLandingVersion) StopCategoryReorderLanding(); });
     }
 
     private void StopCategoryReorderLanding()
@@ -177,26 +174,7 @@ public sealed partial class ClipboardTray
 
     private static void AnimateCategoryReorderValue(DependencyObject target, DependencyProperty property, double value, int duration)
     {
-        // Base values hold destinations, so pointer frames never restart a clock.
-        double previous = (double)target.GetValue(property);
-        double destination = target is Animatable animatable ? (double)animatable.GetAnimationBaseValue(property) :
-            (double)((UIElement)target).GetAnimationBaseValue(property);
-        if (Math.Abs(destination - value) < 1e-6 && duration > 0 && !AnimationConfig.ReduceMotion) return;
-        DoubleAnimation? animation = duration <= 0 || AnimationConfig.ReduceMotion ? null :
-            new DoubleAnimation(previous, value, TimeSpan.FromMilliseconds(duration))
-            { EasingFunction = TrayMotion.EaseOut, FillBehavior = FillBehavior.Stop };
-        if (animation != null) Timeline.SetDesiredFrameRate(animation, AnimationConfig.TargetFps);
-        if (target is Animatable motion)
-        {
-            motion.BeginAnimation(property, null);
-            motion.SetValue(property, value);
-            if (animation != null) motion.BeginAnimation(property, animation);
-        }
-        else if (target is UIElement element)
-        {
-            element.BeginAnimation(property, null);
-            element.SetValue(property, value);
-            if (animation != null) element.BeginAnimation(property, animation);
-        }
+        if (duration <= 0 || AnimationConfig.ReduceMotion) Motion.Stop(target, property, value);
+        else Motion.To(target, property, value, Motion.Glide);
     }
 }

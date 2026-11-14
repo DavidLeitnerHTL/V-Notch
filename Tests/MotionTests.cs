@@ -27,6 +27,24 @@ public sealed class MotionTests
     });
 
     [Fact]
+    public void AKeptEndingSurvivesATakeoverAndADroppedOneDoesNot() => SharedStaTestRunner.RunAsync(async () =>
+    {
+        var scale = new ScaleTransform(1, 1);
+        int kept = 0, dropped = 0, last = 0;
+        Motion.To(scale, ScaleTransform.ScaleXProperty, 2, Motion.Glide, done: () => kept++, keep: true);
+        Motion.To(scale, ScaleTransform.ScaleYProperty, 2, Motion.Glide, done: () => dropped++);
+        await Task.Delay(30);
+        // Something else (a hover) takes both over before they arrive.
+        Motion.To(scale, ScaleTransform.ScaleXProperty, 1.2, Motion.PressDown, done: () => last++);
+        Motion.To(scale, ScaleTransform.ScaleYProperty, 1.2, Motion.PressDown);
+        Assert.Equal(0, kept);
+        await WpfFrameWaiter.UntilAsync(() => last == 1, "the takeover spring settles");
+        await Task.Delay(50);
+        Assert.Equal(1, kept);
+        Assert.Equal(0, dropped);
+    });
+
+    [Fact]
     public void AnEntranceWaitsAtItsStart() => SharedStaTestRunner.Run(() =>
     {
         var scale = new ScaleTransform(1, 1);

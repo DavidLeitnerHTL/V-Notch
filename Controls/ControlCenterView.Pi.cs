@@ -313,7 +313,8 @@ public partial class ControlCenterView
         // The ring sweeps to its share when the tab opens.
         var tween = new WeatherTween { Step = t => value.Data = Arc(c, c, r, -90, Math.Min(359.5, 360 * t)) };
         bool animate = IsVisible && !AnimationConfig.ReduceMotion;
-        tween.Play(animate ? 0 : share, share, animate ? 1100 : 0, WeatherMotion.OutQuint, 150);
+        if (animate) tween.To(share, from: 0);
+        else tween.Play(share, share, 0, WeatherMotion.OutQuint);
 
         var title = MakeLabel(deadline.Name, 16, VNotch.Services.UiPalette.PrimaryBrush);
         var meta = MakeLabel($"{ShortCourse(deadline.Course)} · {deadline.Due.ToLocalTime().ToString("ddd d.M. · HH:mm", CultureInfo.CurrentUICulture)}", 12, _moodSoft);
@@ -405,20 +406,30 @@ public partial class ControlCenterView
         element.Cursor = Cursors.Hand;
         if (element is Border card)
         {
-            // Pressable cards fade their own background; plain ones swap it.
+            // Cards without feedback share the same press and hover motion as the other tabs.
             if (card.RenderTransform is not ScaleTransform)
             {
                 Brush rest = card.Background;
-                card.MouseEnter += (_, _) => card.Background = CardHover;
-                card.MouseLeave += (_, _) => card.Background = rest;
+                Pressable(card, () => rest, CardHover);
             }
         }
         else
         {
             // Transparent, not null: the whole row takes the click, not just its text.
             if (element is Panel { Background: null } panel) panel.Background = Brushes.Transparent;
-            element.MouseEnter += (_, _) => element.Opacity = 0.7;
-            element.MouseLeave += (_, _) => element.Opacity = 1;
+            var scale = new ScaleTransform(1, 1);
+            element.RenderTransformOrigin = new Point(0.5, 0.5);
+            element.RenderTransform = scale;
+            void Grow(double value, SpringMotion spring)
+            {
+                Motion.To(scale, ScaleTransform.ScaleXProperty, value, spring);
+                Motion.To(scale, ScaleTransform.ScaleYProperty, value, spring);
+            }
+            element.MouseEnter += (_, _) => Grow(1.02, Motion.Press);
+            element.MouseLeave += (_, _) => Grow(1, Motion.Press);
+            element.PreviewMouseLeftButtonDown += (_, _) => Grow(0.96, Motion.PressDown);
+            element.PreviewMouseLeftButtonUp += (_, _) => Grow(element.IsMouseOver ? 1.02 : 1, Motion.Press);
+            element.LostMouseCapture += (_, _) => Grow(1, Motion.Press);
         }
         element.MouseLeftButtonDown += async (_, e) =>
         {
@@ -465,13 +476,14 @@ public partial class ControlCenterView
             string id = todo.Id;
             AddStatus(row, "", Muted, Toggle(false, done =>
             {
-                // Ticked off: once the switch has landed the row slides away to the right.
+                // Leave immediately; the switch and row move together.
                 if (done && !AnimationConfig.ReduceMotion)
                 {
                     var away = new TranslateTransform();
                     row.RenderTransform = away;
-                    row.BeginAnimation(OpacityProperty, WeatherMotion.To(1, 0.15, 360, WeatherMotion.Out, 260));
-                    away.BeginAnimation(TranslateTransform.XProperty, WeatherMotion.To(0, 28, 420, WeatherMotion.OutQuint, 260));
+                    row.BeginAnimation(OpacityProperty, WeatherMotion.To(row.Opacity, 0, 160, WeatherMotion.Out));
+                    Motion.To(away, TranslateTransform.XProperty, 28, Motion.Exit);
+                    GlideHeight(row, 0, from: row.ActualHeight);
                 }
                 SetTodoDone(id, done);
             }));
@@ -563,8 +575,6 @@ public partial class ControlCenterView
     {
         if (_pi == null) return;
         await _pi.SetTodoDoneAsync(id, done);
-        // Lets the switch finish sliding before the row leaves.
-        await Task.Delay(450);
         _piKey = "";
         RefreshPi();
     }

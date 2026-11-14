@@ -60,8 +60,6 @@ public partial class ControlCenterView
     private const int ClaudeLoopFps = 30;
     private const string ChipsTag = "chips";
 
-    private static readonly IEasingFunction BarSpring = FreezeEase(new BackEase { Amplitude = 0.35, EasingMode = EasingMode.EaseOut });
-    private static readonly IEasingFunction TickSpring = FreezeEase(new BackEase { Amplitude = 0.9, EasingMode = EasingMode.EaseOut });
 
     private static Brush FrozenOf(Color color)
     {
@@ -243,7 +241,7 @@ public partial class ControlCenterView
         if (IsVisible)
         {
             StartRipples();
-            PopTick(250);
+            PopTick(0);
             RefreshTokens();
         }
         ApplyClaudeLoops();
@@ -676,9 +674,9 @@ public partial class ControlCenterView
         tick.RenderTransform = new TransformGroup { Children = { scale, turn } };
         tick.Opacity = 0;
         tick.BeginAnimation(OpacityProperty, WeatherMotion.To(0, 1, 220, WeatherMotion.Out, delayMs));
-        scale.BeginAnimation(ScaleTransform.ScaleXProperty, WeatherMotion.To(0, 1, 600, TickSpring, delayMs));
-        scale.BeginAnimation(ScaleTransform.ScaleYProperty, WeatherMotion.To(0, 1, 600, TickSpring, delayMs));
-        turn.BeginAnimation(RotateTransform.AngleProperty, WeatherMotion.To(-30, 0, 600, TickSpring, delayMs));
+        Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale, from: Motion.TileFromScale, delay: TimeSpan.FromMilliseconds(delayMs));
+        Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale, from: Motion.TileFromScale, delay: TimeSpan.FromMilliseconds(delayMs));
+        Motion.To(turn, RotateTransform.AngleProperty, 0, Motion.Press, from: -30, delay: TimeSpan.FromMilliseconds(delayMs));
     }
 
     #endregion
@@ -875,8 +873,8 @@ public partial class ControlCenterView
             bar.Number.Play(bar.Used, bar.Used, 0, WeatherMotion.OutQuint);
             return;
         }
-        bar.Grow.BeginAnimation(ScaleTransform.ScaleXProperty, WeatherMotion.To(from / 100, bar.Used / 100, 950, BarSpring, delayMs));
-        bar.Number.Play(from, bar.Used, 900, WeatherMotion.Out, delayMs);
+        Motion.To(bar.Grow, ScaleTransform.ScaleXProperty, bar.Used / 100, Motion.Glide);
+        bar.Number.To(bar.Used);
     }
 
     #endregion
@@ -900,16 +898,17 @@ public partial class ControlCenterView
     private static void HoverLift(Border card, SolidColorBrush fill, Action<bool>? onHover)
     {
         var (_, shift) = LiftParts(card);
+        Squish(card);
         card.MouseEnter += (_, _) =>
         {
             WeatherMotion.Tint(fill, CardLifted, 140);
-            if (!AnimationConfig.ReduceMotion) shift.BeginAnimation(TranslateTransform.YProperty, WeatherMotion.To(shift.Y, -1.5, 380, KnobSpring));
+            Motion.To(shift, TranslateTransform.YProperty, -1.5, Motion.Press);
             onHover?.Invoke(true);
         };
         card.MouseLeave += (_, _) =>
         {
-            WeatherMotion.Tint(fill, CardRest, 220);
-            if (!AnimationConfig.ReduceMotion) shift.BeginAnimation(TranslateTransform.YProperty, WeatherMotion.To(shift.Y, 0, 420, KnobSpring));
+            WeatherMotion.Tint(fill, CardRest, 160);
+            Motion.To(shift, TranslateTransform.YProperty, 0, Motion.Press);
             onHover?.Invoke(false);
         };
     }
@@ -918,24 +917,15 @@ public partial class ControlCenterView
     private static void GlideIn(FrameworkElement element, double delayMs, int? fps = null)
     {
         if (AnimationConfig.ReduceMotion) return;
-        DoubleAnimation Motion(double from, double to, double ms, IEasingFunction ease)
-        {
-            var animation = WeatherMotion.To(from, to, ms, ease, delayMs);
-            if (fps.HasValue) Timeline.SetDesiredFrameRate(animation, fps.Value);
-            return animation;
-        }
         var (scale, shift) = LiftParts(element);
         element.Opacity = 0;
-        var fade = Motion(0, 1, 320, WeatherMotion.Out);
-        fade.Completed += (_, _) =>
-        {
-            element.BeginAnimation(OpacityProperty, null);
-            element.Opacity = 1;
-        };
+        var fade = WeatherMotion.To(0, 1, 160, WeatherMotion.Out, delayMs);
+        if (fps.HasValue) Timeline.SetDesiredFrameRate(fade, fps.Value);
         element.BeginAnimation(OpacityProperty, fade);
-        shift.BeginAnimation(TranslateTransform.YProperty, Motion(-8, 0, 560, WeatherMotion.OutBack));
-        scale.BeginAnimation(ScaleTransform.ScaleXProperty, Motion(0.98, 1, 560, WeatherMotion.OutBack));
-        scale.BeginAnimation(ScaleTransform.ScaleYProperty, Motion(0.98, 1, 560, WeatherMotion.OutBack));
+        var delay = TimeSpan.FromMilliseconds(delayMs);
+        Motion.To(shift, TranslateTransform.YProperty, 0, Motion.Tile, from: -8, delay: delay, fps: fps);
+        Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale, from: Motion.TileFromScale, delay: delay, fps: fps);
+        Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale, from: Motion.TileFromScale, delay: delay, fps: fps);
     }
 
     /// <summary>When the tab opens: the hero, then the chips, then the strip glide in; the bars fill from empty.</summary>
@@ -949,24 +939,23 @@ public partial class ControlCenterView
             if (element is WrapPanel { Tag: ChipsTag } chips)
             {
                 foreach (UIElement chip in chips.Children)
-                    if (chip is FrameworkElement c) GlideIn(c, start + Math.Min(index++, 6) * 70);
+                    if (chip is FrameworkElement c) GlideIn(c, start + Motion.Stagger(index++).TotalMilliseconds);
                 continue;
             }
             if (element is StackPanel resets && resets.Children.OfType<Grid>().Any(g => g.Tag is string tag && tag.StartsWith("reset-row:", StringComparison.Ordinal)))
             {
-                foreach (var row in resets.Children.OfType<Grid>()) GlideIn(row, start + Math.Min(index++, 6) * 70, 60);
+                foreach (var row in resets.Children.OfType<Grid>()) GlideIn(row, start + Motion.Stagger(index++).TotalMilliseconds, 60);
                 continue;
             }
-            GlideIn(element, start + Math.Min(index++, 6) * 70);
+            GlideIn(element, start + Motion.Stagger(index++).TotalMilliseconds);
         }
-        foreach (var bar in _limitBars) PlayLimit(bar, 0, start + 160);
+        foreach (var bar in _limitBars) PlayLimit(bar, 0, start);
         RollTokensIn();
-        PopTick(start + 280);
+        PopTick(start);
     }
 
     /// <summary>
-    /// An answer folds its request card away before it goes to Claude Code, so the card does not just vanish.
-    /// A timer makes sure the answer goes out even if the fold never finishes.
+    /// An answer folds its request card away while it goes to Claude Code.
     /// </summary>
     private void Settle(string requestId, Action answer)
     {
@@ -986,16 +975,8 @@ public partial class ControlCenterView
         var squash = new ScaleTransform(1, 1);
         card.LayoutTransform = squash;
         card.BeginAnimation(OpacityProperty, WeatherMotion.To(1, 0, 170, WeatherMotion.Out));
-        var fold = WeatherMotion.To(1, 0, 240, WeatherMotion.Sine);
-        fold.Completed += (_, _) => Send();
-        squash.BeginAnimation(ScaleTransform.ScaleYProperty, fold);
-        var guard = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(450) };
-        guard.Tick += (_, _) =>
-        {
-            guard.Stop();
-            Send();
-        };
-        guard.Start();
+        Motion.To(squash, ScaleTransform.ScaleYProperty, 0, Motion.Exit);
+        Send();
     }
 
     /// <summary>Starts what the current state needs and stops the rest; only while the tab is on screen.</summary>

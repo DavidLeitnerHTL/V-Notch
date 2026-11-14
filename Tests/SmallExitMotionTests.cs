@@ -13,15 +13,15 @@ public sealed class SmallExitMotionTests
     private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
 
     [Fact]
-    public void IdleGlanceFadesOut() => Run(async (window, ct) =>
+    public void HiddenIdleGlanceDoesNotAnimateWhileLeaving() => Run((window, ct) =>
     {
         SeedVisible(window, "ShowIdleGlance");
         Invoke(window, "ShowIdleGlance", false);
-        Assert.True(window.IdleGlance.Opacity > 0);
-        Assert.Equal(Visibility.Visible, window.IdleGlance.Visibility);
-        await Task.Delay(220, ct);
         Assert.Equal(Visibility.Collapsed, window.IdleGlance.Visibility);
+        Assert.Equal(0, window.IdleGlance.Opacity);
+        Assert.False(window.IdleGlance.HasAnimatedProperties);
         Assert.Equal(-4, window.IdleGlanceShift.Y, 3);
+        return Task.CompletedTask;
     });
 
     [Fact]
