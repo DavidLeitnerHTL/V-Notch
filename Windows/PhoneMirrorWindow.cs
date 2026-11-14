@@ -36,7 +36,8 @@ internal sealed class PhoneMirrorWindow : Window
     private readonly Border _close;
     private readonly DispatcherTimer _coolDown;
     private ScrcpyProcess? _scrcpy;
-    private ScrcpyWindowHost? _host;
+    private ScrcpyChild? _child;
+    private int _cornerRadius;
     private Task<bool>? _ensuring;
     private CancellationTokenSource? _startCancel;
     private string? _startingSerial;
@@ -83,6 +84,7 @@ internal sealed class PhoneMirrorWindow : Window
         grip.MouseLeftButtonDown += Grip_MouseLeftButtonDown;
 
         _screenSlot.Margin = new Thickness(Bezel, 0, Bezel, BottomBezel);
+        _screenSlot.SizeChanged += (_, _) => PlaceChild();
         var layout = new Grid();
         layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
@@ -128,6 +130,18 @@ internal sealed class PhoneMirrorWindow : Window
     }
 
     public async void Open(string serial)
+    {
+        try { await OpenAsync(serial); }
+        catch (Exception ex)
+        {
+            // Never let the mirror take the notch down with it.
+            RuntimeLog.Warn("PHONE", $"Mirror failed: {ex.GetType().Name}: {ex.Message}");
+            Shutdown();
+            MirrorClosed?.Invoke();
+        }
+    }
+
+    private async Task OpenAsync(string serial)
     {
         if (State != MirrorState.Hidden || _anchor() is not { } anchor) return;
         _coolDown.Stop();
@@ -219,7 +233,16 @@ internal sealed class PhoneMirrorWindow : Window
             started.Dispose();
             return false;
         }
+        // Hidden until the body has grown around it.
+        var child = await ScrcpyChild.AdoptAsync(started.Window, _hwnd);
+        if (child == null || cancel.IsCancellationRequested)
+        {
+            started.Dispose();
+            return false;
+        }
         _scrcpy = started;
+        _child = child;
+        _cornerRadius = (int)Math.Round(size.Width * 0.075 * scale);
         started.Exited += () => Dispatcher.BeginInvoke(() =>
         {
             if (_scrcpy != started) return;
@@ -227,10 +250,6 @@ internal sealed class PhoneMirrorWindow : Window
             Shutdown();
             MirrorClosed?.Invoke();
         });
-        // Hidden until the body has grown around it.
-        _host = new ScrcpyWindowHost(started.Window, cornerRadius: Math.Round(size.Width * 0.075)) { Visibility = Visibility.Hidden };
-        _screenSlot.Children.Clear();
-        _screenSlot.Children.Add(_host);
         return true;
     }
 
@@ -238,9 +257,8 @@ internal sealed class PhoneMirrorWindow : Window
     {
         _startCancel?.Cancel();
         _startCancel = null;
-        _screenSlot.Children.Clear();
-        _host?.Dispose();
-        _host = null;
+        _child?.Show(false);
+        _child = null;
         _scrcpy?.Dispose();
         _scrcpy = null;
     }
@@ -253,7 +271,20 @@ internal sealed class PhoneMirrorWindow : Window
 
     private void SetScreenVisible(bool visible)
     {
-        if (_host != null) _host.Visibility = visible ? Visibility.Visible : Visibility.Hidden;
+        if (_child == null) return;
+        if (visible) PlaceChild();
+        _child.Show(visible);
+    }
+
+    /// <summary>Lays scrcpy's window over the screen slot, in this window's device pixels.</summary>
+    private void PlaceChild()
+    {
+        if (_child == null || _screenSlot.ActualWidth <= 0 || Content is not UIElement root) return;
+        var source = PresentationSource.FromVisual(this);
+        double scale = source?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
+        Point at = _screenSlot.TranslatePoint(new Point(0, 0), root);
+        _child.Place((int)Math.Round(at.X * scale), (int)Math.Round(at.Y * scale),
+            (int)Math.Round(_screenSlot.ActualWidth * scale), (int)Math.Round(_screenSlot.ActualHeight * scale), _cornerRadius);
     }
 
     private void FadeClose(double to) =>

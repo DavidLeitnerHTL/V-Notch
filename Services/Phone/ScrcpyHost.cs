@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Interop;
 
 namespace VNotch.Services.Phone;
 
@@ -118,67 +117,78 @@ internal sealed class ScrcpyProcess : IDisposable
 }
 
 /// <summary>
-/// Puts scrcpy's own window into a WPF layout as a child window. WPF sizes it with the layout; the corners are
-/// rounded like a phone screen with a window region.
+/// scrcpy's own window, adopted as a child of ours. Done by hand instead of with WPF's HwndHost: HwndHost throws
+/// (and the dispatcher then ends the whole notch) when SetParent does not take at once, which happened when scrcpy
+/// was slow to start (2026-11-14). Here a failed adoption is retried briefly and otherwise just reported.
 /// </summary>
-internal sealed class ScrcpyWindowHost : HwndHost
+internal sealed class ScrcpyChild
 {
     private const int GWL_STYLE = -16;
     private const int WS_CHILD = 0x40000000;
-    private const int WS_VISIBLE = 0x10000000;
     private const int WS_CLIPSIBLINGS = 0x04000000;
     private const int WS_POPUP = unchecked((int)0x80000000);
     private const int WS_CAPTION = 0x00C00000;
     private const int WS_THICKFRAME = 0x00040000;
+    private const int WS_VISIBLE = 0x10000000;
+    private const uint SWP_NOZORDER = 0x0004;
+    private const uint SWP_NOACTIVATE = 0x0010;
+    private const int SW_HIDE = 0;
+    private const int SW_SHOWNA = 8;
 
-    private readonly IntPtr _child;
-    private readonly double _cornerRadius;
+    private readonly IntPtr _window;
+    private (int W, int H, int R) _region;
 
-    public ScrcpyWindowHost(IntPtr child, double cornerRadius)
+    private ScrcpyChild(IntPtr window) => _window = window;
+
+    /// <summary>Makes <paramref name="window"/> a hidden child of <paramref name="parent"/>; null when Windows refuses.</summary>
+    public static async Task<ScrcpyChild?> AdoptAsync(IntPtr window, IntPtr parent)
     {
-        _child = child;
-        _cornerRadius = cornerRadius;
+        int error = 0;
+        for (int attempt = 0; attempt < 12; attempt++)
+        {
+            if (!IsWindow(window) || !IsWindow(parent)) return null;
+            int style = GetWindowLongW(window, GWL_STYLE);
+            style &= ~(WS_POPUP | WS_CAPTION | WS_THICKFRAME | WS_VISIBLE);
+            style |= WS_CHILD | WS_CLIPSIBLINGS;
+            SetWindowLongW(window, GWL_STYLE, style);
+            if (SetParent(window, parent) == IntPtr.Zero) error = Marshal.GetLastWin32Error();
+            if (GetParent(window) == parent) return new ScrcpyChild(window);
+            await Task.Delay(40);
+        }
+        RuntimeLog.Warn("PHONE", $"scrcpy window could not be adopted (error {error})");
+        return null;
     }
 
-    protected override HandleRef BuildWindowCore(HandleRef hwndParent)
+    /// <summary>Places it in the parent's client area (device pixels) with phone-screen corners.</summary>
+    public void Place(int x, int y, int width, int height, int cornerRadius)
     {
-        int style = GetWindowLongW(_child, GWL_STYLE);
-        style &= ~(WS_POPUP | WS_CAPTION | WS_THICKFRAME);
-        style |= WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS;
-        SetWindowLongW(_child, GWL_STYLE, style);
-        SetParent(_child, hwndParent.Handle);
-        return new HandleRef(this, _child);
+        if (width <= 0 || height <= 0 || !IsWindow(_window)) return;
+        SetWindowPos(_window, IntPtr.Zero, x, y, width, height, SWP_NOZORDER | SWP_NOACTIVATE);
+        if (_region == (width, height, cornerRadius)) return;
+        _region = (width, height, cornerRadius);
+        IntPtr region = CreateRoundRectRgn(0, 0, width + 1, height + 1, cornerRadius * 2, cornerRadius * 2);
+        if (SetWindowRgn(_window, region, true) == 0) DeleteObject(region);
     }
 
-    // The window belongs to scrcpy: it goes away when scrcpy is stopped, not when WPF lets go of the host.
-    protected override void DestroyWindowCore(HandleRef hwnd)
+    public void Show(bool visible)
     {
-        SetParent(_child, IntPtr.Zero);
+        if (IsWindow(_window)) ShowWindow(_window, visible ? SW_SHOWNA : SW_HIDE);
     }
 
-    protected override void OnWindowPositionChanged(System.Windows.Rect rcBoundingBox)
-    {
-        base.OnWindowPositionChanged(rcBoundingBox);
-        int width = (int)Math.Round(rcBoundingBox.Width), height = (int)Math.Round(rcBoundingBox.Height);
-        if (width <= 0 || height <= 0) return;
-        var source = PresentationSourceScale();
-        int radius = (int)Math.Round(_cornerRadius * source * 2);
-        IntPtr region = CreateRoundRectRgn(0, 0, width + 1, height + 1, radius, radius);
-        if (SetWindowRgn(_child, region, true) == 0) DeleteObject(region);
-    }
-
-    private double PresentationSourceScale()
-    {
-        var source = System.Windows.PresentationSource.FromVisual(this);
-        return source?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
-    }
-
+    [DllImport("user32.dll")]
+    private static extern bool IsWindow(IntPtr hwnd);
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetParent(IntPtr hwnd);
     [DllImport("user32.dll")]
     private static extern int GetWindowLongW(IntPtr hwnd, int index);
     [DllImport("user32.dll")]
     private static extern int SetWindowLongW(IntPtr hwnd, int index, int value);
-    [DllImport("user32.dll")]
+    [DllImport("user32.dll", SetLastError = true)]
     private static extern IntPtr SetParent(IntPtr child, IntPtr parent);
+    [DllImport("user32.dll")]
+    private static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
+    [DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr hwnd, int command);
     [DllImport("user32.dll")]
     private static extern int SetWindowRgn(IntPtr hwnd, IntPtr region, [MarshalAs(UnmanagedType.Bool)] bool redraw);
     [DllImport("gdi32.dll")]
