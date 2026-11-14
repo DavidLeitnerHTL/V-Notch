@@ -60,10 +60,11 @@ internal static partial class Motion
     /// <summary>
     /// Springs <paramref name="property"/> of <paramref name="target"/> to <paramref name="to"/>. A spring already
     /// running on it hands over its speed. <paramref name="from"/> places the value first (an entrance);
-    /// leave it out to continue from wherever the value is.
+    /// leave it out to continue from wherever the value is. <paramref name="velocity"/> (units per second) starts
+    /// it with a speed of its own, e.g. the pointer's when a drag lets go.
     /// </summary>
     public static void To(DependencyObject target, DependencyProperty property, double to, SpringMotion spring,
-        double? from = null, TimeSpan? delay = null, int? fps = null, Action? done = null)
+        double? from = null, TimeSpan? delay = null, int? fps = null, Action? done = null, double? velocity = null)
     {
         if (target is not IAnimatable animatable) throw new ArgumentException("Target cannot be animated.", nameof(target));
         var live = Live.GetOrCreateValue(target);
@@ -77,16 +78,16 @@ internal static partial class Motion
             return;
         }
 
-        double velocity = 0;
-        if (from is null && live.TryGetValue(property, out var old))
-            velocity = old.Spring.VelocityAt(Stopwatch.GetElapsedTime(old.StartedAt).TotalSeconds - old.DelaySeconds);
+        double speed = velocity ?? 0;
+        if (velocity is null && from is null && live.TryGetValue(property, out var old))
+            speed = old.Spring.VelocityAt(Stopwatch.GetElapsedTime(old.StartedAt).TotalSeconds - old.DelaySeconds);
         double start = from ?? (double)target.GetValue(property);
         if (!double.IsFinite(start)) start = to;
 
         // Arrived means within half a percent of the way, so a scale going 0.72 -> 1 settles as finely as a
         // width going 150 -> 720.
         double settle = Math.Clamp(Math.Abs(to - start) * 0.005, 0.0005, SpringDoubleAnimation.PixelSettle);
-        var animation = spring.Animate(start, to, velocity, settle);
+        var animation = spring.Animate(start, to, speed, settle);
         if (animation.Duration.TimeSpan <= TimeSpan.Zero)
         {
             live.Remove(property);
