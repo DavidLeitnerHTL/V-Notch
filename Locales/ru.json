@@ -1188,8 +1188,6 @@
   "control.claude.limitWeek": "Недельный лимит",
   "control.claude.resetsIn": "Сброс через {0}",
   "control.claude.limitBack": "{0} снова доступен",
-  "control.claude.tokensTask": "Задача",
-  "control.claude.tokensChat": "Чат",
   "control.claude.tokensContext": "Контекст",
   "control.claude.tokensLimit": "от лимита 5 ч",
   "control.claude.tokensBreakdown": "Ввод {0} · запись в кэш {1} · чтение кэша {2} · вывод {3}",

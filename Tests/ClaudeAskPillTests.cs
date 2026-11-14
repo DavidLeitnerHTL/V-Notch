@@ -64,7 +64,7 @@ public sealed class ClaudeAskPillTests
         // As the swipe does: decide, then show it, in one go.
         Assert.True(tracker.Decide(tracker.GetPending().Single().Id, ClaudeDecision.Deny));
         typeof(MainWindow).GetMethod("PlayAskSettled", Private)!.Invoke(window, new object[] { false });
-        Assert.Equal("Denied", window.ClaudeNotificationStatus.Text);
+        await WpfFrameWaiter.UntilAsync(() => window.ClaudeNotificationStatus.Text == "Denied", "settled answer after the text fade", ct);
         Assert.Null(Field<ClaudePermissionRequest?>(window, "_askRequest"));
         await WpfFrameWaiter.UntilAsync(() => window.ClaudeNotification.Visibility != Visibility.Visible, "pill gone after the linger", ct);
     });

@@ -1188,8 +1188,6 @@
   "control.claude.limitWeek": "الحد الأسبوعي",
   "control.claude.resetsIn": "إعادة التعيين خلال {0}",
   "control.claude.limitBack": "{0} متاح من جديد",
-  "control.claude.tokensTask": "المهمة",
-  "control.claude.tokensChat": "المحادثة",
   "control.claude.tokensContext": "السياق",
   "control.claude.tokensLimit": "من حد 5 ساعات",
   "control.claude.tokensBreakdown": "الإدخال {0} · كتابة ذاكرة التخزين المؤقت {1} · قراءة ذاكرة التخزين المؤقت {2} · الإخراج {3}",

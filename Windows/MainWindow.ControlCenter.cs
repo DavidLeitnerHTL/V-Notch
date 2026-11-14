@@ -20,11 +20,12 @@ public partial class MainWindow
     // Narrower than the system tab, as tall as its cards up to where the list scrolls.
     private const double ClaudeViewWidth = 640;
     private const double ClaudeViewMinHeight = 120;
-    private const double ClaudeViewMaxHeight = 460;
+    private const double ClaudeViewMaxHeight = 560;
 
     private ClaudeSessionTracker? _claudeTracker;
     private ClaudeHookServer? _claudeHookServer;
     private ClaudeUsageClient? _claudeUsage;
+    private CodexUsageClient? _codexUsage;
     private DispatcherTimer? _claudeSweepTimer;
     private bool _claudeTabAutoOpened;
     private bool _isClaudeView;
@@ -38,13 +39,14 @@ public partial class MainWindow
         _claudeTracker = new ClaudeSessionTracker();
         _claudeHookServer = new ClaudeHookServer(_claudeTracker);
         _claudeUsage = new ClaudeUsageClient();
+        _codexUsage = new CodexUsageClient();
         _claudeHookServer.Start();
 
         // Settings load after this runs, and anything that pumps messages meanwhile can let the views build:
         // until then they are plain-skinned and offline.
         ControlCenter.Attach(() => _settings != null && IsLiquidGlassEnabled);
         ControlCenter.AttachBackdrop(SystemBackdrop);
-        ClaudeCenter.AttachClaude(_claudeTracker, _claudeHookServer, _claudeUsage,
+        ClaudeCenter.AttachClaude(_claudeTracker, _claudeHookServer, _claudeUsage, _codexUsage,
             () => _settings?.EnableLocalOnlyMode ?? true, () => _settings != null && IsLiquidGlassEnabled);
         ClaudeCenter.AttachBackdrop(ClaudeBackdrop);
         ClaudeCenter.AttentionRequested += OpenClaudeTabForAttention;
@@ -105,6 +107,7 @@ public partial class MainWindow
         // Hands every held request back to Claude Code's own dialog.
         _claudeHookServer?.Dispose();
         _claudeUsage?.Dispose();
+        _codexUsage?.Dispose();
     }
 
     private void ClaudeIconButton_Click(object sender, MouseButtonEventArgs e)
