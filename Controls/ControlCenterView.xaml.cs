@@ -549,6 +549,7 @@ public partial class ControlCenterView : UserControl, IDisposable
             _cycleKeepAwake == null ? null : () => _cycleKeepAwake(), topMargin: 0);
         _keepAwakeText = header is Panel headerPanel ? headerPanel.Children.OfType<TextBlock>().LastOrDefault(t => Grid.GetColumn(t) == 2) : null;
         _statsSection.Children.Add(header);
+        AddPhoneRow(_statsSection);
         _statsTiles = null;
         if (!IsExpanded("system"))
         {

@@ -112,20 +112,27 @@ public partial class MainWindow
     private void OpenPhoneMirror()
     {
         if (_phoneWatcher?.Current is not { State: PhoneState.Device } phone) return;
-        if (_isExpanded) CollapseForPhone();
         if (Mirror.IsOpen)
         {
             Mirror.PullIn();
             return;
         }
-        Mirror.Open(phone.Serial);
-    }
-
-    /// <summary>The open notch closes first, so the phone grows out of the closed one.</summary>
-    private void CollapseForPhone()
-    {
-        try { CollapseNotch(); }
-        catch (InvalidOperationException) { }
+        if (!_isExpanded && !_isMusicExpanded && !_isAnimating)
+        {
+            Mirror.Open(phone.Serial);
+            return;
+        }
+        // The open notch closes first, so the phone grows out of the closed one (its size decides where the phone hangs).
+        if (_isExpanded || _isMusicExpanded) CollapseNotch();
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var wait = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(30) };
+        wait.Tick += (_, _) =>
+        {
+            if ((_isExpanded || _isMusicExpanded || _isAnimating) && clock.ElapsedMilliseconds < 1500) return;
+            wait.Stop();
+            if (!_cleanedUp) Mirror.Open(phone.Serial);
+        };
+        wait.Start();
     }
 
     /// <summary>A click on the notch while the phone hangs under it pulls the phone back in (and does nothing else).</summary>

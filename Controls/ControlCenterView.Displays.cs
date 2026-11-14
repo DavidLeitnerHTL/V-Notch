@@ -67,7 +67,6 @@ public partial class ControlCenterView
             grid.Children.Add(label);
         }
         _displaysSection.Children.Add(header);
-        AddPhoneRow();
         if (!IsExpanded("displays")) return;
         var selected = _displays.FirstOrDefault(d => d.Id == _selectedDisplay);
         if (selected == null) { ShowKeepBar(); return; }

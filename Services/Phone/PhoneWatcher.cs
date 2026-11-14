@@ -58,7 +58,9 @@ public sealed class PhoneWatcher : IDisposable
     private async Task TrackAsync()
     {
         int failures = 0;
-        int[] delays = [2, 5, 15, 60];
+        // adb's server restarts whenever another tool (Escrcpy, a second adb) takes over, which ends the tracker;
+        // it is back within a second, so the wait stays short and only grows while adb keeps failing.
+        int[] delays = [1, 2, 5, 10];
         while (!_token.IsCancellationRequested)
         {
             var lifetime = Stopwatch.StartNew();
@@ -97,7 +99,7 @@ public sealed class PhoneWatcher : IDisposable
                 ApplyDevices(Array.Empty<(string, PhoneState)>());
             }
             if (_token.IsCancellationRequested) break;
-            if (lifetime.Elapsed > TimeSpan.FromSeconds(60)) failures = 0;
+            if (lifetime.Elapsed > TimeSpan.FromSeconds(10)) failures = 0;
             int delay = delays[Math.Min(failures++, delays.Length - 1)];
             RuntimeLog.Warn("PHONE", $"Restarting device tracking in {delay} seconds.");
             try { await Task.Delay(TimeSpan.FromSeconds(delay), _token).ConfigureAwait(false); }

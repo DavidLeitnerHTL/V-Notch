@@ -13,7 +13,7 @@ public partial class ControlCenterView
     private Action? _openPhone;
     private Action? _prewarmPhone;
 
-    /// <summary>The connected phone sits above the monitors: name, battery and a button that shows its screen.</summary>
+    /// <summary>The connected phone sits right under the System header: name, battery and a button that shows its screen.</summary>
     internal void AttachPhone(Func<PhoneInfo?> phone, Action open, Action prewarm)
     {
         _phone = phone;
@@ -23,10 +23,10 @@ public partial class ControlCenterView
 
     internal void RefreshPhone()
     {
-        if (!_disposed && Page == ControlCenterPage.System && IsVisible) BuildDisplaysSection();
+        if (!_disposed && Page == ControlCenterPage.System && IsVisible) BuildStatsSection();
     }
 
-    private void AddPhoneRow()
+    private void AddPhoneRow(Panel target)
     {
         if (_phone?.Invoke() is not { } phone || phone.State == PhoneState.Offline) return;
         bool ready = phone.State == PhoneState.Device;
@@ -58,6 +58,6 @@ public partial class ControlCenterView
         row.Children.Add(glyph);
         row.Children.Add(name);
         row.Children.Add(status);
-        _displaysSection.Children.Add(row);
+        target.Children.Add(row);
     }
 }
