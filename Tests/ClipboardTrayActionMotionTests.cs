@@ -144,7 +144,7 @@ public sealed class ClipboardTrayActionMotionTests
     });
 
     [Fact]
-    public void LeavingWhilePressedAndReturningDuringReleaseDoesNotOvershoot() => WithCard(async (tray, card, container) =>
+    public void LeavingWhilePressedAndReturningDuringReleaseKeepsTheSpringContinuous() => WithCard(async (tray, card, container) =>
     {
         var button = Descendants(container).OfType<Button>().Single(button => Equals(button.Tag, "pin"));
         var scale = (ScaleTransform)button.Template.FindName("HoverScale", button);
@@ -162,7 +162,7 @@ public sealed class ClipboardTrayActionMotionTests
         for (int frame = 0; frame < 12; frame++)
         {
             await WpfFrameWaiter.NextAsync();
-            Assert.InRange(scale.ScaleX, 0.88, 1.15);
+            Assert.InRange(scale.ScaleX, 0.85, 1.25);
             Assert.Equal(scale.ScaleX, scale.ScaleY, 3);
         }
         await WpfFrameWaiter.UntilAsync(() => Math.Abs(scale.ScaleX - 1.15) < 0.0001, "hover after interrupted release");

@@ -611,7 +611,7 @@ public partial class ControlCenterView : UserControl, IDisposable
 
         if (metric != null)
         {
-            tile.Roll = new RollingNumber(v => value.Text = $"{Math.Round(v)} %");
+            tile.Roll = new RollingNumber(v => value.Text = $"{Math.Round(v)} %", value);
             var fill = new ScaleTransform(0, 1);
             var peak = new TranslateTransform();
             var bar = new Grid
@@ -715,17 +715,8 @@ public partial class ControlCenterView : UserControl, IDisposable
         double target = Math.Clamp((percent ?? 0) / 100, 0, 1);
         if (percent is { } level) tile.PeakValue = double.IsNaN(tile.PeakValue) ? level : Math.Max(level, tile.PeakValue - PeakFall);
         PlacePeak(tile, animate: IsVisible);
-        if (AnimationConfig.ReduceMotion)
-        {
-            tile.Fill.ScaleX = target;
-            return;
-        }
-        var slide = new DoubleAnimation(target, new Duration(TimeSpan.FromMilliseconds(700)))
-        {
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
-        };
-        Timeline.SetDesiredFrameRate(slide, RippleFps);
-        tile.Fill.BeginAnimation(ScaleTransform.ScaleXProperty, slide, HandoffBehavior.SnapshotAndReplace);
+        if (!IsVisible) Motion.Stop(tile.Fill, ScaleTransform.ScaleXProperty, target);
+        else Motion.To(tile.Fill, ScaleTransform.ScaleXProperty, target, Motion.Glide, fps: RippleFps);
     }
 
     private static void PlacePeak(StatTile tile, bool animate)
@@ -853,7 +844,8 @@ public partial class ControlCenterView : UserControl, IDisposable
             _topListShown = true;
         }
         _topHeader.Text = Loc.Get(_topMode == TopMode.Cpu ? "control.top.byCpu" : "control.top.byMemory");
-        _topCanvas.Height = TopRowHeight * top.Count;
+        if (IsVisible) Motion.To(_topCanvas, HeightProperty, TopRowHeight * top.Count, Motion.Glide);
+        else Motion.Stop(_topCanvas, HeightProperty, TopRowHeight * top.Count);
 
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         for (int i = 0; i < top.Count; i++)
@@ -870,7 +862,7 @@ public partial class ControlCenterView : UserControl, IDisposable
                 parts = new TopRowParts { Row = row, Title = title, Cpu = cpu, Memory = memory, Slot = slot, Index = i };
                 _topRows[load.Name] = parts;
                 if (IsVisible && !AnimationConfig.ReduceMotion)
-                    row.BeginAnimation(OpacityProperty, WeatherMotion.To(0, 1, 320, WeatherMotion.Out, i * 30));
+                    PopIn(row, Motion.Stagger(i).TotalMilliseconds);
             }
             parts.Title.Text = load.Title;
             parts.Title.ToolTip = load.Instances > 1 ? $"{load.Name} × {load.Instances}" : null;
@@ -883,7 +875,7 @@ public partial class ControlCenterView : UserControl, IDisposable
             // A new place in the order: glide there with a little overshoot.
             double y = i * TopRowHeight;
             if (IsVisible && !AnimationConfig.ReduceMotion)
-                parts.Slot.BeginAnimation(TranslateTransform.YProperty, WeatherMotion.To(parts.Slot.Y, y, 520, WeatherMotion.OutBack), HandoffBehavior.SnapshotAndReplace);
+                Motion.To(parts.Slot, TranslateTransform.YProperty, y, Motion.Glide);
             else
             {
                 parts.Slot.BeginAnimation(TranslateTransform.YProperty, null);
@@ -903,9 +895,7 @@ public partial class ControlCenterView : UserControl, IDisposable
                 host.Children.Remove(gone.Row);
                 continue;
             }
-            var fade = WeatherMotion.To(gone.Row.Opacity, 0, 220, WeatherMotion.Out);
-            fade.Completed += (_, _) => host.Children.Remove(gone.Row);
-            gone.Row.BeginAnimation(OpacityProperty, fade);
+            ExitElement(gone.Row, () => host.Children.Remove(gone.Row));
         }
     }
 
@@ -1458,8 +1448,8 @@ public partial class ControlCenterView : UserControl, IDisposable
         send.Background = _mood;
         send.BorderBrush = _mood;
         ((TextBlock)send.Child).Foreground = InkOn(_mood);
-        send.MouseEnter += (_, _) => send.Opacity = 0.85;
-        send.MouseLeave += (_, _) => send.Opacity = 1;
+        send.MouseEnter += (_, _) => WeatherMotion.Glide(send, OpacityProperty, 0.85);
+        send.MouseLeave += (_, _) => WeatherMotion.Glide(send, OpacityProperty, 1);
 
         var field = new Grid();
         field.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -1548,6 +1538,7 @@ public partial class ControlCenterView : UserControl, IDisposable
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(9, 1, 0, 0)
         };
+        Squish(remove);
         remove.MouseLeftButtonDown += (_, e) =>
         {
             e.Handled = true;
@@ -1562,7 +1553,7 @@ public partial class ControlCenterView : UserControl, IDisposable
 
     private void StartRipples()
     {
-        if (AnimationConfig.ReduceMotion) return;
+        if (AnimationConfig.ReduceMotion || !IsVisible || Page != ControlCenterPage.Claude) return;
         var grow = new DoubleAnimation(0.6, 1.7, new Duration(TimeSpan.FromMilliseconds(1600)))
         {
             RepeatBehavior = RepeatBehavior.Forever,
@@ -1600,12 +1591,8 @@ public partial class ControlCenterView : UserControl, IDisposable
         if (AnimationConfig.ReduceMotion) return;
         // The Claude tab's cards move with a scale and a shift already; shake that shift.
         var shift = element.RenderTransform as TranslateTransform ?? LiftParts(element).Shift;
-        var shake = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromMilliseconds(320) };
-        double[] offsets = { -6, 5, -3, 2, 0 };
-        for (int i = 0; i < offsets.Length; i++)
-            shake.KeyFrames.Add(new EasingDoubleKeyFrame(offsets[i], KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(64 * (i + 1)))));
-        Timeline.SetDesiredFrameRate(shake, AnimationConfig.TargetFps);
-        shift.BeginAnimation(TranslateTransform.XProperty, shake);
+        Motion.To(shift, TranslateTransform.XProperty, -6, Motion.PressDown,
+            done: () => Motion.To(shift, TranslateTransform.XProperty, 0, Motion.Press));
     }
 
     private static Border RequestCard()
@@ -1994,6 +1981,7 @@ public partial class ControlCenterView : UserControl, IDisposable
     private FrameworkElement BuildSectionHeader(string section, string title, string rightLabel, Action? onRightLabel, double topMargin)
     {
         bool expanded = IsExpanded(section);
+        bool builtExpanded = expanded;
         var grid = NewRowGrid();
         grid.Margin = new Thickness(0, topMargin, 0, 6);
 
@@ -2018,50 +2006,82 @@ public partial class ControlCenterView : UserControl, IDisposable
             FontFamily = ControlFont,
             VerticalAlignment = VerticalAlignment.Center
         });
+        Squish(titlePanel);
         titlePanel.MouseLeftButtonDown += (_, e) =>
         {
             e.Handled = true;
-            _expanded[section] = !expanded;
-            var spin = new DoubleAnimation(expanded ? -90 : 0, new Duration(TimeSpan.FromMilliseconds(220)))
-            {
-                EasingFunction = KnobSpring
-            };
-            Timeline.SetDesiredFrameRate(spin, AnimationConfig.TargetFps);
-            var panel = grid.Parent as Panel;
-            if (expanded && panel != null && !AnimationConfig.ReduceMotion)
-                for (int i = panel.Children.Count - 1, n = 0; i > 0; i--, n++)
-                {
-                    var row = panel.Children[i];
-                    var lift = new TranslateTransform();
-                    row.RenderTransform = lift;
-                    row.BeginAnimation(OpacityProperty, WeatherMotion.To(row.Opacity, 0, 150, WeatherMotion.Out, n * 12));
-                    lift.BeginAnimation(TranslateTransform.YProperty, WeatherMotion.To(0, -8, 170, WeatherMotion.Out, n * 12));
-                }
-            spin.Completed += (_, _) =>
+            bool open = !IsExpanded(section);
+            _expanded[section] = open;
+            if (grid.Parent is not Panel panel) return;
+            double currentHeight = panel.ActualHeight;
+            // A section initially built closed has no rows yet. Build once; reversals retain them.
+            if (open && !builtExpanded)
             {
                 RebuildSection(section);
-                if (!expanded && panel != null && IsVisible) RevealChildren(panel, TimeSpan.Zero, 0, skip: 1);
-            };
-            rotate.BeginAnimation(RotateTransform.AngleProperty, spin);
+                builtExpanded = true;
+                if (panel.Children.Count > 0 && panel.Children[0] != grid)
+                {
+                    panel.Children.RemoveAt(0);
+                    panel.Children.Insert(0, grid);
+                }
+                panel.UpdateLayout();
+            }
+            foreach (UIElement child in grid.Children)
+                if (Grid.GetColumn(child) == 2)
+                {
+                    double from = child.Visibility == Visibility.Visible ? child.Opacity : 0;
+                    if (open) child.Visibility = Visibility.Visible;
+                    var fade = WeatherMotion.To(from, open ? 1 : 0, 160, WeatherMotion.Out);
+                    fade.Completed += (_, _) => { if (!IsExpanded(section)) child.Visibility = Visibility.Collapsed; };
+                    if (AnimationConfig.ReduceMotion) child.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+                    else child.BeginAnimation(OpacityProperty, fade);
+                }
+            foreach (UIElement child in panel.Children)
+                if (child is FrameworkElement row && row != panel.Children[0])
+                {
+                    if (open) row.Visibility = Visibility.Visible;
+                    else ExitElement(row);
+                }
+            double target = 0;
+            for (int i = 0; i < panel.Children.Count; i++)
+                if ((open || i == 0) && panel.Children[i] is FrameworkElement row)
+                {
+                    row.Measure(new Size(Math.Max(panel.ActualWidth, 1), double.PositiveInfinity));
+                    target += row.DesiredSize.Height;
+                }
+            panel.ClipToBounds = true;
+            Motion.To(rotate, RotateTransform.AngleProperty, open ? 0 : -90, Motion.Press);
+            Motion.To(panel, HeightProperty, target, Motion.Glide,
+                from: double.IsNaN(panel.Height) ? currentHeight : null,
+                done: () =>
+                {
+                    if (IsExpanded(section) != open) return;
+                    if (!open)
+                        for (int i = 1; i < panel.Children.Count; i++) panel.Children[i].Visibility = Visibility.Collapsed;
+                    Motion.Stop(panel, HeightProperty, double.NaN);
+                    panel.ClipToBounds = false;
+                });
+            if (open && IsVisible) RevealChildren(panel, TimeSpan.Zero, 0, skip: 1);
         };
         Grid.SetColumn(titlePanel, 0);
         grid.Children.Add(titlePanel);
 
-        if (expanded)
-        {
-            var label = ColumnLabel(rightLabel);
-            if (onRightLabel != null) MakeLink(label, onRightLabel);
-            Grid.SetColumn(label, 2);
-            grid.Children.Add(label);
-        }
+        var right = ColumnLabel(rightLabel);
+        right.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        if (onRightLabel != null) MakeLink(right, onRightLabel);
+        Grid.SetColumn(right, 2);
+        grid.Children.Add(right);
         return grid;
     }
 
     private void MakeLink(TextBlock label, Action onClick)
     {
         label.Cursor = Cursors.Hand;
-        label.MouseEnter += (_, _) => label.Foreground = VNotch.Services.UiPalette.PrimaryBrush;
-        label.MouseLeave += (_, _) => label.Foreground = _usesGlass() ? VNotch.Services.UiPalette.PrimaryBrush : HeaderText;
+        Squish(label);
+        var ink = new SolidColorBrush(((SolidColorBrush)label.Foreground).Color);
+        label.Foreground = ink;
+        label.MouseEnter += (_, _) => WeatherMotion.Tint(ink, ((SolidColorBrush)VNotch.Services.UiPalette.PrimaryBrush).Color);
+        label.MouseLeave += (_, _) => WeatherMotion.Tint(ink, ((SolidColorBrush)(_usesGlass() ? VNotch.Services.UiPalette.PrimaryBrush : HeaderText)).Color);
         label.MouseLeftButtonDown += (_, e) =>
         {
             e.Handled = true;
@@ -2224,8 +2244,7 @@ public partial class ControlCenterView : UserControl, IDisposable
             Grid.SetColumn(caret, 2);
             grid.Children.Add(caret);
 
-            border.MouseEnter += (_, _) => border.Background = ComboHover;
-            border.MouseLeave += (_, _) => border.Background = ComboBg;
+            Pressable(border, () => ComboBg, ComboHover);
             border.MouseLeftButtonDown += (_, e) =>
             {
                 e.Handled = true;
@@ -2264,19 +2283,12 @@ public partial class ControlCenterView : UserControl, IDisposable
             Cursor = Cursors.Hand,
             Child = label
         };
-        button.MouseEnter += (_, _) => button.Opacity = accent ? 0.85 : 1;
-        button.MouseLeave += (_, _) => button.Opacity = 1;
-        if (!accent)
-        {
-            button.MouseEnter += (_, _) => button.Background = ComboHover;
-            button.MouseLeave += (_, _) => button.Background = ComboBg;
-        }
+        Pressable(button, () => accent ? tint : ComboBg, ComboHover, grow: true);
         button.MouseLeftButtonDown += (_, e) =>
         {
             e.Handled = true;
             onClick();
         };
-        Squish(button);
         return button;
     }
 
@@ -2304,8 +2316,7 @@ public partial class ControlCenterView : UserControl, IDisposable
             }
         };
         System.Windows.Automation.AutomationProperties.SetName(button, tooltip);
-        button.MouseEnter += (_, _) => button.Background = ComboHover;
-        button.MouseLeave += (_, _) => button.Background = ComboBg;
+        Pressable(button, () => ComboBg, ComboHover, grow: true);
         button.MouseLeftButtonDown += (_, e) =>
         {
             e.Handled = true;
@@ -2318,8 +2329,22 @@ public partial class ControlCenterView : UserControl, IDisposable
 
     private void CloseMenu()
     {
-        ControlOverlay.Children.Clear();
-        ControlOverlay.Visibility = Visibility.Collapsed;
+        if (!IsVisible || AnimationConfig.ReduceMotion)
+        {
+            ControlOverlay.Children.Clear();
+            ControlOverlay.Visibility = Visibility.Collapsed;
+            return;
+        }
+        foreach (UIElement child in new List<UIElement>(System.Linq.Enumerable.Cast<UIElement>(ControlOverlay.Children)))
+            if (child is FrameworkElement surface)
+            {
+                surface.IsHitTestVisible = false;
+                ExitElement(surface, () =>
+                {
+                    ControlOverlay.Children.Remove(surface);
+                    if (ControlOverlay.Children.Count == 0) ControlOverlay.Visibility = Visibility.Collapsed;
+                });
+            }
     }
 
     private void ShowMenu(Border anchor, List<MenuItemSpec> items, Brush? accent = null)
@@ -2388,9 +2413,8 @@ public partial class ControlCenterView : UserControl, IDisposable
             item.Child = g;
             if (spec.OnClick is { } onClick)
             {
-                bool selected = spec.Selected;
-                item.MouseEnter += (_, _) => { if (!selected) item.Background = ComboHover; };
-                item.MouseLeave += (_, _) => { if (!selected) item.Background = Brushes.Transparent; };
+                var rest = item.Background;
+                Pressable(item, () => rest, ComboHover, grow: true);
                 item.MouseLeftButtonDown += (_, e) =>
                 {
                     e.Handled = true;
@@ -2424,11 +2448,11 @@ public partial class ControlCenterView : UserControl, IDisposable
         container.RenderTransformOrigin = new Point(0.5, 0);
         container.RenderTransform = new TransformGroup { Children = { grow, slide } };
         container.BeginAnimation(OpacityProperty, WeatherMotion.To(0, 1, 150, WeatherMotion.Out));
-        grow.BeginAnimation(ScaleTransform.ScaleXProperty, WeatherMotion.To(0.9, 1, 420, WeatherMotion.OutBack));
-        grow.BeginAnimation(ScaleTransform.ScaleYProperty, WeatherMotion.To(0.7, 1, 420, WeatherMotion.OutBack));
-        slide.BeginAnimation(TranslateTransform.YProperty, WeatherMotion.To(-6, 0, 300, WeatherMotion.OutQuint));
+        Motion.To(grow, ScaleTransform.ScaleXProperty, 1, Motion.Tile, from: Motion.TileFromScale);
+        Motion.To(grow, ScaleTransform.ScaleYProperty, 1, Motion.Tile, from: Motion.TileFromScale);
+        Motion.To(slide, TranslateTransform.YProperty, 0, Motion.Tile, from: -6);
         for (int i = 0; i < list.Children.Count; i++)
-            WeatherMotion.Rise(list.Children[i], 40 + i * 28, dy: -6, ms: 320);
+            WeatherMotion.Rise(list.Children[i], Motion.Stagger(i).TotalMilliseconds, dy: -6, ms: 320);
     }
 
     private void ControlOverlay_OutsideClick(object sender, MouseButtonEventArgs e)
@@ -2455,15 +2479,6 @@ public partial class ControlCenterView : UserControl, IDisposable
         ControlFadeBottomStop.Color = ControlScrollViewer.VerticalOffset < ControlScrollViewer.ScrollableHeight - 0.5 ? Colors.Transparent : Colors.Black;
     }
 
-    private static readonly ExponentialEase RowRevealEase = CreateRowRevealEase();
-
-    private static ExponentialEase CreateRowRevealEase()
-    {
-        var ease = new ExponentialEase { Exponent = 5, EasingMode = EasingMode.EaseOut };
-        ease.Freeze();
-        return ease;
-    }
-
     /// <summary>Rows fall in one after another, like the mixer's when its tab opens.</summary>
     public void RevealRows(TimeSpan baseDelay)
     {
@@ -2485,20 +2500,7 @@ public partial class ControlCenterView : UserControl, IDisposable
     {
         // Placeholders own their motion and keep their dimmed offline opacity.
         if (row is SkeletonPlaceholder) return;
-        var shift = new TranslateTransform(0, 8);
-        row.RenderTransform = shift;
-        var fade = new DoubleAnimation(0, 1, new Duration(TimeSpan.FromMilliseconds(280))) { BeginTime = delay, EasingFunction = RowRevealEase };
-        var rise = new DoubleAnimation(8, 0, new Duration(TimeSpan.FromMilliseconds(280))) { BeginTime = delay, EasingFunction = RowRevealEase };
-        Timeline.SetDesiredFrameRate(fade, AnimationConfig.TargetFps);
-        Timeline.SetDesiredFrameRate(rise, AnimationConfig.TargetFps);
-        fade.Completed += (_, _) =>
-        {
-            row.BeginAnimation(OpacityProperty, null);
-            row.Opacity = 1;
-        };
-        row.Opacity = 0;
-        row.BeginAnimation(OpacityProperty, fade);
-        shift.BeginAnimation(TranslateTransform.YProperty, rise);
+        PopIn(row, delay.TotalMilliseconds);
     }
 
     /// <summary>
@@ -2512,7 +2514,7 @@ public partial class ControlCenterView : UserControl, IDisposable
         foreach (var (key, element) in cards)
         {
             if (animate && !_shownCards.Contains(key))
-                GlideIn(element, 60 + Math.Min(index++ * 50, 200), element.Tag is string tag && tag.StartsWith("reset-row:", StringComparison.Ordinal) ? 60 : null);
+                GlideIn(element, Motion.Stagger(index++).TotalMilliseconds);
         }
         _shownCards.Clear();
         foreach (var (key, _) in cards) _shownCards.Add(key);

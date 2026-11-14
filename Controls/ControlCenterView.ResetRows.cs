@@ -184,9 +184,9 @@ public partial class ControlCenterView
             var color = FillColor(_appearance == "confirm");
             if (over) color.A = (byte)Math.Min(255, color.A + 18);
             Tint(_fill, color, over ? 140 : 220);
-            Move(_scale, ScaleTransform.ScaleXProperty, _scale.ScaleX, over ? 1.04 : 1, 420, SoftSpring);
-            Move(_scale, ScaleTransform.ScaleYProperty, _scale.ScaleY, over ? 1.04 : 1, 420, SoftSpring);
-            Move(_lift, TranslateTransform.YProperty, _lift.Y, over ? -1 : 0, 380, KnobSpring);
+            Move(_scale, ScaleTransform.ScaleXProperty, _scale.ScaleX, over ? 1.04 : 1, 420, WeatherMotion.Out);
+            Move(_scale, ScaleTransform.ScaleYProperty, _scale.ScaleY, over ? 1.04 : 1, 420, WeatherMotion.Out);
+            Move(_lift, TranslateTransform.YProperty, _lift.Y, over ? -1 : 0, 380, WeatherMotion.Out);
         }
 
         public void Update(ResetState? state, bool busy)
@@ -219,15 +219,15 @@ public partial class ControlCenterView
             string text = running || done ? "" : Loc.Get(confirm ? "control.claude.resetConfirm" : "control.claude.resetRedeem");
             double width = done ? 32 : running ? 54 : confirm ? 68 : 82;
             if (error) width = 82;
-            Move(_pill, FrameworkElement.WidthProperty, _pill.Width, width, 420, SoftSpring);
+            Move(_pill, FrameworkElement.WidthProperty, _pill.Width, width, 420, WeatherMotion.Out);
             Tint(_fill, FillColor(confirm || running || done), 180);
             Tint(_ink, ((SolidColorBrush)(confirm || running || done ? Accent : LimitValue)).Color, 180);
             if (_label.Text != text)
             {
                 _oldLabel.Text = _label.Text;
                 _label.Text = text;
-                Move(_oldLabel, UIElement.OpacityProperty, 1, 0, 110, PressEase);
-                Move(_label, UIElement.OpacityProperty, 0, 1, 180, PressEase);
+                Move(_oldLabel, UIElement.OpacityProperty, 1, 0, 110, WeatherMotion.Out);
+                Move(_label, UIElement.OpacityProperty, 0, 1, 180, WeatherMotion.Out);
             }
             System.Windows.Automation.AutomationProperties.SetName(_button, Option.Name + ": " +
                 (running ? "…" : done ? Loc.Get("control.claude.resetDone") : text));
@@ -244,13 +244,11 @@ public partial class ControlCenterView
             }
             if (running && Animate)
                 Move(_spin, RotateTransform.AngleProperty, 0, 21600, 60000, null);
-            if (done) Move(_check, Shape.StrokeDashOffsetProperty, 12, 0, 300, PressEase);
+            if (done) Move(_check, Shape.StrokeDashOffsetProperty, 12, 0, 300, WeatherMotion.Out);
             if (error && Animate)
             {
-                var shake = new DoubleAnimationUsingKeyFrames();
-                foreach (var (ms, x) in new[] { (0, 0d), (45, -3d), (100, 3d), (160, -2d), (220, 0d) })
-                    shake.KeyFrames.Add(new EasingDoubleKeyFrame(x, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(ms)), PressEase));
-                Play(_lift, TranslateTransform.XProperty, shake);
+                Motion.To(_lift, TranslateTransform.XProperty, -3, Motion.PressDown,
+                    done: () => Motion.To(_lift, TranslateTransform.XProperty, 0, Motion.Press));
             }
         }
 
@@ -265,10 +263,13 @@ public partial class ControlCenterView
 
         private void Move(IAnimatable target, DependencyProperty property, double from, double to, double ms, IEasingFunction? ease)
         {
-            // Set the final base value too, so clearing a clock never resurrects the preceding state.
-            target.BeginAnimation(property, null);
-            ((DependencyObject)target).SetValue(property, to);
-            if (Animate) Play(target, property, WeatherMotion.To(from, to, ms, ease));
+            var dependency = (DependencyObject)target;
+            if (!Animate) { Motion.Stop(dependency, property, to); return; }
+            // Countdown and spin are clocks; all spatial state changes retain the live spring.
+            if (ease == null || property == UIElement.OpacityProperty)
+                Play(target, property, WeatherMotion.To(from, to, ms, ease));
+            else Motion.To(dependency, property, to,
+                property == FrameworkElement.WidthProperty ? Motion.Glide : Motion.Press, fps: 60);
         }
 
         private void Play(IAnimatable target, DependencyProperty property, AnimationTimeline animation)
@@ -282,10 +283,6 @@ public partial class ControlCenterView
         {
             foreach (var (target, property) in _clocks) target.BeginAnimation(property, null);
             _clocks.Clear();
-            _scale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-            _scale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-            _scale.ScaleX = _scale.ScaleY = 1;
-            _lift.X = _lift.Y = 0;
             _oldLabel.Opacity = 0;
             _label.Opacity = 1;
         }
@@ -293,6 +290,11 @@ public partial class ControlCenterView
         public void Stop()
         {
             StopClocks();
+            Motion.Stop(_scale, ScaleTransform.ScaleXProperty, 1);
+            Motion.Stop(_scale, ScaleTransform.ScaleYProperty, 1);
+            Motion.Stop(_lift, TranslateTransform.XProperty, 0);
+            Motion.Stop(_lift, TranslateTransform.YProperty, 0);
+            Motion.Stop(_pill, FrameworkElement.WidthProperty);
             Grid.BeginAnimation(UIElement.OpacityProperty, null);
             Grid.BeginAnimation(FrameworkElement.HeightProperty, null);
             if (Grid.RenderTransform is TransformGroup group)
@@ -320,10 +322,8 @@ public partial class ControlCenterView
         {
             if (!_collapsing) return;
             _collapsing = false;
-            Grid.BeginAnimation(FrameworkElement.HeightProperty, null);
-            Grid.BeginAnimation(UIElement.OpacityProperty, null);
-            Grid.Height = 32;
-            Grid.Opacity = 1;
+            GlideHeight(Grid, 32);
+            Move(Grid, UIElement.OpacityProperty, Grid.Opacity, 1, 160, WeatherMotion.Out);
         }
 
         public void Collapse()
@@ -340,10 +340,8 @@ public partial class ControlCenterView
                 _view.ContentHeightChanged?.Invoke();
             }
             if (!Animate) { Remove(); return; }
-            Move(Grid, UIElement.OpacityProperty, Grid.Opacity, 0, 150, PressEase);
-            var collapse = WeatherMotion.To(Grid.ActualHeight, 0, 240, PressEase);
-            collapse.Completed += (_, _) => Remove();
-            Play(Grid, FrameworkElement.HeightProperty, collapse);
+            Move(Grid, UIElement.OpacityProperty, Grid.Opacity, 0, 150, WeatherMotion.Out);
+            GlideHeight(Grid, 0, done: Remove);
         }
     }
 }

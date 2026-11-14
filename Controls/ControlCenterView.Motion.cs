@@ -71,8 +71,7 @@ public partial class ControlCenterView
     /// </summary>
     private static void Pressable(Border card, Func<Brush> rest, Brush hover, bool gentle = false, bool grow = false)
     {
-        var scale = card.RenderTransform as ScaleTransform ?? new ScaleTransform(1, 1);
-        card.RenderTransform = scale;
+        var scale = FeedbackScale(card);
         card.RenderTransformOrigin = new Point(0.5, 0.5);
         var fill = card.Background is SolidColorBrush { IsFrozen: false } own ? own : new SolidColorBrush(((SolidColorBrush)rest()).Color);
         card.Background = fill;
@@ -85,53 +84,83 @@ public partial class ControlCenterView
         };
         card.MouseLeave += (_, _) =>
         {
-            WeatherMotion.Tint(fill, ((SolidColorBrush)rest()).Color, 220);
+            WeatherMotion.Tint(fill, ((SolidColorBrush)rest()).Color, 160);
             Release(scale, gentle);
         };
         card.PreviewMouseLeftButtonDown += (_, _) =>
         {
-            if (AnimationConfig.ReduceMotion) return;
-            // Gentle (Legion): a lighter press and a softer spring back.
-            scale.BeginAnimation(ScaleTransform.ScaleXProperty, WeatherMotion.To(scale.ScaleX, gentle ? 0.975 : 0.965, 110, PressEase));
-            scale.BeginAnimation(ScaleTransform.ScaleYProperty, WeatherMotion.To(scale.ScaleY, gentle ? 0.945 : 0.93, 110, PressEase));
+            Motion.To(scale, ScaleTransform.ScaleXProperty, gentle ? 0.975 : 0.965, Motion.PressDown);
+            Motion.To(scale, ScaleTransform.ScaleYProperty, gentle ? 0.945 : 0.93, Motion.PressDown);
         };
         card.PreviewMouseLeftButtonUp += (_, _) => Release(scale, gentle, grow && card.IsMouseOver ? HoverGrow : 1);
+        card.LostMouseCapture += (_, _) => Release(scale, gentle);
+        card.IsVisibleChanged += (_, _) => { if (!card.IsVisible) StopScale(scale); };
     }
 
     /// <summary>A button sinks a little while pressed and springs back on release.</summary>
-    private static void Squish(Border button, Func<bool>? active = null, int? fps = null)
+    private static void Squish(FrameworkElement button, Func<bool>? active = null, int? fps = null)
     {
-        var scale = new ScaleTransform(1, 1);
-        button.RenderTransform = scale;
+        var scale = FeedbackScale(button);
         button.RenderTransformOrigin = new Point(0.5, 0.5);
-        DoubleAnimation Motion(double from, double to, double ms, IEasingFunction ease)
-        {
-            var animation = WeatherMotion.To(from, to, ms, ease);
-            if (fps.HasValue) Timeline.SetDesiredFrameRate(animation, fps.Value);
-            return animation;
-        }
         void Settle()
         {
-            if (active?.Invoke() == false || AnimationConfig.ReduceMotion) return;
-            scale.BeginAnimation(ScaleTransform.ScaleXProperty, Motion(scale.ScaleX, 1, 520, ReleaseSpring));
-            scale.BeginAnimation(ScaleTransform.ScaleYProperty, Motion(scale.ScaleY, 1, 520, ReleaseSpring));
+            double to = active?.Invoke() != false && button.IsMouseOver ? HoverGrow : 1;
+            Motion.To(scale, ScaleTransform.ScaleXProperty, to, Motion.Press, fps: fps);
+            Motion.To(scale, ScaleTransform.ScaleYProperty, to, Motion.Press, fps: fps);
         }
         button.PreviewMouseLeftButtonDown += (_, _) =>
         {
-            if (active?.Invoke() == false || AnimationConfig.ReduceMotion) return;
-            scale.BeginAnimation(ScaleTransform.ScaleXProperty, Motion(scale.ScaleX, 0.96, 100, PressEase));
-            scale.BeginAnimation(ScaleTransform.ScaleYProperty, Motion(scale.ScaleY, 0.92, 100, PressEase));
+            if (active?.Invoke() == false) return;
+            Motion.To(scale, ScaleTransform.ScaleXProperty, 0.96, Motion.PressDown, fps: fps);
+            Motion.To(scale, ScaleTransform.ScaleYProperty, 0.92, Motion.PressDown, fps: fps);
         };
         button.PreviewMouseLeftButtonUp += (_, _) => Settle();
+        button.MouseEnter += (_, _) => Settle();
         button.MouseLeave += (_, _) => Settle();
+        button.LostMouseCapture += (_, _) => Settle();
+        button.IsVisibleChanged += (_, _) => { if (!button.IsVisible) StopScale(scale); };
     }
 
     private static void Release(ScaleTransform scale, bool gentle = false, double to = 1)
     {
-        if (AnimationConfig.ReduceMotion) return;
-        var ease = gentle ? SoftSpring : ReleaseSpring;
-        scale.BeginAnimation(ScaleTransform.ScaleXProperty, WeatherMotion.To(scale.ScaleX, to, 520, ease));
-        scale.BeginAnimation(ScaleTransform.ScaleYProperty, WeatherMotion.To(scale.ScaleY, to, 520, ease));
+        Motion.To(scale, ScaleTransform.ScaleXProperty, to, Motion.Press);
+        Motion.To(scale, ScaleTransform.ScaleYProperty, to, Motion.Press);
+    }
+
+    private static void StopScale(ScaleTransform scale)
+    {
+        Motion.Stop(scale, ScaleTransform.ScaleXProperty, 1);
+        Motion.Stop(scale, ScaleTransform.ScaleYProperty, 1);
+    }
+
+    private static ScaleTransform FeedbackScale(FrameworkElement element)
+    {
+        if (element.RenderTransform is ScaleTransform scale) return scale;
+        if (element.RenderTransform is TransformGroup group)
+            foreach (var part in group.Children)
+                if (part is ScaleTransform existing) return existing;
+        var created = new ScaleTransform(1, 1);
+        var transforms = new TransformGroup();
+        transforms.Children.Add(created);
+        if (element.RenderTransform != Transform.Identity) transforms.Children.Add(element.RenderTransform);
+        element.RenderTransform = transforms;
+        return created;
+    }
+
+    private static void ExitElement(FrameworkElement element, Action? done = null)
+    {
+        var scale = FeedbackScale(element);
+        Motion.To(scale, ScaleTransform.ScaleXProperty, Motion.ExitToScale, Motion.Exit);
+        Motion.To(scale, ScaleTransform.ScaleYProperty, Motion.ExitToScale, Motion.Exit);
+        if (AnimationConfig.ReduceMotion)
+        {
+            Motion.Stop(element, OpacityProperty, 0);
+            done?.Invoke();
+            return;
+        }
+        var fade = WeatherMotion.To(element.Opacity, 0, 160, WeatherMotion.Out);
+        fade.Completed += (_, _) => done?.Invoke();
+        element.BeginAnimation(OpacityProperty, fade);
     }
 
     // A lit tile keeps its tint under the pointer, just a touch brighter.
@@ -160,13 +189,12 @@ public partial class ControlCenterView
                 // Decorations that do not take clicks (the Legion pill) keep their own entrance.
                 foreach (UIElement tile in tiles.Children)
                     if (tile is FrameworkElement element && element.Visibility == Visibility.Visible && element.IsHitTestVisible)
-                        PopIn(element, (baseDelay + TimeSpan.FromMilliseconds(Math.Min(index++ * 40, 320))).TotalMilliseconds);
+                        PopIn(element, (baseDelay + Motion.Stagger(index++)).TotalMilliseconds);
                 continue;
             }
-            var delay = baseDelay + TimeSpan.FromMilliseconds(Math.Min(index++ * 30, 240));
+            var delay = baseDelay + Motion.Stagger(index++);
             // A pressable card on its own row keeps its scale for the squish: it pops instead of rising.
-            if (row.RenderTransform is ScaleTransform) PopIn(row, delay.TotalMilliseconds, fromScale: 0.92);
-            else RevealElement(row, delay);
+            RevealElement(row, delay);
         }
         return index;
     }
@@ -189,53 +217,63 @@ public partial class ControlCenterView
     /// Pops a tile in from a little smaller with a springy overshoot. Reuses the tile's own scale, so the
     /// press squish keeps working afterwards.
     /// </summary>
-    private static void PopIn(FrameworkElement tile, double delayMs, double fromScale = 0.82)
+    private static void PopIn(FrameworkElement tile, double delayMs, double fromScale = Motion.TileFromScale)
     {
-        if (AnimationConfig.ReduceMotion) return;
-        var scale = tile.RenderTransform as ScaleTransform ?? new ScaleTransform(1, 1);
-        tile.RenderTransform = scale;
+        var scale = FeedbackScale(tile);
         tile.RenderTransformOrigin = new Point(0.5, 0.5);
-        tile.Opacity = 0;
-        var fade = WeatherMotion.To(0, 1, 260, WeatherMotion.Out, delayMs);
-        fade.Completed += (_, _) =>
+        bool moving = Motion.VelocityOf(scale, ScaleTransform.ScaleXProperty) != 0;
+        var delay = TimeSpan.FromMilliseconds(delayMs);
+        if (AnimationConfig.ReduceMotion) Motion.Stop(tile, OpacityProperty, 1);
+        else tile.BeginAnimation(OpacityProperty, WeatherMotion.To(moving ? tile.Opacity : 0, 1, 180, WeatherMotion.Out, delayMs));
+        if (!moving && !AnimationConfig.ReduceMotion) tile.SetCurrentValue(OpacityProperty, 0d);
+        Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.Tile, from: moving ? null : fromScale, delay: delay);
+        Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.Tile, from: moving ? null : fromScale, delay: delay);
+        tile.IsVisibleChanged += StopHidden;
+        void StopHidden(object sender, DependencyPropertyChangedEventArgs e)
         {
-            tile.BeginAnimation(OpacityProperty, null);
-            tile.Opacity = 1;
-        };
-        tile.BeginAnimation(OpacityProperty, fade);
-        scale.BeginAnimation(ScaleTransform.ScaleXProperty, WeatherMotion.To(fromScale, 1, 620, ReleaseSpring, delayMs));
-        scale.BeginAnimation(ScaleTransform.ScaleYProperty, WeatherMotion.To(fromScale, 1, 620, ReleaseSpring, delayMs));
+            if (tile.IsVisible) return;
+            StopScale(scale);
+            Motion.Stop(tile, OpacityProperty, 1);
+            tile.IsVisibleChanged -= StopHidden;
+        }
     }
 
     /// <summary>A quick bounce of an icon when its state flips, so the change is felt where the eye is.</summary>
     private static void Bounce(FrameworkElement glyph, double peak = 1.35)
     {
         if (AnimationConfig.ReduceMotion) return;
-        var scale = glyph.RenderTransform as ScaleTransform ?? new ScaleTransform(1, 1);
-        glyph.RenderTransform = scale;
+        var scale = FeedbackScale(glyph);
         glyph.RenderTransformOrigin = new Point(0.5, 0.5);
-        var bounce = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromMilliseconds(560) };
-        bounce.KeyFrames.Add(new EasingDoubleKeyFrame(peak, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(120)), PressEase));
-        bounce.KeyFrames.Add(new EasingDoubleKeyFrame(1, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(560)), ReleaseSpring));
-        Timeline.SetDesiredFrameRate(bounce, AnimationConfig.TargetFps);
-        scale.BeginAnimation(ScaleTransform.ScaleXProperty, bounce);
-        scale.BeginAnimation(ScaleTransform.ScaleYProperty, bounce);
+        Motion.To(scale, ScaleTransform.ScaleXProperty, peak, Motion.PressDown,
+            done: () => Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.Press));
+        Motion.To(scale, ScaleTransform.ScaleYProperty, peak, Motion.PressDown,
+            done: () => Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.Press));
     }
 
     /// <summary>A number that rolls to its new value instead of jumping.</summary>
     private sealed class RollingNumber
     {
         private readonly WeatherTween _tween = new();
+        private readonly FrameworkElement? _owner;
         private double _shown = double.NaN;
 
-        public RollingNumber(Action<double> show) => _tween.Step = show;
+        public RollingNumber(Action<double> show, FrameworkElement? owner = null)
+        {
+            _tween.Step = show;
+            _owner = owner;
+            if (owner != null) owner.IsVisibleChanged += (_, _) =>
+            {
+                if (!owner.IsVisible && !double.IsNaN(_shown)) _tween.Stop(_shown);
+            };
+        }
 
         public void To(double value, double ms = 650)
         {
             // From wherever the roll is right now, so a new value mid-roll just turns it around.
             double from = double.IsNaN(_shown) ? value : _tween.Value;
             _shown = value;
-            _tween.Play(from, value, from == value ? 0 : ms, WeatherMotion.OutQuint);
+            if (from == value || ms <= 0 || _owner is { IsVisible: false }) _tween.Play(value, value, 0, WeatherMotion.OutQuint);
+            else _tween.To(value);
         }
     }
 
@@ -254,6 +292,7 @@ public partial class ControlCenterView
         var tint = ((SolidColorBrush)_accent).Color;
         var offColor = ((SolidColorBrush)Track).Color;
         var knobShift = new TranslateTransform(isOn ? 14 : 0, 0);
+        var knobScale = new ScaleTransform(1, 1);
         var knob = new Border
         {
             Width = 16,
@@ -262,7 +301,7 @@ public partial class ControlCenterView
             Background = KnobBrush,
             HorizontalAlignment = HorizontalAlignment.Left,
             Margin = new Thickness(2, 0, 0, 0),
-            RenderTransform = knobShift,
+            RenderTransform = new TransformGroup { Children = { knobScale, knobShift } },
             Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 4, ShadowDepth = 1, Opacity = 0.35, Direction = 270 }
         };
         var trackFill = new SolidColorBrush(isOn ? tint : offColor);
@@ -277,41 +316,47 @@ public partial class ControlCenterView
             Child = knob
         };
         bool state = isOn;
-        const double Stretch = 5;
+        bool held = false;
+        Squish(track);
         track.MouseLeftButtonDown += (_, e) =>
         {
             e.Handled = true;
-            if (AnimationConfig.ReduceMotion) return;
-            // Held: the knob grows toward the middle.
-            knob.BeginAnimation(WidthProperty, WeatherMotion.To(knob.ActualWidth, 16 + Stretch, 120, PressEase));
-            if (state) knobShift.BeginAnimation(TranslateTransform.XProperty, WeatherMotion.To(knobShift.X, 14 - Stretch, 120, PressEase));
+            held = true;
+            knobScale.CenterX = state ? 16 : 0;
+            Motion.To(knobScale, ScaleTransform.ScaleXProperty, 1.3125, Motion.PressDown);
+            Motion.To(knobShift, TranslateTransform.XProperty, state ? 14 : 0, Motion.Press);
         };
         track.MouseLeave += (_, _) =>
         {
-            if (knob.Width > 16 || knob.HasAnimatedProperties) Settle();
+            held = false;
+            Settle();
         };
+        track.LostMouseCapture += (_, _) => { held = false; Settle(); };
         track.MouseLeftButtonUp += (_, e) =>
         {
             e.Handled = true;
+            held = false;
             state = !state;
             if (live != null)
             {
-                // Fade on a brush of its own, then hand the lit track back to the tab's colour.
-                trackFill.BeginAnimation(SolidColorBrush.ColorProperty, null);
-                trackFill.Color = state ? offColor : live.Color;
+                // Sample the live tint before handing the track to its own transition brush.
+                if (track.Background == live) trackFill.Color = live.Color;
                 track.Background = trackFill;
-                if (state)
-                {
-                    var settle = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(260) };
-                    settle.Tick += (_, _) =>
-                    {
-                        settle.Stop();
-                        if (state) track.Background = live;
-                    };
-                    settle.Start();
-                }
             }
-            WeatherMotion.Tint(trackFill, state ? live?.Color ?? tint : offColor, 220);
+            if (AnimationConfig.ReduceMotion)
+            {
+                trackFill.BeginAnimation(SolidColorBrush.ColorProperty, null);
+                trackFill.Color = state ? live?.Color ?? tint : offColor;
+                if (state && live != null) track.Background = live;
+            }
+            else
+            {
+                bool next = state;
+                var tintChange = new ColorAnimation(state ? live?.Color ?? tint : offColor, TimeSpan.FromMilliseconds(160));
+                Timeline.SetDesiredFrameRate(tintChange, AnimationConfig.TargetFps);
+                tintChange.Completed += (_, _) => { if (state == next && state && live != null) track.Background = live; };
+                trackFill.BeginAnimation(SolidColorBrush.ColorProperty, tintChange);
+            }
             Settle();
             onChanged(state);
         };
@@ -319,15 +364,8 @@ public partial class ControlCenterView
 
         void Settle()
         {
-            if (AnimationConfig.ReduceMotion)
-            {
-                knob.BeginAnimation(WidthProperty, null);
-                knobShift.BeginAnimation(TranslateTransform.XProperty, null);
-                knobShift.X = state ? 14 : 0;
-                return;
-            }
-            knob.BeginAnimation(WidthProperty, WeatherMotion.To(knob.ActualWidth, 16, 380, KnobSpring));
-            knobShift.BeginAnimation(TranslateTransform.XProperty, WeatherMotion.To(knobShift.X, state ? 14 : 0, 380, KnobSpring));
+            Motion.To(knobScale, ScaleTransform.ScaleXProperty, held ? 1.3125 : 1, Motion.Press);
+            Motion.To(knobShift, TranslateTransform.XProperty, state ? 14 : 0, Motion.Press);
         }
     }
 

@@ -129,8 +129,7 @@ public sealed class ClipboardTrayMotionRegressionTests
         var size = item.RenderSize;
         var animate = typeof(ClipboardTray).GetMethod("AnimateCardLifecycle", BindingFlags.Static | BindingFlags.NonPublic)!;
         animate.Invoke(null, new object[] { item, true, true });
-        await Task.Delay(300);
-        await NextRenderFrame();
+        await WpfFrameWaiter.UntilAsync(() => item.Opacity == 1 && item.RenderTransform.Value == Matrix.Identity, "card spring settles");
         Assert.Equal(1, item.Opacity);
         Assert.Equal(Matrix.Identity, item.RenderTransform.Value);
         Assert.Equal(size, item.RenderSize);
@@ -167,7 +166,9 @@ public sealed class ClipboardTrayMotionRegressionTests
         await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
 
         container = (ListBoxItem)list.ItemContainerGenerator.ContainerFromItem(survivor);
-        var motion = Assert.IsType<TranslateTransform>(container.RenderTransform);
+        var motion = container.RenderTransform is TransformGroup group
+            ? group.Children.OfType<TranslateTransform>().Single()
+            : Assert.IsType<TranslateTransform>(container.RenderTransform);
         Assert.True(motion.X > 0);
         Assert.Equal(0d, motion.GetAnimationBaseValue(TranslateTransform.XProperty));
         Assert.Null(Field<object?>(tray, "_pendingCardPositions"));
