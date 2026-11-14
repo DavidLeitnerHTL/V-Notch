@@ -75,33 +75,58 @@ public sealed class NotchShellPresenter : IDisposable
         else
             Motion.To(_corner, CornerValue.ValueProperty, plan.TargetCornerRadius, heightSpring, fps: fps);
 
-        int completed = 0;
+        // Hover and media-width springs may take the size over mid-session; the session still ends when it rests.
+        bool widthArrived = false, heightArrived = false, reported = false;
         void Arrived()
         {
-            if (++completed < 2 || !IsCurrent(sessionId, version)) return;
+            if (!widthArrived || !heightArrived || reported || !IsCurrent(sessionId, version)) return;
+            reported = true;
             onCompleted(new TransitionExecutionResult(sessionId, TransitionExecutionStatus.Completed));
         }
         if (!double.IsFinite(border.Width)) border.Width = ReadExtent(border.Width, border.ActualWidth, plan.TargetWidth);
         if (!double.IsFinite(border.Height)) border.Height = ReadExtent(border.Height, border.ActualHeight, plan.TargetHeight);
-        Motion.To(border, FrameworkElement.WidthProperty, plan.TargetWidth, widthSpring, fps: fps, done: () => { Motion.Stop(border, FrameworkElement.WidthProperty, plan.TargetWidth); Arrived(); }, velocity: widthVelocity);
+        Motion.To(border, FrameworkElement.WidthProperty, plan.TargetWidth, widthSpring, fps: fps, done: () =>
+        {
+            if (!IsCurrent(sessionId, version)) return;
+            // Rest exactly on the target, unless something else took the width somewhere of its own meanwhile.
+            if (Math.Abs(border.Width - plan.TargetWidth) < 1) Motion.Stop(border, FrameworkElement.WidthProperty, plan.TargetWidth);
+            widthArrived = true;
+            Arrived();
+        }, velocity: widthVelocity, keep: true);
         _heightArrived = () =>
         {
             if (!IsCurrent(sessionId, version)) return;
-            Motion.Stop(border, FrameworkElement.HeightProperty, _heightTarget);
+            if (Math.Abs(border.Height - _heightTarget) < 1) Motion.Stop(border, FrameworkElement.HeightProperty, _heightTarget);
+            _heightArrived = null;
+            heightArrived = true;
+            Arrived();
+        };
+        Motion.To(border, FrameworkElement.HeightProperty, plan.TargetHeight, heightSpring, fps: fps, done: _heightArrived, velocity: heightVelocity, keep: true);
+
+        // Pills, banners and the timer still move the notch with plain animations. One of those cuts a spring off
+        // without telling it, and the session would wait for an ending that never comes.
+        var watch = new System.Windows.Threading.DispatcherTimer(System.Windows.Threading.DispatcherPriority.Background)
+        { Interval = TimeSpan.FromMilliseconds(100) };
+        watch.Tick += (_, _) =>
+        {
+            if (_disposed || reported || !IsCurrent(sessionId, version)) { watch.Stop(); return; }
+            if (Motion.IsRunning(border, FrameworkElement.WidthProperty) ||
+                Motion.IsRunning(border, FrameworkElement.HeightProperty)) return;
+            watch.Stop();
+            // Whoever took the size over owns it now; only the session ends.
+            widthArrived = heightArrived = true;
             _heightArrived = null;
             Arrived();
         };
-        Motion.To(border, FrameworkElement.HeightProperty, plan.TargetHeight, heightSpring, fps: fps, done: _heightArrived, velocity: heightVelocity);
+        watch.Start();
     }
 
     internal bool RetargetHeight(double height, Action done)
     {
         if (_disposed || _heightArrived == null) return false;
         _heightTarget = height;
-        var arrived = _heightArrived;
-        // A content measurement replaces the height spring, but still completes the shell session.
-        Motion.To(_refs.NotchBorder, FrameworkElement.HeightProperty, height, Motion.Glide,
-            done: () => { arrived(); done(); });
+        // A content measurement replaces the height spring; the session's kept ending rides along.
+        Motion.To(_refs.NotchBorder, FrameworkElement.HeightProperty, height, Motion.Glide, done: done);
         return true;
     }
 

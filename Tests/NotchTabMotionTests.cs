@@ -44,6 +44,51 @@ public sealed class NotchTabMotionTests
     });
 
     [Fact]
+    public void HoverDuringOpeningAndClosingNeverLeavesTheNotchBusy() => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        bool previous = AnimationConfig.ReduceMotion;
+        await using var fixture = new GreetingAcceptanceTests.MainWindowFixture("en", false,
+            settings => { settings.EnableLocalOnlyMode = true; settings.DisableMouseLeaveAutoClose = true; },
+            services => services.AddSingleton<IMediaDetectionService>(new FakeMediaDetectionService()));
+        try
+        {
+            var window = fixture.Window;
+            AnimationConfig.SetReduceMotion(true);
+            window.Show();
+            var coordinator = (NotchTransitionCoordinator)typeof(MainWindow).GetField("_transitionCoordinator", Private)!.GetValue(window)!;
+            var hover = typeof(MainWindow).GetMethod("AnimateNotchHover", Private)!;
+            AnimationConfig.SetReduceMotion(false);
+
+            async Task Settles(string what)
+            {
+                var clock = System.Diagnostics.Stopwatch.StartNew();
+                await WpfFrameWaiter.UntilAsync(() => !coordinator.IsTransitionActive, what, ct);
+                Assert.True(clock.ElapsedMilliseconds < 2500, $"{what} took {clock.ElapsedMilliseconds} ms");
+            }
+
+            for (int round = 0; round < 2; round++)
+            {
+                window.NavigateToNotchView(NotchView.Media);
+                await WpfFrameWaiter.UntilAsync(() => window.NotchBorder.Width > 330 && coordinator.IsTransitionActive,
+                    "opening shell moves", ct);
+                // The pointer that clicked is still over the notch, leaves and comes back while it opens.
+                hover.Invoke(window, [false]);
+                hover.Invoke(window, [true]);
+                await Settles("opening with a hover on the way");
+                Assert.Equal(NotchView.Media, coordinator.CurrentView);
+
+                Assert.True(coordinator.RequestView(NotchView.Compact, "HoverTest"));
+                await Task.Delay(60, ct);
+                hover.Invoke(window, [true]);
+                hover.Invoke(window, [false]);
+                await Settles("closing with a hover on the way");
+                Assert.Equal(NotchView.Compact, coordinator.CurrentView);
+            }
+        }
+        finally { AnimationConfig.SetReduceMotion(previous); }
+    });
+
+    [Fact]
     public void RetargetingVisibleChromePreservesTheRenderedFrame() => SharedStaTestRunner.Run(() =>
     {
         bool previous = AnimationConfig.ReduceMotion;

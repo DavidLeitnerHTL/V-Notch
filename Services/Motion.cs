@@ -49,6 +49,8 @@ internal static partial class Motion
         public required SpringDoubleAnimation Spring;
         public long StartedAt;
         public double DelaySeconds;
+        /// <summary>Endings that outlive this spring: whichever spring replaces it carries them on.</summary>
+        public Action? Kept;
     }
 
     private static readonly ConditionalWeakTable<DependencyObject, Dictionary<DependencyProperty, Running>> Live = new();
@@ -61,13 +63,18 @@ internal static partial class Motion
     /// Springs <paramref name="property"/> of <paramref name="target"/> to <paramref name="to"/>. A spring already
     /// running on it hands over its speed. <paramref name="from"/> places the value first (an entrance);
     /// leave it out to continue from wherever the value is. <paramref name="velocity"/> (units per second) starts
-    /// it with a speed of its own, e.g. the pointer's when a drag lets go.
+    /// it with a speed of its own, e.g. the pointer's when a drag lets go. <paramref name="done"/> is dropped when
+    /// another spring takes the property over, unless <paramref name="keep"/> is set: then it runs once the
+    /// property finally comes to rest, whoever moved it last (a session that must end, e.g. the shell's).
     /// </summary>
     public static void To(DependencyObject target, DependencyProperty property, double to, SpringMotion spring,
-        double? from = null, TimeSpan? delay = null, int? fps = null, Action? done = null, double? velocity = null)
+        double? from = null, TimeSpan? delay = null, int? fps = null, Action? done = null, double? velocity = null,
+        bool keep = false)
     {
         if (target is not IAnimatable animatable) throw new ArgumentException("Target cannot be animated.", nameof(target));
         var live = Live.GetOrCreateValue(target);
+        Action? kept = live.TryGetValue(property, out var replaced) ? replaced.Kept : null;
+        if (keep && done != null) { kept += done; done = null; }
 
         if (AnimationConfig.ReduceMotion)
         {
@@ -75,6 +82,7 @@ internal static partial class Motion
             animatable.BeginAnimation(property, null);
             target.SetValue(property, to);
             done?.Invoke();
+            kept?.Invoke();
             return;
         }
 
@@ -94,18 +102,20 @@ internal static partial class Motion
             animatable.BeginAnimation(property, null);
             target.SetValue(property, to);
             done?.Invoke();
+            kept?.Invoke();
             return;
         }
         if (delay is { } wait && wait > TimeSpan.Zero) animation.BeginTime = wait;
         Timeline.SetDesiredFrameRate(animation, fps ?? AnimationConfig.TargetFps);
 
-        var running = new Running { Spring = animation, StartedAt = Stopwatch.GetTimestamp(), DelaySeconds = delay?.TotalSeconds ?? 0 };
+        var running = new Running { Spring = animation, StartedAt = Stopwatch.GetTimestamp(), DelaySeconds = delay?.TotalSeconds ?? 0, Kept = kept };
         live[property] = running;
         animation.Completed += (_, _) =>
         {
             if (live.TryGetValue(property, out var current) && ReferenceEquals(current, running)) live.Remove(property);
             else return; // replaced on the way: the newer spring owns the ending
             done?.Invoke();
+            kept?.Invoke();
         };
         // An entrance that waits must already sit at its start, or it shows its resting look until its turn.
         if (from is { } placed && delay is { } d && d > TimeSpan.Zero) target.SetValue(property, placed);
@@ -117,6 +127,15 @@ internal static partial class Motion
         Live.TryGetValue(target, out var live) && live.TryGetValue(property, out var running)
             ? running.Spring.VelocityAt(Stopwatch.GetElapsedTime(running.StartedAt).TotalSeconds - running.DelaySeconds)
             : 0;
+
+    /// <summary>
+    /// Whether a spring started here is still on its way, judged by its own clock: a spring that code outside
+    /// this class cut off with a plain animation counts as over once its time has passed.
+    /// </summary>
+    public static bool IsRunning(DependencyObject target, DependencyProperty property) =>
+        Live.TryGetValue(target, out var live) && live.TryGetValue(property, out var running) &&
+        Stopwatch.GetElapsedTime(running.StartedAt).TotalSeconds <
+            running.DelaySeconds + running.Spring.Duration.TimeSpan.TotalSeconds + 0.05;
 
     /// <summary>Stops the spring and leaves the property at <paramref name="value"/> (its current value if omitted).</summary>
     public static void Stop(DependencyObject target, DependencyProperty property, double? value = null)
