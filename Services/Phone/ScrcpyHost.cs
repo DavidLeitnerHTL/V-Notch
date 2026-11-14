@@ -54,7 +54,10 @@ internal sealed class ScrcpyProcess : IDisposable
             "--window-x=-32000", "--window-y=-32000",
             $"--window-width={width}", $"--window-height={height}",
             "--no-audio",
-            "--video-codec=h264"
+            "--video-codec=h264",
+            // The phone's 120 Hz; scrcpy's 8 Mbit/s default smears a 1200x2608 screen once it moves.
+            "--max-fps=120",
+            "--video-bit-rate=24M"
         ]);
         Process? process;
         try { process = Process.Start(info); }
@@ -136,7 +139,6 @@ internal sealed class ScrcpyChild
     private const int SW_SHOWNA = 8;
 
     private readonly IntPtr _window;
-    private (int W, int H, int R) _region;
 
     private ScrcpyChild(IntPtr window) => _window = window;
 
@@ -159,15 +161,11 @@ internal sealed class ScrcpyChild
         return null;
     }
 
-    /// <summary>Places it in the parent's client area (device pixels) with phone-screen corners.</summary>
-    public void Place(int x, int y, int width, int height, int cornerRadius)
+    /// <summary>Places it in the parent's client area (device pixels); the parent's region rounds its corners.</summary>
+    public void Place(int x, int y, int width, int height)
     {
         if (width <= 0 || height <= 0 || !IsWindow(_window)) return;
         SetWindowPos(_window, IntPtr.Zero, x, y, width, height, SWP_NOZORDER | SWP_NOACTIVATE);
-        if (_region == (width, height, cornerRadius)) return;
-        _region = (width, height, cornerRadius);
-        IntPtr region = CreateRoundRectRgn(0, 0, width + 1, height + 1, cornerRadius * 2, cornerRadius * 2);
-        if (SetWindowRgn(_window, region, true) == 0) DeleteObject(region);
     }
 
     public void Show(bool visible)
@@ -189,12 +187,6 @@ internal sealed class ScrcpyChild
     private static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
     [DllImport("user32.dll")]
     private static extern bool ShowWindow(IntPtr hwnd, int command);
-    [DllImport("user32.dll")]
-    private static extern int SetWindowRgn(IntPtr hwnd, IntPtr region, [MarshalAs(UnmanagedType.Bool)] bool redraw);
-    [DllImport("gdi32.dll")]
-    private static extern IntPtr CreateRoundRectRgn(int left, int top, int right, int bottom, int width, int height);
-    [DllImport("gdi32.dll")]
-    private static extern bool DeleteObject(IntPtr handle);
 }
 
 /// <summary>A job object that takes scrcpy along when the notch ends, even when it crashes.</summary>

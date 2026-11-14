@@ -161,11 +161,15 @@ public partial class MainWindow
         Point left = NotchBorder.PointToScreen(new Point(0, 0));
         var monitor = Win32Interop.MonitorFromPoint(new Win32Interop.POINT { X = (int)bottom.X, Y = (int)bottom.Y }, 2);
         var info = new Win32Interop.MONITORINFO { cbSize = System.Runtime.InteropServices.Marshal.SizeOf<Win32Interop.MONITORINFO>() };
-        Int32Rect work = Win32Interop.GetMonitorInfo(monitor, ref info)
+        bool known = Win32Interop.GetMonitorInfo(monitor, ref info);
+        Int32Rect work = known
             ? new Int32Rect(info.rcWork.Left, info.rcWork.Top, info.rcWork.Right - info.rcWork.Left, info.rcWork.Bottom - info.rcWork.Top)
             : new Int32Rect(0, 0, (int)(SystemParameters.WorkArea.Width * scale), (int)(SystemParameters.WorkArea.Height * scale));
+        Int32Rect screen = known
+            ? new Int32Rect(info.rcMonitor.Left, info.rcMonitor.Top, info.rcMonitor.Right - info.rcMonitor.Left, info.rcMonitor.Bottom - info.rcMonitor.Top)
+            : new Int32Rect(0, 0, (int)(SystemParameters.PrimaryScreenWidth * scale), (int)(SystemParameters.PrimaryScreenHeight * scale));
         int width = (int)Math.Round((bottom.X - left.X) * 2);
-        return new NotchAnchor((int)Math.Round(bottom.X), (int)Math.Round(bottom.Y), width, scale, work);
+        return new NotchAnchor((int)Math.Round(bottom.X), (int)Math.Round(bottom.Y), width, scale, work, screen);
     }
 
     #endregion

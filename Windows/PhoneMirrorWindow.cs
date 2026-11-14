@@ -15,29 +15,32 @@ using VNotch.Services.Phone;
 namespace VNotch;
 
 /// <summary>Where the closed notch sits, in device pixels of its screen.</summary>
-internal readonly record struct NotchAnchor(int CenterX, int Bottom, int Width, double Scale, Int32Rect WorkArea);
+internal readonly record struct NotchAnchor(int CenterX, int Bottom, int Width, double Scale, Int32Rect WorkArea, Int32Rect Monitor);
 
 /// <summary>
-/// The phone's screen hanging from the notch: a black phone body that springs out of the notch, with scrcpy's
-/// picture inside. Dragged away it becomes a free window; dropped near the notch it docks again. A click on the
-/// notch (or the close button) pulls it back in.
+/// The phone's screen hanging from the notch: scrcpy's picture with the phone's own round corners and no frame,
+/// below a slim black strip that merges into the notch. It springs out of the notch; dragged away by the strip it
+/// becomes a free window, dropped near the notch it docks again. The strip's buttons (on hover) switch to full
+/// height, from the top of the screen to the bottom, and pull it back in; so does a click on the notch.
 /// </summary>
 internal sealed class PhoneMirrorWindow : Window
 {
     private const double ScreenShare = 0.62;
-    private const double Bezel = 7;
-    private const double GripHeight = 20;
-    private const double BottomBezel = 9;
+    private const double GripHeight = 18;
+    // The phone's screen corners, as a share of its width (Xiaomi 17 Ultra: about 8 %).
+    private const double CornerShare = 0.08;
     private const double DockDistance = 90;
     private static readonly TimeSpan KeepWarm = TimeSpan.FromSeconds(30);
 
     private readonly Func<NotchAnchor?> _anchor;
     private readonly Grid _screenSlot = new() { Background = Brushes.Black };
     private readonly Border _close;
+    private readonly Border _full;
+    private readonly TextBlock _fullGlyph;
+    private bool _fullscreen;
     private readonly DispatcherTimer _coolDown;
     private ScrcpyProcess? _scrcpy;
     private ScrcpyChild? _child;
-    private int _cornerRadius;
     private Task<bool>? _ensuring;
     private CancellationTokenSource? _startCancel;
     private string? _startingSerial;
@@ -64,26 +67,16 @@ internal sealed class PhoneMirrorWindow : Window
             Background = new SolidColorBrush(Color.FromRgb(0x3A, 0x3D, 0x44)),
             HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center
         });
-        _close = new Border
-        {
-            Width = 16, Height = 16, CornerRadius = new CornerRadius(8), Margin = new Thickness(0, 0, 4, 0),
-            HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center,
-            Background = new SolidColorBrush(Color.FromRgb(0x2A, 0x2C, 0x31)), Cursor = Cursors.Hand, Opacity = 0,
-            Child = new TextBlock
-            {
-                Text = "\uE711", FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"), FontSize = 8,
-                Foreground = new SolidColorBrush(Color.FromRgb(0xC8, 0xCC, 0xD4)),
-                HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center
-            }
-        };
+        _close = StripButton("\uE711", out _, rightMargin: 10);
         _close.MouseLeftButtonUp += (_, e) => { e.Handled = true; PullIn(); };
-        _close.MouseLeftButtonDown += (_, e) => e.Handled = true;
+        _full = StripButton("\uE740", out _fullGlyph, rightMargin: 32);
+        _full.MouseLeftButtonUp += (_, e) => { e.Handled = true; ToggleFullscreen(); };
+        grip.Children.Add(_full);
         grip.Children.Add(_close);
-        grip.MouseEnter += (_, _) => FadeClose(1);
-        grip.MouseLeave += (_, _) => FadeClose(0);
+        grip.MouseEnter += (_, _) => FadeButtons(1);
+        grip.MouseLeave += (_, _) => FadeButtons(0);
         grip.MouseLeftButtonDown += Grip_MouseLeftButtonDown;
 
-        _screenSlot.Margin = new Thickness(Bezel, 0, Bezel, BottomBezel);
         _screenSlot.SizeChanged += (_, _) => PlaceChild();
         var layout = new Grid();
         layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -101,8 +94,28 @@ internal sealed class PhoneMirrorWindow : Window
         };
 
         _hwnd = new WindowInteropHelper(this).EnsureHandle();
-        int round = 2; // DWMWCP_ROUND
-        DwmSetWindowAttribute(_hwnd, 33, ref round, sizeof(int));
+        // No frame line from DWM; the window's own region gives it the phone's corners.
+        int noBorder = unchecked((int)0xFFFFFFFE); // DWMWA_COLOR_NONE
+        DwmSetWindowAttribute(_hwnd, 34, ref noBorder, sizeof(int));
+    }
+
+    private static Border StripButton(string glyph, out TextBlock text, double rightMargin)
+    {
+        text = new TextBlock
+        {
+            Text = glyph, FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"), FontSize = 8,
+            Foreground = new SolidColorBrush(Color.FromRgb(0xC8, 0xCC, 0xD4)),
+            HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center
+        };
+        var button = new Border
+        {
+            Width = 16, Height = 16, CornerRadius = new CornerRadius(8), Margin = new Thickness(0, 0, rightMargin, 0),
+            HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center,
+            Background = new SolidColorBrush(Color.FromRgb(0x2A, 0x2C, 0x31)), Cursor = Cursors.Hand, Opacity = 0,
+            Child = text
+        };
+        button.MouseLeftButtonDown += (_, e) => e.Handled = true;
+        return button;
     }
 
     public enum MirrorState { Hidden, Docked, Free }
@@ -146,7 +159,8 @@ internal sealed class PhoneMirrorWindow : Window
         if (State != MirrorState.Hidden || _anchor() is not { } anchor) return;
         _coolDown.Stop();
         State = MirrorState.Docked;
-        Topmost = true;
+        // At full height it reaches behind the notch, so it must not be topmost (the notch stays above it).
+        Topmost = !_fullscreen;
         var target = DockedRect(anchor);
         var start = TuckedRect(anchor);
         PlaceNow(start);
@@ -168,6 +182,18 @@ internal sealed class PhoneMirrorWindow : Window
             return;
         }
         if (grown) RevealScreen();
+    }
+
+    /// <summary>Full height (top of the screen to the bottom, under the notch) or back to hanging from the notch.</summary>
+    public void ToggleFullscreen()
+    {
+        if (State == MirrorState.Hidden || _frame != null || _anchor() is not { } anchor) return;
+        _fullscreen = !_fullscreen;
+        _fullGlyph.Text = _fullscreen ? "\uE73F" : "\uE740";
+        State = MirrorState.Docked;
+        Topmost = !_fullscreen;
+        SetScreenVisible(false);
+        Spring(CurrentRect(), DockedRect(anchor), stiffness: 360, damping: 27, done: RevealScreen);
     }
 
     /// <summary>Pulls the mirror back into the notch; scrcpy stays warm for a little while.</summary>
@@ -242,7 +268,6 @@ internal sealed class PhoneMirrorWindow : Window
         }
         _scrcpy = started;
         _child = child;
-        _cornerRadius = (int)Math.Round(size.Width * 0.075 * scale);
         started.Exited += () => Dispatcher.BeginInvoke(() =>
         {
             if (_scrcpy != started) return;
@@ -284,15 +309,19 @@ internal sealed class PhoneMirrorWindow : Window
         double scale = source?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
         Point at = _screenSlot.TranslatePoint(new Point(0, 0), root);
         _child.Place((int)Math.Round(at.X * scale), (int)Math.Round(at.Y * scale),
-            (int)Math.Round(_screenSlot.ActualWidth * scale), (int)Math.Round(_screenSlot.ActualHeight * scale), _cornerRadius);
+            (int)Math.Round(_screenSlot.ActualWidth * scale), (int)Math.Round(_screenSlot.ActualHeight * scale));
     }
 
-    private void FadeClose(double to) =>
-        _close.BeginAnimation(OpacityProperty, new System.Windows.Media.Animation.DoubleAnimation(to, TimeSpan.FromMilliseconds(140)));
+    private void FadeButtons(double to)
+    {
+        var fade = new System.Windows.Media.Animation.DoubleAnimation(to, TimeSpan.FromMilliseconds(140));
+        _close.BeginAnimation(OpacityProperty, fade);
+        _full.BeginAnimation(OpacityProperty, fade);
+    }
 
     private void Grip_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (State == MirrorState.Hidden || _frame != null) return;
+        if (State == MirrorState.Hidden || _frame != null || _fullscreen) return;
         e.Handled = true;
         try { DragMove(); }
         catch (InvalidOperationException) { return; }
@@ -323,9 +352,18 @@ internal sealed class PhoneMirrorWindow : Window
 
     private Int32Rect DockedRect(NotchAnchor anchor)
     {
+        if (_fullscreen)
+        {
+            // Top of the screen down to the taskbar (it would hide the phone's own buttons); the strip and the phone's
+            // status bar sit behind and beside the notch.
+            int fullHeight = anchor.WorkArea.Y + anchor.WorkArea.Height - anchor.Monitor.Y;
+            int screenHeight = fullHeight - (int)Math.Round(GripHeight * anchor.Scale);
+            int fullWidth = (int)Math.Round(screenHeight * _aspect);
+            return new Int32Rect(anchor.CenterX - fullWidth / 2, anchor.Monitor.Y, fullWidth, fullHeight);
+        }
         var screen = ScreenSize(anchor);
-        int width = (int)Math.Round((screen.Width + Bezel * 2) * anchor.Scale);
-        int height = (int)Math.Round((screen.Height + GripHeight + BottomBezel) * anchor.Scale);
+        int width = (int)Math.Round(screen.Width * anchor.Scale);
+        int height = (int)Math.Round((screen.Height + GripHeight) * anchor.Scale);
         // Tucked a few pixels under the notch so the two read as one shape.
         int top = anchor.Bottom - (int)Math.Round(2 * anchor.Scale);
         return new Int32Rect(anchor.CenterX - width / 2, top, width, height);
@@ -344,8 +382,15 @@ internal sealed class PhoneMirrorWindow : Window
         return new Int32Rect(r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top);
     }
 
-    private void PlaceNow(Int32Rect rect) =>
-        SetWindowPos(_hwnd, IntPtr.Zero, rect.X, rect.Y, Math.Max(1, rect.Width), Math.Max(1, rect.Height), SWP_NOZORDER | SWP_NOACTIVATE);
+    private void PlaceNow(Int32Rect rect)
+    {
+        int width = Math.Max(1, rect.Width), height = Math.Max(1, rect.Height);
+        SetWindowPos(_hwnd, IntPtr.Zero, rect.X, rect.Y, width, height, SWP_NOZORDER | SWP_NOACTIVATE);
+        // The phone's round corners on the whole window (scrcpy's picture inside is clipped by it too).
+        int radius = (int)Math.Min(Math.Round(width * CornerShare), height / 2.0);
+        IntPtr region = CreateRoundRectRgn(0, 0, width + 1, height + 1, radius * 2, radius * 2);
+        if (SetWindowRgn(_hwnd, region, true) == 0) DeleteObject(region);
+    }
 
     /// <summary>
     /// Moves the window along damped springs: height leads, width follows a touch softer, so the body
@@ -420,6 +465,12 @@ internal sealed class PhoneMirrorWindow : Window
     private static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
     [DllImport("user32.dll")]
     private static extern bool GetWindowRect(IntPtr hwnd, out NativeRect rect);
+    [DllImport("user32.dll")]
+    private static extern int SetWindowRgn(IntPtr hwnd, IntPtr region, [MarshalAs(UnmanagedType.Bool)] bool redraw);
+    [DllImport("gdi32.dll")]
+    private static extern IntPtr CreateRoundRectRgn(int left, int top, int right, int bottom, int width, int height);
+    [DllImport("gdi32.dll")]
+    private static extern bool DeleteObject(IntPtr handle);
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
 }
