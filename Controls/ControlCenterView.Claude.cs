@@ -111,9 +111,23 @@ public partial class ControlCenterView
     private readonly GradientStop _claudeBarTip = new(ClaudeQuiet.Main, 1);
     private LinearGradientBrush? _claudeBar;
     private Color? _claudeMoodMain;
-    private sealed record LimitBar(string Key, double Used, ScaleTransform Grow, WeatherTween Number);
+    private sealed class LimitBar
+    {
+        public required string Key;
+        public required double Used;
+        public required ScaleTransform Grow;
+        public required WeatherTween Number;
+        public required StackPanel Host;
+        public required TextBlock Label;
+        public required TextBlock Percent;
+        public DateTimeOffset? ResetsAt;
+        public bool AskedAfterReset;
+    }
     private readonly List<LimitBar> _limitBars = new();
+    private readonly Dictionary<string, LimitBar> _limitVisuals = new(StringComparer.Ordinal);
     private readonly Dictionary<string, double> _limitShown = new(StringComparer.Ordinal);
+    private readonly Dictionary<(string Session, string Part), TextBlock> _claudeTexts = new();
+    private readonly List<FrameworkElement> _heroDetails = new();
 
     private TransformGroup StarMotion => _starMotion ??= new TransformGroup { Children = { _starPulse, _starSpin } };
 
@@ -215,6 +229,7 @@ public partial class ControlCenterView
         _requestCards.Clear();
         _limitBars.Clear();
         _heroTick = null;
+        _heroDetails.Clear();
         _tokenRow = null;
         foreach (var seen in new List<string>(_tokensSeen.Keys))
             if (!sessions.Exists(s => s.Id == seen)) _tokensSeen.Remove(seen);
@@ -234,7 +249,23 @@ public partial class ControlCenterView
         _claudeSection.Children.Add(LimitStrip(limits));
         AddResetRows(limits);
         if (_codexUsage?.HasSource == true) AddCodexLimits();
+        foreach (var stale in _limitVisuals.Values.Where(bar => !_limitBars.Contains(bar)).ToList())
+        {
+            Motion.Stop(stale.Grow, ScaleTransform.ScaleXProperty, stale.Used / 100);
+            stale.Number.Stop(stale.Used);
+            if (DetailTexts.TryGetValue(stale.Label, out var staleCaptionState)) SettleDetailText(stale.Label, staleCaptionState);
+            _limitVisuals.Remove(stale.Key);
+        }
         _rebuildingResetRows = false;
+        foreach (var bar in _limitBars)
+            if (!bar.Label.IsVisible && DetailTexts.TryGetValue(bar.Label, out var hiddenCaptionState))
+                SettleDetailText(bar.Label, hiddenCaptionState);
+        foreach (var pair in _claudeTexts.ToList())
+        {
+            if (!pair.Value.IsVisible && DetailTexts.TryGetValue(pair.Value, out var state))
+                SettleDetailText(pair.Value, state);
+            if (!sessions.Exists(s => s.Id == pair.Key.Session)) _claudeTexts.Remove(pair.Key);
+        }
 
         RevealNewCards(_cardScratch);
         _cardScratch.Clear();
@@ -418,10 +449,12 @@ public partial class ControlCenterView
         top.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         for (int i = 0; i < 3; i++) top.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-        top.Children.Add(WhoRow(lead.Name, lead.Title is { Length: > 0 } && lead.Project != lead.Title ? lead.Project : null, lead.Cwd));
+        var who = WhoRow(lead.Name, lead.Title is { Length: > 0 } && lead.Project != lead.Title ? lead.Project : null, lead.Cwd);
+        top.Children.Add(who);
+        _heroDetails.Add(who);
 
         var state = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 7, 0, 4) };
-        state.Children.Add(new TextBlock
+        state.Children.Add(ClaudeText(lead.Id, "state", new TextBlock
         {
             Text = StateWord(lead),
             FontFamily = ControlFont,
@@ -429,7 +462,7 @@ public partial class ControlCenterView
             FontWeight = FontWeights.Bold,
             Foreground = _heroInk,
             VerticalAlignment = VerticalAlignment.Center
-        });
+        }));
         if (lead.Status == ClaudeSessionStatus.Done)
         {
             // A small tick springs up next to "Done" the first time it shows.
@@ -448,10 +481,11 @@ public partial class ControlCenterView
         }
         Grid.SetRow(state, 1);
         top.Children.Add(state);
+        _heroDetails.Add(state);
 
         if (HeroLine(lead) is { Length: > 0 } line)
         {
-            var doing = new TextBlock
+            var doing = ClaudeText(lead.Id, "activity", new TextBlock
             {
                 Text = line,
                 FontFamily = ControlFont,
@@ -461,9 +495,10 @@ public partial class ControlCenterView
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(0, 0, 12, 0)
-            };
+            });
             Grid.SetRow(doing, 2);
             top.Children.Add(doing);
+            _heroDetails.Add(doing);
         }
 
         if (HeroTimeLabel(lead) is { } time)
@@ -471,6 +506,7 @@ public partial class ControlCenterView
             Grid.SetColumn(time, 1);
             Grid.SetRowSpan(time, 2);
             top.Children.Add(time);
+            _heroDetails.Add(time);
         }
 
         // Shown on hover with the open arrow; a waiting session wants its request answered first.
@@ -500,6 +536,12 @@ public partial class ControlCenterView
         foreach (var part in hoverParts)
         {
             part.Opacity = 0;
+            part.IsVisibleChanged += (_, _) =>
+            {
+                if (part.IsVisible) return;
+                Motion.Stop(part, OpacityProperty, 0);
+                Motion.Stop(WeatherMotion.Transform<TranslateTransform>(part), TranslateTransform.XProperty, 0);
+            };
             side.Children.Add(part);
         }
         Grid.SetColumn(side, 1);
@@ -569,7 +611,12 @@ public partial class ControlCenterView
         };
         HoverLift(hero, fill, show =>
         {
-            foreach (var part in hoverParts) WeatherMotion.Glide(part, OpacityProperty, show ? 1 : 0, show ? 140 : 200);
+            foreach (var part in hoverParts)
+            {
+                WeatherMotion.Glide(part, OpacityProperty, show ? 1 : 0, show ? 140 : 200);
+                Motion.To(WeatherMotion.Transform<TranslateTransform>(part), TranslateTransform.XProperty,
+                    show ? 2 : 0, Motion.Press);
+            }
         });
         System.Windows.Automation.AutomationProperties.SetName(hero, lead.Name);
         _cardScratch.Add(("hero:" + lead.Id, hero));
@@ -581,6 +628,28 @@ public partial class ControlCenterView
             OpenSession(hero, sessionId, title);
         };
         return hero;
+    }
+
+    private TextBlock ClaudeText(string session, string part, TextBlock next)
+    {
+        if (!_claudeTexts.TryGetValue((session, part), out var text))
+        {
+            PreserveClaudeText(next);
+            _claudeTexts[(session, part)] = next;
+            return next;
+        }
+        if (text.Parent is Panel previous) previous.Children.Remove(text);
+        text.Foreground = next.Foreground;
+        // Rebuilds reparent the label. Start its swap once the new card is back in the visible tree.
+        string value = next.Text;
+        Dispatcher.BeginInvoke(new Action(() => SetDetailText(text, value)));
+        return text;
+    }
+
+    private void PreserveClaudeText(TextBlock text)
+    {
+        SetDetailText(text, text.Text);
+        if (DetailTexts.TryGetValue(text, out var state)) state.Reparenting = () => _rebuildingResetRows;
     }
 
     /// <summary>The star and the session's name; the folder follows a name Claude Code gave it.</summary>
@@ -697,7 +766,7 @@ public partial class ControlCenterView
         bool live = session.Status is ClaudeSessionStatus.Working or ClaudeSessionStatus.Waiting;
         var row = new StackPanel { Orientation = Orientation.Horizontal };
         row.Children.Add(ChipDot(DotBrush(session.Status), live));
-        row.Children.Add(new TextBlock
+        row.Children.Add(ClaudeText(session.Id, "chip-name", new TextBlock
         {
             Text = session.Name,
             FontFamily = ControlFont,
@@ -708,8 +777,8 @@ public partial class ControlCenterView
             TextTrimming = TextTrimming.CharacterEllipsis,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(7, 0, 0, 0)
-        });
-        row.Children.Add(new TextBlock
+        }));
+        row.Children.Add(ClaudeText(session.Id, "chip-state", new TextBlock
         {
             Text = ChipLine(session),
             FontFamily = ControlFont,
@@ -720,7 +789,7 @@ public partial class ControlCenterView
             TextTrimming = TextTrimming.CharacterEllipsis,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(7, 0, 0, 0)
-        });
+        }));
         var fill = new SolidColorBrush(CardRest);
         var chip = new Border
         {
@@ -793,10 +862,29 @@ public partial class ControlCenterView
     private FrameworkElement MiniLimit(string key, string label, ClaudeLimitWindow window, Brush? accent = null)
     {
         double used = Math.Clamp(window.UsedPercent, 0, 100);
+        if (_limitVisuals.TryGetValue(key, out var previous) && (previous.ResetsAt != null) != (window.ResetsAt != null))
+        {
+            Motion.Stop(previous.Grow, ScaleTransform.ScaleXProperty, previous.Used / 100);
+            previous.Number.Stop(previous.Used);
+            if (DetailTexts.TryGetValue(previous.Label, out var captionState)) SettleDetailText(previous.Label, captionState);
+            _limitVisuals.Remove(key);
+        }
+        if (_limitVisuals.TryGetValue(key, out var existing))
+        {
+            if (existing.Host.Parent is Panel old) old.Children.Remove(existing.Host);
+            existing.Used = used;
+            if (existing.ResetsAt != window.ResetsAt) existing.AskedAfterReset = false;
+            existing.ResetsAt = window.ResetsAt;
+            existing.Percent.Foreground = used >= NearLimitPercent ? _moodInk : LimitValue;
+            Dispatcher.BeginInvoke(new Action(() => SetDetailText(existing.Label, label)));
+            _limitBars.Add(existing);
+            PlayLimit(existing, _limitShown.GetValueOrDefault(key), 0);
+            return existing.Host;
+        }
         var top = new Grid();
         top.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         top.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        top.Children.Add(new TextBlock
+        var caption = new TextBlock
         {
             Text = label,
             FontFamily = ControlFont,
@@ -804,7 +892,9 @@ public partial class ControlCenterView
             FontWeight = FontWeights.SemiBold,
             Foreground = LimitLabel,
             TextTrimming = TextTrimming.CharacterEllipsis
-        });
+        };
+        PreserveClaudeText(caption);
+        top.Children.Add(caption);
         var percent = new TextBlock
         {
             FontFamily = ControlFont,
@@ -817,7 +907,7 @@ public partial class ControlCenterView
         Grid.SetColumn(percent, 1);
         top.Children.Add(percent);
 
-        var grow = new ScaleTransform(used / 100, 1);
+        var grow = new ScaleTransform(0, 1);
         var fill = new Border { Background = accent ?? ClaudeBar, CornerRadius = new CornerRadius(1.5), RenderTransformOrigin = new Point(0, 0.5), RenderTransform = grow };
         var bar = new Grid
         {
@@ -829,11 +919,21 @@ public partial class ControlCenterView
         var stack = new StackPanel();
         stack.Children.Add(top);
         stack.Children.Add(bar);
-        if (window.ResetsAt is { } resets)
+        var limitBar = new LimitBar
+        {
+            Key = key, Used = used, Grow = grow, Host = stack, Label = caption, Percent = percent, ResetsAt = window.ResetsAt,
+            Number = new WeatherTween { Step = v => percent.Text = $"{Math.Round(v)} %" }
+        };
+        stack.IsVisibleChanged += (_, _) =>
+        {
+            if (stack.IsVisible || _rebuildingResetRows) return;
+            Motion.Stop(grow, ScaleTransform.ScaleXProperty, limitBar.Used / 100);
+            limitBar.Number.Stop(limitBar.Used);
+        };
+        if (window.ResetsAt != null)
         {
             // Counts down on its own; once the window is over, the limits are read again (only read, nothing is sent
             // to Claude, so no new window starts).
-            bool askedAfterReset = false;
             stack.Children.Add(LiveText(new TextBlock
             {
                 FontFamily = ControlFont,
@@ -843,10 +943,11 @@ public partial class ControlCenterView
                 TextTrimming = TextTrimming.CharacterEllipsis
             }, () =>
             {
+                if (limitBar.ResetsAt is not { } resets) return "";
                 var left = resets - DateTimeOffset.UtcNow;
-                if (left <= TimeSpan.Zero && !askedAfterReset)
+                if (left <= TimeSpan.Zero && !limitBar.AskedAfterReset)
                 {
-                    askedAfterReset = true;
+                    limitBar.AskedAfterReset = true;
                     if (accent == null) RefreshUsage(UsageViewMinAge);
                     else RefreshCodexUsage();
                 }
@@ -854,7 +955,7 @@ public partial class ControlCenterView
             }));
         }
 
-        var limitBar = new LimitBar(key, used, grow, new WeatherTween { Step = v => percent.Text = $"{Math.Round(v)} %" });
+        _limitVisuals[key] = limitBar;
         _limitBars.Add(limitBar);
         // A changed value moves from where the bar was; the first one seen with the tab open fills from empty.
         PlayLimit(limitBar, _limitShown.TryGetValue(key, out double was) ? was : 0, 0);
@@ -862,19 +963,23 @@ public partial class ControlCenterView
     }
 
     /// <summary>Fills a bar with a spring and rolls its number along; without the tab on screen it just sets them.</summary>
-    private void PlayLimit(LimitBar bar, double from, double delayMs)
+    private void PlayLimit(LimitBar bar, double from, double delayMs, bool entrance = false)
     {
         _limitShown[bar.Key] = bar.Used;
-        bool animate = IsVisible && !AnimationConfig.ReduceMotion && Math.Abs(from - bar.Used) > 0.05;
+        bool animate = IsVisible && !AnimationConfig.ReduceMotion &&
+            (entrance || Math.Abs(from - bar.Used) > 0.05 || Motion.IsRunning(bar.Grow, ScaleTransform.ScaleXProperty));
         if (!animate)
         {
-            bar.Grow.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-            bar.Grow.ScaleX = bar.Used / 100;
-            bar.Number.Play(bar.Used, bar.Used, 0, WeatherMotion.OutQuint);
+            Motion.Stop(bar.Grow, ScaleTransform.ScaleXProperty, bar.Used / 100);
+            bar.Number.Stop(bar.Used);
+            bar.Number.Step?.Invoke(bar.Used);
             return;
         }
-        Motion.To(bar.Grow, ScaleTransform.ScaleXProperty, bar.Used / 100, Motion.Glide);
-        bar.Number.To(bar.Used);
+        bool fresh = entrance && !Motion.IsRunning(bar.Grow, ScaleTransform.ScaleXProperty);
+        var delay = TimeSpan.FromMilliseconds(delayMs);
+        Motion.To(bar.Grow, ScaleTransform.ScaleXProperty, bar.Used / 100, Motion.Glide,
+            from: fresh ? 0 : null, delay: delay);
+        bar.Number.To(bar.Used, from: fresh ? 0 : null, delay: delay);
     }
 
     #endregion
@@ -949,7 +1054,8 @@ public partial class ControlCenterView
             }
             GlideIn(element, start + Motion.Stagger(index++).TotalMilliseconds);
         }
-        foreach (var bar in _limitBars) PlayLimit(bar, 0, start);
+        foreach (var bar in _limitBars) PlayLimit(bar, 0, start, entrance: true);
+        for (int i = 0; i < _heroDetails.Count; i++) DetailArrive(_heroDetails[i], i);
         RollTokensIn();
         PopTick(start);
     }

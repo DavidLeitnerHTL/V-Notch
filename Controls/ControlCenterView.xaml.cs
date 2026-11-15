@@ -522,11 +522,13 @@ public partial class ControlCenterView : UserControl, IDisposable
         public TranslateTransform? Peak;
         public double PeakValue = double.NaN;
         public RollingNumber? Roll;
+        public RollingNumber? TemperatureRoll;
         public double Last = double.NaN;
         public SolidColorBrush? ValueInk;
         public Spark? Spark;
         public PingDot? Ping;
         public FrameworkElement? Down, Up;
+        public FrameworkElement? Heading;
     }
 
     private sealed class StatTiles
@@ -598,7 +600,8 @@ public partial class ControlCenterView : UserControl, IDisposable
         value.Margin = new Thickness(0, 3, 0, 0);
         var stack = new StackPanel();
         stack.Children.Add(head);
-        var tile = new StatTile { Value = value, Temp = temp, ValueInk = valueInk };
+        var tile = new StatTile { Value = value, Temp = temp, ValueInk = valueInk, Heading = head };
+        tile.TemperatureRoll = new RollingNumber(v => temp.Text = $" · {Math.Round(v)}°", temp);
 
         if (isNet)
         {
@@ -611,7 +614,11 @@ public partial class ControlCenterView : UserControl, IDisposable
 
         if (metric != null)
         {
-            tile.Roll = new RollingNumber(v => value.Text = $"{Math.Round(v)} %", value);
+            tile.Roll = new RollingNumber(v =>
+            {
+                if (double.IsFinite(tile.Last)) SetRollingDetailText(value, $"{Math.Round(v)} %");
+            }, value);
+            tile.Roll.To(0, 0);
             var fill = new ScaleTransform(0, 1);
             var peak = new TranslateTransform();
             var bar = new Grid
@@ -635,6 +642,12 @@ public partial class ControlCenterView : UserControl, IDisposable
             tile.Fill = fill;
             tile.Bar = bar;
             tile.Peak = peak;
+            bar.IsVisibleChanged += (_, _) =>
+            {
+                if (bar.IsVisible) return;
+                Motion.Stop(fill, ScaleTransform.ScaleXProperty, double.IsFinite(tile.Last) ? Math.Clamp(tile.Last / 100, 0, 1) : 0);
+                Motion.Stop(peak, TranslateTransform.XProperty);
+            };
             tile.Spark = NewSpark(metric);
         }
         else
@@ -669,6 +682,7 @@ public partial class ControlCenterView : UserControl, IDisposable
             // CPU and RAM list the busiest apps, GPU opens Task Manager, the network tile its settings.
             card.Cursor = Cursors.Hand;
             Pressable(card, () => CardBg, CardHover, grow: true);
+            DetailHover(card, head, y: -1.5);
             card.MouseLeftButtonDown += (_, e) =>
             {
                 e.Handled = true;
@@ -709,7 +723,12 @@ public partial class ControlCenterView : UserControl, IDisposable
             tile.Last = p;
             tile.Roll.To(p);
         }
-        else tile.Value.Text = "–";
+        else
+        {
+            tile.Last = double.NaN;
+            tile.Roll?.To(0, 0);
+            SetDetailText(tile.Value, "–");
+        }
         if (tile.Spark != null) DrawSpark(tile.Spark);
         if (tile.Fill == null) return;
         double target = Math.Clamp((percent ?? 0) / 100, 0, 1);
@@ -739,15 +758,32 @@ public partial class ControlCenterView : UserControl, IDisposable
     {
         _temps = (cpu, gpu);
         if (_statsTiles is not { } tiles) return;
-        Set(tiles.Cpu.Temp, cpu);
-        Set(tiles.Gpu.Temp, gpu);
+        Set(tiles.Cpu, cpu);
+        Set(tiles.Gpu, gpu);
 
-        static void Set(TextBlock? label, int celsius)
+        static void Set(StatTile tile, int celsius)
         {
+            var label = tile.Temp;
             if (label == null) return;
-            label.Visibility = celsius > 0 ? Visibility.Visible : Visibility.Collapsed;
-            label.Text = $" · {celsius}°";
-            label.Foreground = celsius >= 90 ? HotTemp : Muted;
+            bool entering = label.Visibility != Visibility.Visible && celsius > 0;
+            if (celsius <= 0)
+            {
+                if (!label.IsVisible || AnimationConfig.ReduceMotion) label.Visibility = Visibility.Collapsed;
+                else Motion.To(label, OpacityProperty, 0, Motion.Exit, done: () =>
+                {
+                    if (label.Opacity <= .01) label.Visibility = Visibility.Collapsed;
+                });
+                return;
+            }
+            label.Visibility = Visibility.Visible;
+            tile.TemperatureRoll?.To(celsius);
+            if (entering) DetailArrive(label, 0);
+            else if (Motion.IsRunning(label, OpacityProperty)) Motion.To(label, OpacityProperty, 1, Motion.Tile);
+            var color = ((SolidColorBrush)(celsius >= 90 ? HotTemp : Muted)).Color;
+            if (label.Foreground is not SolidColorBrush { IsFrozen: false } ink)
+                label.Foreground = ink = new SolidColorBrush(((SolidColorBrush)label.Foreground).Color);
+            if (label.IsVisible) WeatherMotion.Tint(ink, color);
+            else { ink.BeginAnimation(SolidColorBrush.ColorProperty, null); ink.Color = color; }
         }
     }
 
@@ -759,7 +795,16 @@ public partial class ControlCenterView : UserControl, IDisposable
         if (_statsTiles is not { } tiles) return;
         int i = 0;
         foreach (var tile in new[] { tiles.Cpu, tiles.Gpu, tiles.Ram })
-            if (tile.Spark != null) DrawSparkIn(tile.Spark, 180 + i++ * 70);
+        {
+            if (tile.Heading != null) DetailArrive(tile.Heading, i);
+            DetailArrive(tile.Value, i + 1);
+            tile.Roll?.Reveal();
+            if (tile.Fill != null && double.IsFinite(tile.Last) && !Motion.IsRunning(tile.Fill, ScaleTransform.ScaleXProperty))
+                Motion.To(tile.Fill, ScaleTransform.ScaleXProperty, Math.Clamp(tile.Last / 100, 0, 1), Motion.Glide,
+                    from: 0, delay: Motion.Stagger(i + 2), fps: RippleFps);
+            if (tile.Spark != null) DrawSparkIn(tile.Spark, Motion.Stagger(i + 2).TotalMilliseconds);
+            i++;
+        }
     }
 
     private enum TopMode
@@ -790,6 +835,7 @@ public partial class ControlCenterView : UserControl, IDisposable
         public required Grid Row;
         public required TextBlock Title, Cpu, Memory;
         public required TranslateTransform Slot;
+        public required RollingNumber CpuRoll, MemoryRoll;
         public int Index = -1;
     }
 
@@ -859,15 +905,17 @@ public partial class ControlCenterView : UserControl, IDisposable
                 row.RenderTransform = slot;
                 if (_topCanvas.ActualWidth > 0) row.Width = _topCanvas.ActualWidth;
                 _topCanvas.Children.Add(row);
-                parts = new TopRowParts { Row = row, Title = title, Cpu = cpu, Memory = memory, Slot = slot, Index = i };
+                parts = new TopRowParts { Row = row, Title = title, Cpu = cpu, Memory = memory, Slot = slot, Index = i,
+                    CpuRoll = new RollingNumber(v => cpu.Text = $"{v:0.0} %", cpu),
+                    MemoryRoll = new RollingNumber(v => memory.Text = FormatBytes((long)Math.Max(0, v)), memory) };
                 _topRows[load.Name] = parts;
                 if (IsVisible && !AnimationConfig.ReduceMotion)
                     PopIn(row, Motion.Stagger(i).TotalMilliseconds);
             }
-            parts.Title.Text = load.Title;
+            SetDetailText(parts.Title, load.Title);
             parts.Title.ToolTip = load.Instances > 1 ? $"{load.Name} × {load.Instances}" : null;
-            parts.Cpu.Text = $"{load.CpuPercent:0.0} %";
-            parts.Memory.Text = FormatBytes(load.MemoryBytes);
+            parts.CpuRoll.To(load.CpuPercent);
+            parts.MemoryRoll.To(load.MemoryBytes);
             parts.Cpu.Foreground = _topMode == TopMode.Cpu ? VNotch.Services.UiPalette.PrimaryBrush : Muted;
             parts.Memory.Foreground = _topMode == TopMode.Memory ? VNotch.Services.UiPalette.PrimaryBrush : Muted;
             SetEndButton(parts, load);
@@ -1944,7 +1992,7 @@ public partial class ControlCenterView : UserControl, IDisposable
     private void UpdateElapsedLabels()
     {
         DateTime now = DateTime.UtcNow;
-        foreach (var (label, started) in _elapsedLabels) label.Text = FormatElapsed(now - started);
+        foreach (var (label, started) in _elapsedLabels) SetDetailText(label, FormatElapsed(now - started));
     }
 
     internal static string FormatElapsed(TimeSpan span)
@@ -2245,6 +2293,8 @@ public partial class ControlCenterView : UserControl, IDisposable
             grid.Children.Add(caret);
 
             Pressable(border, () => ComboBg, ComboHover);
+            DetailHover(border, grid.Children[0] as FrameworkElement ?? caret, x: 1, y: -1);
+            DetailHover(border, caret, y: 1.5);
             border.MouseLeftButtonDown += (_, e) =>
             {
                 e.Handled = true;
@@ -2317,6 +2367,7 @@ public partial class ControlCenterView : UserControl, IDisposable
         };
         System.Windows.Automation.AutomationProperties.SetName(button, tooltip);
         Pressable(button, () => ComboBg, ComboHover, grow: true);
+        DetailHover(button, (FrameworkElement)button.Child);
         button.MouseLeftButtonDown += (_, e) =>
         {
             e.Handled = true;

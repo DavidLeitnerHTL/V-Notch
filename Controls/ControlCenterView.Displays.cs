@@ -123,10 +123,15 @@ public partial class ControlCenterView
         bar.Children.Add(number);
         bar.Children.Add(hit);
         var shownLevel = new RollingNumber(n => number.Text = $"{Math.Round(n)} %", number);
-        shownLevel.To(value.Value);
+        int requestedLevel = value.Value;
+        var trackScale = new ScaleTransform(1, 1);
+        track.RenderTransform = trackScale;
+        track.RenderTransformOrigin = new Point(0.5, 0.5);
+        DetailHover(hit, number, x: 2, y: 0);
         void SetLevel(int level)
         {
             level = Math.Clamp(level, 0, 100);
+            requestedLevel = level;
             Motion.To(fill, ScaleTransform.ScaleXProperty, level / 100.0, Motion.Glide);
             shownLevel.To(level);
             DisplayBrightness.Set(id, level);
@@ -136,9 +141,16 @@ public partial class ControlCenterView
             double w = track.ActualWidth;
             if (w > 0) SetLevel((int)Math.Round(Math.Clamp(e.GetPosition(track).X / w, 0, 1) * 100));
         }
-        hit.MouseLeftButtonDown += (_, e) => { e.Handled = true; hit.CaptureMouse(); SetFrom(e); };
+        hit.MouseLeftButtonDown += (_, e) =>
+        {
+            e.Handled = true;
+            hit.CaptureMouse();
+            Motion.To(trackScale, ScaleTransform.ScaleYProperty, 1.3, Motion.PressDown);
+            SetFrom(e);
+        };
         hit.MouseMove += (_, e) => { if (hit.IsMouseCaptured) SetFrom(e); };
         hit.MouseLeftButtonUp += (_, _) => hit.ReleaseMouseCapture();
+        hit.LostMouseCapture += (_, _) => Motion.To(trackScale, ScaleTransform.ScaleYProperty, 1, Motion.Press);
         hit.PreviewMouseWheel += (_, e) =>
         {
             e.Handled = true;
@@ -148,6 +160,19 @@ public partial class ControlCenterView
         host.Children.Add(bar);
         host.Visibility = Visibility.Visible;
         PopIn(host, 0);
+        DetailArrive(label, 0);
+        DetailArrive(bar, 1);
+        shownLevel.To(0, 0);
+        shownLevel.To(value.Value);
+        if (host.IsVisible)
+            Motion.To(fill, ScaleTransform.ScaleXProperty, value.Value / 100.0, Motion.Glide,
+                from: AnimationConfig.ReduceMotion ? null : 0, delay: Motion.Stagger(2));
+        host.IsVisibleChanged += (_, _) =>
+        {
+            if (host.IsVisible) return;
+            Motion.Stop(fill, ScaleTransform.ScaleXProperty, requestedLevel / 100.0);
+            Motion.Stop(trackScale, ScaleTransform.ScaleYProperty, 1);
+        };
     }
 
     private DdcBrightness DisplayBrightness => _displayBrightness ??= new DdcBrightness(new DisplayBrightnessPort(this), () => DateTime.UtcNow);
@@ -164,8 +189,10 @@ public partial class ControlCenterView
         var row = new WrapPanel { Orientation = vertical ? Orientation.Vertical : Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 5) };
         foreach (var (text, selected, click) in choices)
         {
-            var chip = new Border { Background = selected ? Wash(_mood, .25) : CardBg, CornerRadius = new CornerRadius(6), Padding = new Thickness(9, 5, 9, 5), Margin = new Thickness(0, 0, 5, 4), Cursor = Cursors.Hand, Child = MakeLabel(text, 11, selected ? _moodInk : Muted), Tag = text };
+            var label = MakeLabel(text, 11, selected ? _moodInk : Muted);
+            var chip = new Border { Background = selected ? Wash(_mood, .25) : CardBg, CornerRadius = new CornerRadius(6), Padding = new Thickness(9, 5, 9, 5), Margin = new Thickness(0, 0, 5, 4), Cursor = Cursors.Hand, Child = label, Tag = text };
             Squish(chip);
+            DetailHover(chip, label, x: 2, y: 0);
             chip.MouseLeftButtonUp += (_, e) => { e.Handled = true; click(); };
             row.Children.Add(chip);
         }
@@ -238,12 +265,26 @@ public partial class ControlCenterView
             rect.RenderTransformOrigin = new Point(0.5, 0.5);
             void SetScale(double value, SpringMotion spring)
             {
+                if (!rect.IsVisible)
+                {
+                    Motion.Stop(feedback, ScaleTransform.ScaleXProperty, 1);
+                    Motion.Stop(feedback, ScaleTransform.ScaleYProperty, 1);
+                    return;
+                }
                 Motion.To(feedback, ScaleTransform.ScaleXProperty, value, spring);
                 Motion.To(feedback, ScaleTransform.ScaleYProperty, value, spring);
             }
             rect.MouseEnter += (_, _) => SetScale(HoverScale(rect), Motion.Press);
             rect.MouseLeave += (_, _) => { if (!rect.IsMouseCaptured) SetScale(1, Motion.Press); };
             rect.LostMouseCapture += (_, _) => SetScale(rect.IsMouseOver ? HoverScale(rect) : 1, Motion.Press);
+            rect.IsVisibleChanged += (_, _) =>
+            {
+                if (rect.IsVisible) return;
+                Motion.Stop(feedback, ScaleTransform.ScaleXProperty, 1);
+                Motion.Stop(feedback, ScaleTransform.ScaleYProperty, 1);
+                Motion.Stop(rect, Canvas.LeftProperty);
+                Motion.Stop(rect, Canvas.TopProperty);
+            };
             rect.MouseLeftButtonDown += (_, e) =>
             {
                 Motion.Stop(rect, Canvas.LeftProperty); Motion.Stop(rect, Canvas.TopProperty);

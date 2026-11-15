@@ -49,7 +49,7 @@ public partial class ControlCenterView
                 _liveTexts.RemoveAt(i);
                 continue;
             }
-            if (make() is { } now && now != text.Text) text.Text = now;
+            if (text.IsVisible && make() is { } now) SetDetailText(text, now);
         }
         if (_liveTexts.Count == 0) _liveTextTimer?.Stop();
     }
