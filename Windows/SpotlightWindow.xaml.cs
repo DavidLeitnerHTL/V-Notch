@@ -2520,7 +2520,6 @@ public partial class SpotlightWindow : Window
         }
 
         _entranceActive = true;
-        var morphEase = CreateMorphEase();
         var contentEase = new ExponentialEase { EasingMode = EasingMode.EaseOut, Exponent = 6 };
 
         double startLeft = finalLeft;
@@ -2594,14 +2593,10 @@ public partial class SpotlightWindow : Window
         ShellContent.HorizontalAlignment = HorizontalAlignment.Left;
         ShellContent.Effect = null;
 
-        var expandWidth = CreateAnimation(startShellWidth, finalShellWidth,
-            MorphDuration, morphEase, synchronizedMorph: true);
-        var expandHeight = CreateAnimation(startShellHeight, finalShellHeight,
-            MorphDuration, morphEase, synchronizedMorph: true);
-        var moveLeft = CreateAnimation(startLeft, finalLeft, MorphDuration, morphEase, synchronizedMorph: true);
-        var moveTop = CreateAnimation(startTop, finalTop, MorphDuration, morphEase, synchronizedMorph: true);
-        var corner = CreateAnimation(startBottomRadius, ExpandedCornerRadius, MorphDuration, morphEase, synchronizedMorph: true);
-        var cornerTop = CreateAnimation(startTopRadius, ExpandedCornerRadius, MorphDuration, morphEase, synchronizedMorph: true);
+        var startGeometry = new MorphGeometry(startLeft, startTop, startShellWidth, startShellHeight,
+            startBottomRadius, startTopRadius);
+        var finalGeometry = new MorphGeometry(finalLeft, finalTop, finalShellWidth, finalShellHeight,
+            ExpandedCornerRadius, ExpandedCornerRadius);
 
         var contentFade = CreateAnimation(0, 1, TimeSpan.FromMilliseconds(240), contentEase);
         // The captured notch covers the short content delay. If capture is not
@@ -2636,18 +2631,11 @@ public partial class SpotlightWindow : Window
                 RestoreShadow();
             }
 
-            expandWidth.Completed += (_, _) =>
+            SpringMorphGeometry(Motion.MorphOpen, startGeometry, default, finalGeometry, () =>
             {
                 if (generation != _animationGeneration || _isClosing || !IsSpotlightOpen) return;
                 CompleteEntrance(finalLeft, finalTop);
-            };
-
-            Shell.BeginAnimation(WidthProperty, expandWidth);
-            Shell.BeginAnimation(HeightProperty, expandHeight);
-            BeginAnimation(LeftProperty, moveLeft);
-            BeginAnimation(TopProperty, moveTop);
-            BeginAnimation(ShellCornerRadiusProperty, corner);
-            BeginAnimation(ShellTopCornerRadiusProperty, cornerTop);
+            });
             ShellContent.BeginAnimation(OpacityProperty, contentFade);
             ContentTranslate.BeginAnimation(TranslateTransform.YProperty, contentSlide);
             if (notchFade != null)
@@ -2722,18 +2710,6 @@ public partial class SpotlightWindow : Window
 
         var morphEase = CreateMorphEase();
         var contentEase = new ExponentialEase { EasingMode = EasingMode.EaseOut, Exponent = 6 };
-        var expandWidth = CreateAnimation(current.Width, finalSize.Width,
-            MorphDuration, morphEase, synchronizedMorph: true);
-        var expandHeight = CreateAnimation(current.Height, finalSize.Height,
-            MorphDuration, morphEase, synchronizedMorph: true);
-        var moveLeft = CreateAnimation(current.Left, target.Left,
-            MorphDuration, morphEase, synchronizedMorph: true);
-        var moveTop = CreateAnimation(current.Top, target.Top,
-            MorphDuration, morphEase, synchronizedMorph: true);
-        var corner = CreateAnimation(current.CornerRadius, ExpandedCornerRadius,
-            MorphDuration, morphEase, synchronizedMorph: true);
-        var cornerTop = CreateAnimation(current.TopCornerRadius, ExpandedCornerRadius,
-            MorphDuration, morphEase, synchronizedMorph: true);
         var shellReveal = CreateAnimation(current.ShellOpacity, 1,
             MorphDuration, morphEase, synchronizedMorph: true);
         var contentFade = CreateAnimation(current.ContentOpacity, 1,
@@ -2741,18 +2717,15 @@ public partial class SpotlightWindow : Window
         var contentSlide = CreateAnimation(current.ContentTranslateY, 0,
             TimeSpan.FromMilliseconds(280), contentEase);
 
-        expandWidth.Completed += (_, _) =>
-        {
-            if (generation != _animationGeneration || _isClosing || !IsSpotlightOpen) return;
-            CompleteEntrance(target.Left, target.Top);
-        };
-
-        Shell.BeginAnimation(WidthProperty, expandWidth);
-        Shell.BeginAnimation(HeightProperty, expandHeight);
-        BeginAnimation(LeftProperty, moveLeft);
-        BeginAnimation(TopProperty, moveTop);
-        BeginAnimation(ShellCornerRadiusProperty, corner);
-        BeginAnimation(ShellTopCornerRadiusProperty, cornerTop);
+        // Turning round keeps the speed the shell had on its way into the notch, so it swings back out
+        // instead of stopping dead and starting again.
+        SpringMorphGeometry(Motion.MorphOpen, current.Geometry, current.Momentum,
+            new MorphGeometry(target.Left, target.Top, finalSize.Width, finalSize.Height,
+                ExpandedCornerRadius, ExpandedCornerRadius), () =>
+            {
+                if (generation != _animationGeneration || _isClosing || !IsSpotlightOpen) return;
+                CompleteEntrance(target.Left, target.Top);
+            });
         Shell.BeginAnimation(OpacityProperty, shellReveal);
         ShellContent.BeginAnimation(OpacityProperty, contentFade);
         ContentTranslate.BeginAnimation(TranslateTransform.YProperty, contentSlide);
@@ -2883,14 +2856,6 @@ public partial class SpotlightWindow : Window
             ContentRegion.ClipToBounds = true;
         }
 
-        var shrinkWidth = CreateAnimation(current.Width, targetWidth,
-            MorphDuration, morphEase, synchronizedMorph: true);
-        var shrinkHeight = CreateAnimation(current.Height, targetHeight,
-            MorphDuration, morphEase, synchronizedMorph: true);
-        var moveLeft = CreateAnimation(current.Left, targetLeft, MorphDuration, morphEase, synchronizedMorph: true);
-        var moveTop = CreateAnimation(current.Top, targetTop, MorphDuration, morphEase, synchronizedMorph: true);
-        var corner = CreateAnimation(current.CornerRadius, targetBottomRadius, MorphDuration, morphEase, synchronizedMorph: true);
-        var cornerTop = CreateAnimation(current.TopCornerRadius, targetTopRadius, MorphDuration, morphEase, synchronizedMorph: true);
         var shellNormalize = CreateAnimation(current.ShellOpacity, 1,
             MorphDuration, morphEase, synchronizedMorph: true);
         var contentFade = CreateAnimation(current.ContentOpacity, 0,
@@ -2904,17 +2869,13 @@ public partial class SpotlightWindow : Window
             // The content is invisible from here on; dropping the frozen
             ContentRegion.Visibility = Visibility.Collapsed;
         };
-        shrinkWidth.Completed += (_, _) =>
-        {
-            if (generation == _animationGeneration) BeginReturnHandoff(generation);
-        };
-
-        Shell.BeginAnimation(WidthProperty, shrinkWidth);
-        Shell.BeginAnimation(HeightProperty, shrinkHeight);
-        BeginAnimation(LeftProperty, moveLeft);
-        BeginAnimation(TopProperty, moveTop);
-        BeginAnimation(ShellCornerRadiusProperty, corner);
-        BeginAnimation(ShellTopCornerRadiusProperty, cornerTop);
+        // An exit that interrupts the opening carries the opening's speed and bends it round into the notch.
+        SpringMorphGeometry(Motion.MorphClose, current.Geometry, current.Momentum,
+            new MorphGeometry(targetLeft, targetTop, targetWidth, targetHeight, targetBottomRadius, targetTopRadius),
+            () =>
+            {
+                if (generation == _animationGeneration) BeginReturnHandoff(generation);
+            });
         Shell.BeginAnimation(OpacityProperty, shellNormalize);
         ShellContent.BeginAnimation(OpacityProperty, contentFade);
         ContentTranslate.BeginAnimation(TranslateTransform.YProperty, contentSlide);
@@ -3131,7 +3092,12 @@ public partial class SpotlightWindow : Window
             (ShellContent.Effect as BlurEffect)?.Radius ?? 0,
             shadow?.BlurRadius ?? NotchShadowBlurRadius,
             shadow?.ShadowDepth ?? NotchShadowDepth,
-            shadow?.Opacity ?? 0);
+            shadow?.Opacity ?? 0,
+            // Read before the clocks go: the springs only know their speed while they still run.
+            new MorphMomentum(
+                Motion.VelocityOf(this, LeftProperty), Motion.VelocityOf(this, TopProperty),
+                Motion.VelocityOf(Shell, WidthProperty), Motion.VelocityOf(Shell, HeightProperty),
+                Motion.VelocityOf(this, ShellCornerRadiusProperty), Motion.VelocityOf(this, ShellTopCornerRadiusProperty)));
         ClearMorphAnimations();
         // Clearing a fade reveals its base value. Retire the opening snapshot
         ResetNotchMorphSnapshot();
@@ -3174,6 +3140,12 @@ public partial class SpotlightWindow : Window
         BeginAnimation(TopProperty, null);
         BeginAnimation(ShellCornerRadiusProperty, null);
         BeginAnimation(ShellTopCornerRadiusProperty, null);
+        Motion.Forget(Shell, WidthProperty);
+        Motion.Forget(Shell, HeightProperty);
+        Motion.Forget(this, LeftProperty);
+        Motion.Forget(this, TopProperty);
+        Motion.Forget(this, ShellCornerRadiusProperty);
+        Motion.Forget(this, ShellTopCornerRadiusProperty);
         _shellBorderBrush?.BeginAnimation(Brush.OpacityProperty, null);
         ShellContent.BeginAnimation(OpacityProperty, null);
         ContentTranslate.BeginAnimation(TranslateTransform.YProperty, null);
@@ -3351,5 +3323,42 @@ public partial class SpotlightWindow : Window
         double ContentBlurRadius,
         double ShadowBlurRadius,
         double ShadowDepth,
-        double ShadowOpacity);
+        double ShadowOpacity,
+        MorphMomentum Momentum)
+    {
+        public MorphGeometry Geometry => new(Left, Top, Width, Height, CornerRadius, TopCornerRadius);
+    }
+
+    /// <summary>The part of the shell that travels between the notch and Spotlight.</summary>
+    private readonly record struct MorphGeometry(
+        double Left, double Top, double Width, double Height, double CornerRadius, double TopCornerRadius);
+
+    /// <summary>How fast each part of <see cref="MorphGeometry"/> was moving, in units per second.</summary>
+    private readonly record struct MorphMomentum(
+        double Left, double Top, double Width, double Height, double CornerRadius, double TopCornerRadius);
+
+    /// <summary>
+    /// Sends the shell's geometry from <paramref name="from"/> to <paramref name="to"/> on one shared spring, each
+    /// part starting with its speed from <paramref name="speed"/>. <paramref name="landed"/> runs once every part
+    /// has come to rest, always on a later dispatcher turn, so a morph with nowhere to go never lands inside the
+    /// code that started it.
+    /// </summary>
+    private void SpringMorphGeometry(SpringMotion spring, MorphGeometry from, MorphMomentum speed, MorphGeometry to,
+        Action landed)
+    {
+        int moving = 6;
+        void PartLanded()
+        {
+            if (--moving == 0) Dispatcher.BeginInvoke(landed, DispatcherPriority.Normal);
+        }
+
+        Motion.To(this, LeftProperty, to.Left, spring, from: from.Left, velocity: speed.Left, done: PartLanded);
+        Motion.To(this, TopProperty, to.Top, spring, from: from.Top, velocity: speed.Top, done: PartLanded);
+        Motion.To(Shell, WidthProperty, to.Width, spring, from: from.Width, velocity: speed.Width, done: PartLanded);
+        Motion.To(Shell, HeightProperty, to.Height, spring, from: from.Height, velocity: speed.Height, done: PartLanded);
+        Motion.To(this, ShellCornerRadiusProperty, to.CornerRadius, spring,
+            from: from.CornerRadius, velocity: speed.CornerRadius, done: PartLanded);
+        Motion.To(this, ShellTopCornerRadiusProperty, to.TopCornerRadius, spring,
+            from: from.TopCornerRadius, velocity: speed.TopCornerRadius, done: PartLanded);
+    }
 }

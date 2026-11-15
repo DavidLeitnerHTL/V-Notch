@@ -24,6 +24,11 @@ internal static partial class Motion
     public static readonly SpringMotion Pop = Ms(440, 0.50);
     public static readonly SpringMotion PopBack = Ms(340, 0.22);
 
+    // Morph: Spotlight growing out of the notch and squishing back into it. A whole search window is a lot of
+    // pixels, so it swings less than the notch's own open, and it lands quickly because results wait for it.
+    public static readonly SpringMotion MorphOpen = Ms(380, 0.14);
+    public static readonly SpringMotion MorphClose = Ms(320, 0.04);
+
     // Glide: size and layout changes (tab switch, folding sections, sliders settling).
     public static readonly SpringMotion Glide = Ms(420, 0.28);
 
@@ -141,6 +146,15 @@ internal static partial class Motion
         Live.TryGetValue(target, out var live) && live.TryGetValue(property, out var running) &&
         Stopwatch.GetElapsedTime(running.StartedAt).TotalSeconds <
             running.DelaySeconds + running.Spring.Duration.TimeSpan.TotalSeconds + 0.05;
+
+    /// <summary>
+    /// Forgets the spring on the property without touching its value or clock, for code that retires the clock
+    /// itself (<c>BeginAnimation(property, null)</c>) and must not hand a stale speed to the next spring.
+    /// </summary>
+    public static void Forget(DependencyObject target, DependencyProperty property)
+    {
+        if (Live.TryGetValue(target, out var live)) live.Remove(property);
+    }
 
     /// <summary>Stops the spring and leaves the property at <paramref name="value"/> (its current value if omitted).</summary>
     public static void Stop(DependencyObject target, DependencyProperty property, double? value = null)
