@@ -170,6 +170,11 @@ public sealed class MainWindowModulePresentationTests
         configureSettings: settings => { settings.EnableLocalOnlyMode = true; },
         configureServices: services => services.AddSingleton<IMediaDetectionService>(new FakeMediaDetectionService()));
     private static T Field<T>(MainWindow window, string name) => (T)typeof(MainWindow).GetField(name, Private)!.GetValue(window)!;
-    private static void Set(MainWindow window, string name, object value) => typeof(MainWindow).GetField(name, Private)!.SetValue(window, value);
+    private static void Set(MainWindow window, string name, object value)
+    {
+        var field = typeof(MainWindow).GetField(name, Private);
+        if (field != null) field.SetValue(window, value);
+        else typeof(MainWindow).GetProperty(name, Private)!.SetValue(window, value);
+    }
     private static void Invoke(MainWindow window, string name, params object?[] args) => typeof(MainWindow).GetMethod(name, Private)!.Invoke(window, args);
 }

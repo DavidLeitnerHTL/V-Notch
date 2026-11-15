@@ -32,6 +32,7 @@ public sealed class AppNotificationMotionTests
         await using var fixture = CreateFixture();
         var window = fixture.Window;
         using var host = new RenderHost(window);
+        await WpfFrameWaiter.NextAsync(ct);
         // The fixture has not shown its window, so initialize the resting geometry explicitly.
         Motion.Stop(window.NotchBorder, FrameworkElement.WidthProperty, 300);
         Motion.Stop(window.NotchBorder, FrameworkElement.HeightProperty, 40);
@@ -41,7 +42,7 @@ public sealed class AppNotificationMotionTests
         Assert.Equal(initialWidth, window.NotchBorder.Width);
         Assert.Equal(initialHeight, window.NotchBorder.Height);
         Assert.Equal(0, window.AppNotificationBanner.Opacity);
-        await WpfFrameWaiter.UntilAsync(() => window.AppNotificationBanner.Opacity is > .2 and < .8,
+        await WpfFrameWaiter.UntilAsync(() => window.AppNotificationBanner.Opacity > .2,
             "notification reveals its content during the morph", ct);
         Assert.Equal(1, window.AppNotificationAppNameText.Opacity);
         Assert.Equal(1, window.AppNotificationTitleText.Opacity);

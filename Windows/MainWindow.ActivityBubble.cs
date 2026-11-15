@@ -201,7 +201,7 @@ public partial class MainWindow
 
     private void SetBubbleFace(LiveActivity activity)
     {
-        // Still collapsed: the orb is about to bud out, so the face shows only once it has landed.
+        // This runs while hidden or between the outgoing and incoming face fades.
         if (_bubbleActivity == LiveActivity.Charging && activity != LiveActivity.Charging) LeaveChargeFace(fast: true);
         _bubbleActivity = activity;
         BubbleClaudeFace.Visibility = activity == LiveActivity.Claude ? Visibility.Visible : Visibility.Collapsed;
@@ -380,8 +380,8 @@ public partial class MainWindow
     /// </summary>
     private void SwapBubbleFace(LiveActivity next)
     {
-        if (_bubbleOpen) CloseBubble();
         int token = ++_bubbleToken;
+        if (_bubbleOpen) CloseBubble();
         if (_bubbleActivity == LiveActivity.Charging) LeaveChargeFace(fast: false);
         var scale = BubbleIconScale();
         Motion.To(scale, ScaleTransform.ScaleXProperty, Motion.ExitToScale, Motion.Exit);
@@ -473,9 +473,8 @@ public partial class MainWindow
         _bubbleOpen = false;
         _bubbleListMode = false;
         Motion.Stop(BubbleList, OpacityProperty);
-        BubbleList.Children.Clear();
+        ClearBubbleRows();
         BubbleList.Visibility = Visibility.Collapsed;
-        _bubbleListRows.Clear();
         Motion.Stop(ActivityBubble, WidthProperty, BubbleSize);
         Motion.Stop(ActivityBubble, HeightProperty, BubbleSize);
         Motion.Stop(BubbleSlide, TranslateTransform.XProperty, 0);
@@ -492,6 +491,14 @@ public partial class MainWindow
         Motion.Stop(BubbleDetailSlide, TranslateTransform.XProperty, 0);
         BubbleDetail.Visibility = Visibility.Collapsed;
         Motion.Stop(BubbleDetailBlur, BlurEffect.RadiusProperty, 0);
+        Motion.Stop(BubbleCountBadge, OpacityProperty, 1);
+        Motion.Stop(BubbleCountBadgeScale, ScaleTransform.ScaleXProperty, 1);
+        Motion.Stop(BubbleCountBadgeScale, ScaleTransform.ScaleYProperty, 1);
+        foreach (var (text, value) in _bubbleWords)
+        {
+            Motion.Stop(text, OpacityProperty, 1);
+            text.Text = value;
+        }
     }
 
     /// <summary>The cover turns like a record while the music plays, and only while the orb is on screen.</summary>
@@ -615,8 +622,7 @@ public partial class MainWindow
         {
             if (token != _bubbleToken || _bubbleOpen) return;
             BubbleList.Visibility = Visibility.Collapsed;
-            BubbleList.Children.Clear();
-            _bubbleListRows.Clear();
+            ClearBubbleRows();
         });
         Motion.To(ActivityBubble, WidthProperty, BubbleSize, Motion.PopBack);
         Motion.To(ActivityBubble, HeightProperty, BubbleSize, Motion.PopBack);
@@ -632,10 +638,21 @@ public partial class MainWindow
         var sessions = _bubbleClaudeSessions.Take(BubbleMaxRows).ToList();
         bool sameSet = sessions.Count == _bubbleListRows.Count &&
                        sessions.Select(s => s.Id).SequenceEqual(_bubbleListRows.Select(r => r.Id));
+        if (!sameSet && !animate && BubbleList.IsVisible && !AnimationConfig.ReduceMotion)
+        {
+            // Keep the previous rows until they have left; the callback reads the latest sessions.
+            Motion.To(BubbleList, OpacityProperty, 0, Motion.Exit, done: () =>
+            {
+                if (!_bubbleOpen || !_bubbleListMode) return;
+                BubbleList.Visibility = Visibility.Collapsed;
+                Motion.To(ActivityBubble, HeightProperty, BubbleListHeight(_bubbleClaudeSessions.Count), Motion.Glide);
+                UpdateBubbleList(animate: true);
+            });
+            return;
+        }
         if (!sameSet)
         {
-            BubbleList.Children.Clear();
-            _bubbleListRows.Clear();
+            ClearBubbleRows();
             for (int i = 0; i < sessions.Count; i++)
             {
                 var row = BuildBubbleRow(sessions[i]);
@@ -659,9 +676,29 @@ public partial class MainWindow
             row.Status.Foreground = session.Status == ClaudeSessionStatus.Waiting ? ClaudeLiveWaitingBrush : BubbleMuted;
             CrossFadeText(row.Time, ControlCenterView.FormatElapsed(DateTime.UtcNow - (session.TurnStartedUtc ?? DateTime.UtcNow)));
         }
-        BubbleList.BeginAnimation(OpacityProperty, null);
-        BubbleList.Opacity = 1;
+        bool entering = !BubbleList.IsVisible;
         BubbleList.Visibility = Visibility.Visible;
+        if (entering || BubbleList.Opacity < 1)
+            Motion.To(BubbleList, OpacityProperty, 1, Motion.Tile, from: entering ? 0 : null);
+    }
+
+    private void ClearBubbleRows()
+    {
+        // Removed rows must not keep their staggered springs ticking behind the collapsed orb.
+        foreach (FrameworkElement row in BubbleList.Children)
+        {
+            Motion.Stop(row, OpacityProperty);
+            if (row.RenderTransform is TransformGroup { Children: [ScaleTransform scale, TranslateTransform slide] })
+            {
+                Motion.Stop(scale, ScaleTransform.ScaleXProperty);
+                Motion.Stop(scale, ScaleTransform.ScaleYProperty);
+                Motion.Stop(slide, TranslateTransform.XProperty);
+            }
+        }
+        foreach (var row in _bubbleListRows)
+            foreach (var text in new[] { row.Name, row.Status, row.Time }) Motion.Stop(text, OpacityProperty);
+        BubbleList.Children.Clear();
+        _bubbleListRows.Clear();
     }
 
     private FrameworkElement BuildBubbleRow(ClaudeSession session)

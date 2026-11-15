@@ -27,16 +27,22 @@ public partial class MainWindow
             element.IsVisibleChanged += (_, _) => EnforceCompactPresentationOwner();
     }
 
-    private static void HideCompactSurface(UIElement element)
+    private void HideCompactSurface(UIElement element)
     {
         if (element.Visibility != Visibility.Visible) return;
+        if (!element.IsVisible || !AmbientAnimationsAllowed)
+        {
+            Motion.Stop(element, OpacityProperty, 0);
+            element.Visibility = Visibility.Collapsed;
+            return;
+        }
         Motion.To(element, OpacityProperty, 0, Motion.Exit,
             done: () => { if (element.Opacity < .01) element.Visibility = Visibility.Collapsed; });
     }
 
     private void KeepCompactDeparture(UIElement surface)
     {
-        if (AnimationConfig.ReduceMotion || !surface.IsVisible || surface.Opacity <= 0 ||
+        if (!AmbientAnimationsAllowed || !surface.IsVisible || surface.Opacity <= 0 ||
             surface.RenderSize.Width <= 0 || surface.RenderSize.Height <= 0) return;
         // Freeze the outgoing face before its owner clears state; it can leave without keeping any live loops alive.
         var size = surface.RenderSize;
@@ -162,21 +168,18 @@ public partial class MainWindow
         }
 
         if (result.Preempted != CompactPillSlot.None)
-        {
-            KeepCompactSlotDeparture(result.Preempted);
-            double width = NotchBorder.Width, height = NotchBorder.Height;
-            double widthSpeed = Motion.VelocityOf(NotchBorder, WidthProperty);
-            double heightSpeed = Motion.VelocityOf(NotchBorder, HeightProperty);
             CancelCompactSlotImmediate(result.Preempted);
-            Motion.To(NotchBorder, WidthProperty, width, Motion.Pop, from: width, velocity: widthSpeed);
-            Motion.To(NotchBorder, HeightProperty, height, Motion.Pop, from: height, velocity: heightSpeed);
-        }
         EnforceCompactPresentationOwner();
         return true;
     }
 
     private void CancelCompactSlotImmediate(CompactPillSlot slot)
     {
+        KeepCompactSlotDeparture(slot);
+        double width = double.IsFinite(NotchBorder.Width) ? NotchBorder.Width : _collapsedWidth;
+        double height = double.IsFinite(NotchBorder.Height) ? NotchBorder.Height : _collapsedHeight;
+        double widthSpeed = Motion.VelocityOf(NotchBorder, WidthProperty);
+        double heightSpeed = Motion.VelocityOf(NotchBorder, HeightProperty);
         switch (slot)
         {
             case CompactPillSlot.Clipboard:
@@ -200,6 +203,9 @@ public partial class MainWindow
                 CancelAppPillImmediate();
                 break;
         }
+        // Cancellation clears the old owner's state; the next owner inherits its rendered shell and momentum.
+        Motion.To(NotchBorder, WidthProperty, width, Motion.Pop, from: width, velocity: widthSpeed);
+        Motion.To(NotchBorder, HeightProperty, height, Motion.Pop, from: height, velocity: heightSpeed);
     }
 
     private void AnimateCompactWidth(double targetWidth, TimeSpan duration, IEasingFunction ease, int token)

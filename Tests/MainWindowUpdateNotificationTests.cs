@@ -24,6 +24,7 @@ public sealed class MainWindowUpdateNotificationTests
         await using var fixture = CreateFixture(service);
         var window = fixture.Window;
         using var host = new HudContentHost(window);
+        window.ExpandedContent.Visibility = Visibility.Visible;
         Field<NotchSettings>(window, "_settings").AutoCheckUpdates = true;
         var check = (Task)Invoke(window, "CheckForUpdatesAsync")!;
         service.Requests[0].SetResult(NewRelease("9.5.1"));
@@ -63,6 +64,7 @@ public sealed class MainWindowUpdateNotificationTests
         await using var fixture = CreateFixture(new PendingUpdateService());
         var window = fixture.Window;
         using var host = new HudContentHost(window);
+        window.ExpandedContent.Visibility = Visibility.Visible;
         window.SetAvailableUpdate(NewRelease("9.5.4"));
         await WpfFrameWaiter.UntilAsync(() => Field<UiScheduledTimer?>(window, "_updatePulseTimer")?.IsEnabled == true, "update pulse starts", ct);
         window.NotchBorder.Visibility = Visibility.Hidden;
@@ -120,6 +122,7 @@ public sealed class MainWindowUpdateNotificationTests
         await using var fixture = CreateFixture(new PendingUpdateService());
         var window = fixture.Window;
         using var host = new HudContentHost(window);
+        window.ExpandedContent.Visibility = Visibility.Visible;
         Set(window, "_availableUpdate", NewRelease("9.5.4"));
         Set(window, "_isUpdateAvailable", true);
         Invoke(window, "ShowUpdateNotification");
@@ -130,7 +133,7 @@ public sealed class MainWindowUpdateNotificationTests
         Assert.Equal(Visibility.Visible, window.UpdateNotificationButton.Visibility);
         Assert.True(window.UpdateNotificationButton.IsHitTestVisible);
         await WpfFrameWaiter.UntilAsync(() => !Motion.IsRunning(window.UpdateNotificationButton, UIElement.OpacityProperty), "update entrance settles", ct);
-        Assert.Equal(1, window.UpdateNotificationButton.Opacity);
+        await WpfFrameWaiter.UntilAsync(() => window.UpdateNotificationButton.Opacity > .999, "update entrance arrives", ct);
         Set(window, "_isUpdateAvailable", false);
         Invoke(window, "HideUpdateNotification");
         await WpfFrameWaiter.UntilAsync(() => window.UpdateNotificationButton.Visibility == Visibility.Collapsed, "update hidden", ct);
@@ -264,7 +267,12 @@ public sealed class MainWindowUpdateNotificationTests
         Assert.Contains("99.0.0", window.UpdateNotificationButton.Tag.ToString());
     });
     private static T Field<T>(MainWindow window, string name) => (T)typeof(MainWindow).GetField(name, Private)!.GetValue(window)!;
-    private static void Set(MainWindow window, string name, object value) => typeof(MainWindow).GetField(name, Private)!.SetValue(window, value);
+    private static void Set(MainWindow window, string name, object value)
+    {
+        var field = typeof(MainWindow).GetField(name, Private);
+        if (field != null) field.SetValue(window, value);
+        else typeof(MainWindow).GetProperty(name, Private)!.SetValue(window, value);
+    }
     private static object? Invoke(MainWindow window, string name, params object?[] args) => typeof(MainWindow).GetMethod(name, Private)!.Invoke(window, args);
     private sealed class PendingUpdateService : IUpdateService
     {

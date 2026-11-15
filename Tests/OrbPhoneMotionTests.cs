@@ -4,6 +4,7 @@ using System.Windows.Media;
 using Microsoft.Extensions.DependencyInjection;
 using VNotch.Models;
 using VNotch.Services;
+using VNotch.Services.ClaudeCode;
 using VNotch.Tests.Fakes;
 using Xunit;
 
@@ -38,6 +39,61 @@ public sealed class OrbPhoneMotionTests
             "orb settles after its reversal", ct);
         Assert.Equal(Visibility.Visible, window.ActivityBubble.Visibility);
         Assert.InRange(Math.Abs(window.BubbleSlide.X), 0, 0.1);
+    });
+
+    [Fact]
+    public void SessionListReplacementKeepsOutgoingRowsUntilTheyFadeAndResizesForTheNewSet() => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        await using var fixture = Create();
+        var window = fixture.Window;
+        window.Left = -20000;
+        window.Show();
+        await WpfFrameWaiter.UntilAsync(() => window.CollapsedContent.IsVisible, "closed notch", ct);
+        var sessions = new List<ClaudeSession> { new() { Id = "one", Title = "Build" }, new() { Id = "two", Title = "Review" } };
+        Set(window, "_bubbleClaudeSessions", sessions);
+        Set(window, "_bubbleShown", true);
+        Invoke(window, "SetBubbleFace", LiveActivity.Claude);
+        Invoke(window, "BudBubble");
+        Invoke(window, "OpenBubble");
+        await WpfFrameWaiter.UntilAsync(() => !Motion.IsRunning(window.BubbleList, UIElement.OpacityProperty), "session list arrives", ct);
+        var outgoing = window.BubbleList.Children[0];
+        sessions = new List<ClaudeSession> { new() { Id = "three", Title = "Design" }, new() { Id = "four", Title = "Test" }, new() { Id = "five", Title = "Ship" } };
+        Set(window, "_bubbleClaudeSessions", sessions);
+        Invoke(window, "UpdateBubbleList", false);
+        Assert.Same(outgoing, window.BubbleList.Children[0]);
+        await WpfFrameWaiter.UntilAsync(() => window.BubbleList.Children.Count == 3 &&
+            !Motion.IsRunning(window.ActivityBubble, FrameworkElement.HeightProperty), "new session rows and shell settle", ct);
+        Assert.DoesNotContain(outgoing, window.BubbleList.Children.Cast<UIElement>());
+        Assert.True(window.ActivityBubble.ActualHeight >= 96);
+        Invoke(window, "SwapBubbleFace", LiveActivity.Music);
+        await WpfFrameWaiter.UntilAsync(() => window.BubbleList.Visibility == Visibility.Collapsed &&
+            window.BubbleMusicFace.Visibility == Visibility.Visible, "session rows leave before the next face arrives", ct);
+        Assert.Empty(window.BubbleList.Children.Cast<UIElement>());
+    });
+
+    [Fact]
+    public void ReplugKeepsTheSnappingCablePositionAndVelocity() => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        await using var fixture = Create();
+        var window = fixture.Window;
+        window.Left = -20000;
+        window.Show();
+        await WpfFrameWaiter.UntilAsync(() => window.CollapsedContent.IsVisible, "closed notch", ct);
+        Set(window, "_chargeBattery", new BatteryInfo { Percentage = 60, IsPluggedIn = true, IsCharging = true });
+        Set(window, "_bubbleShown", true);
+        Invoke(window, "SetBubbleFace", LiveActivity.Charging);
+        Invoke(window, "BudBubble");
+        await WpfFrameWaiter.UntilAsync(() => window.ChargeCable.IsVisible, "charge cable arrives", ct);
+        Invoke(window, "SnapChargeCable");
+        await Task.Delay(100, ct);
+        double position = window.ChargeCableLeftScale.ScaleX;
+        double velocity = Motion.VelocityOf(window.ChargeCableLeftScale, ScaleTransform.ScaleXProperty);
+        Invoke(window, "PlayChargeArrival", true);
+        Assert.InRange(Math.Abs(window.ChargeCableLeftScale.ScaleX - position), 0, 0.001);
+        Assert.InRange(Math.Abs(Motion.VelocityOf(window.ChargeCableLeftScale, ScaleTransform.ScaleXProperty) - velocity), 0, 0.2);
+        await WpfFrameWaiter.UntilAsync(() => !Motion.IsRunning(window.ChargeCableLeftScale, ScaleTransform.ScaleXProperty),
+            "replugged cable settles", ct);
+        Assert.Equal(1, window.ChargeCableLeftScale.ScaleX, 3);
     });
 
     [Fact]

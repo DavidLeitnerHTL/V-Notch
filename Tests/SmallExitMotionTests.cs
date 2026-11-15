@@ -15,6 +15,7 @@ public sealed class SmallExitMotionTests
     [Fact]
     public void HiddenIdleGlanceDoesNotAnimateWhileLeaving() => Run((window, ct) =>
     {
+        window.CollapsedContent.Visibility = Visibility.Collapsed;
         SeedVisible(window, "ShowIdleGlance");
         Invoke(window, "ShowIdleGlance", false);
         Assert.Equal(Visibility.Collapsed, window.IdleGlance.Visibility);
@@ -101,6 +102,31 @@ public sealed class SmallExitMotionTests
         Assert.Equal("Now", target.Text);
     });
 
+    [Fact]
+    public void ReducedMotionDropConfirmationKeepsItsHoldAndStopsWhenHidden() => Run(async (window, ct) =>
+    {
+        AnimationConfig.SetReduceMotion(true);
+        typeof(MainWindow).GetField("_cleanedUp", Private)!.SetValue(window, false);
+        typeof(MainWindow).GetProperty("_isSecondaryView", Private)!.SetValue(window, true);
+        try
+        {
+            Invoke(window, "PlayClipboardDropFeedback");
+            Assert.Equal(1, window.ClipboardDropBadge.Opacity);
+            Assert.False(window.ClipboardDropBadge.HasAnimatedProperties);
+            var timerField = typeof(MainWindow).GetField("_clipboardDropBadgeHold", Private)!;
+            Assert.Equal(TimeSpan.FromMilliseconds(650), Assert.IsType<UiScheduledTimer>(timerField.GetValue(window)).Interval);
+            await WpfFrameWaiter.UntilAsync(() => window.ClipboardDropBadge.Opacity == 0,
+                "reduced-motion confirmation reading time finishes", ct);
+            Assert.Null(timerField.GetValue(window));
+
+            Invoke(window, "PlayClipboardDropFeedback");
+            window.ClipboardDropBadge.Visibility = Visibility.Collapsed;
+            Assert.Equal(0, window.ClipboardDropBadge.Opacity);
+            Assert.Null(timerField.GetValue(window));
+        }
+        finally { typeof(MainWindow).GetField("_cleanedUp", Private)!.SetValue(window, true); }
+    });
+
     private static void SeedVisible(MainWindow window, string method)
     {
         AnimationConfig.SetReduceMotion(true);
@@ -115,19 +141,25 @@ public sealed class SmallExitMotionTests
         await using var fixture = new GreetingAcceptanceTests.MainWindowFixture("en", false,
             settings => { settings.EnableLocalOnlyMode = true; settings.DisableMouseLeaveAutoClose = true; },
             services => services.AddSingleton<IMediaDetectionService>(new FakeMediaDetectionService()));
-        var renderHost = new Window { Width = 1, Height = 1, Opacity = 0, ShowActivated = false, ShowInTaskbar = false };
+        var renderHost = new BackgroundWindow { Left = -20000, Top = -20000, Width = 720, Height = 240 };
+        var content = fixture.Window.Content;
         try
         {
             var window = fixture.Window;
             // Exercise the visuals without starting desktop watchers or notification access.
             await window.CleanupAsync();
+            window.Content = null;
+            renderHost.Content = content;
             renderHost.Show();
+            renderHost.UpdateLayout();
             AnimationConfig.SetReduceMotion(false);
             await test(window, ct);
         }
         finally
         {
+            renderHost.Content = null;
             renderHost.Close();
+            fixture.Window.Content = content;
             AnimationConfig.SetReduceMotion(reduced);
         }
     });

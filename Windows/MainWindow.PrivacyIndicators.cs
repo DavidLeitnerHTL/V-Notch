@@ -146,6 +146,7 @@ public partial class MainWindow
 
     private void ShowPrivacyDot(PrivacyIndicatorState state)
     {
+        HookAmbientVisibility();
         _privacyIndicatorsVisible = true;
 
         if (IsPrivacyDotSuppressed)
@@ -279,6 +280,8 @@ public partial class MainWindow
             from: show && entering ? 0 : null, done: () =>
             {
                 if (token != _privacyVisibilityToken || show) return;
+                Motion.Stop(PrivacyDotScale, ScaleTransform.ScaleXProperty);
+                Motion.Stop(PrivacyDotScale, ScaleTransform.ScaleYProperty);
                 PrivacyIndicatorPanel.Visibility = Visibility.Collapsed;
                 PrivacyDot.Visibility = Visibility.Collapsed;
             });
@@ -299,7 +302,6 @@ public partial class MainWindow
         _privacyBreathing = true;
         var breathing = new DoubleAnimation
         {
-            From = 1.0,
             To = 0.4,
             Duration = new Duration(TimeSpan.FromMilliseconds(1400)),
             AutoReverse = true,
@@ -315,8 +317,10 @@ public partial class MainWindow
     private void StopBreathingAnimation(FrameworkElement dot)
     {
         _privacyBreathing = false;
+        double opacity = dot.IsVisible && AmbientAnimationsAllowed ? dot.Opacity : 1;
         dot.BeginAnimation(OpacityProperty, null);
-        dot.Opacity = 1.0;
+        // The panel owns the exit fade; resetting a breathing dot first would brighten it for one frame.
+        dot.Opacity = opacity;
     }
 
     #endregion

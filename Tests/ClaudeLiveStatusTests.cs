@@ -37,14 +37,10 @@ public class ClaudeLiveStatusTests
             configureSettings: settings => settings.EnableLocalOnlyMode = true,
             configureServices: services => services.AddSingleton<IMediaDetectionService>(new FakeMediaDetectionService()));
         var window = fixture.Window;
-        window.Left = -20000;
-        window.Top = -20000;
-        window.ShowActivated = false;
-        window.Show();
+        using var host = new HudContentHost(window);
         await WpfFrameWaiter.UntilAsync(() => window.CollapsedContent.IsVisible, "closed notch visible", ct);
-        var tracker = (ClaudeSessionTracker)typeof(MainWindow).GetField("_claudeTracker", flags)!.GetValue(window)!;
-        await tracker.HandleHookAsync(Hook("UserPromptSubmit"));
-        typeof(MainWindow).GetField("_claudeLiveSession", flags)!.SetValue(window, Assert.Single(tracker.GetSessions()));
+        typeof(MainWindow).GetField("_claudeLiveSession", flags)!.SetValue(window,
+            new ClaudeSession { Id = "visible", Status = ClaudeSessionStatus.Working, TurnStartedUtc = DateTime.UtcNow });
         window.CollapsedContent.Visibility = Visibility.Visible;
         window.ClaudeLive.Visibility = Visibility.Visible;
         typeof(MainWindow).GetMethod("ApplyClaudeLiveMotion", flags)!.Invoke(window, null);

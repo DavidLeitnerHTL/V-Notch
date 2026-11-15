@@ -167,11 +167,14 @@ public partial class MainWindow
         Motion.To(VolumeIndicatorPercentText, OpacityProperty, 1, Motion.Tile);
         if (VolumeIndicatorPercentScale != null)
         {
-            Motion.To(VolumeIndicatorPercentScale, ScaleTransform.ScaleXProperty, 1, Motion.Press, velocity: 1.5);
-            Motion.To(VolumeIndicatorPercentScale, ScaleTransform.ScaleYProperty, 1, Motion.Press, velocity: 1.5);
+            Motion.To(VolumeIndicatorPercentScale, ScaleTransform.ScaleXProperty, 1, Motion.Press,
+                velocity: Motion.VelocityOf(VolumeIndicatorPercentScale, ScaleTransform.ScaleXProperty) + 1.5);
+            Motion.To(VolumeIndicatorPercentScale, ScaleTransform.ScaleYProperty, 1, Motion.Press,
+                velocity: Motion.VelocityOf(VolumeIndicatorPercentScale, ScaleTransform.ScaleYProperty) + 1.5);
         }
         if (direction == 0 || VolumeIndicatorContentTranslate == null) return;
-        Motion.To(VolumeIndicatorContentTranslate, TranslateTransform.XProperty, 0, Motion.Press, velocity: -direction * 70);
+        Motion.To(VolumeIndicatorContentTranslate, TranslateTransform.XProperty, 0, Motion.Press,
+            velocity: Motion.VelocityOf(VolumeIndicatorContentTranslate, TranslateTransform.XProperty) - direction * 70);
     }
 
     #endregion

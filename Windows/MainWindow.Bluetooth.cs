@@ -102,16 +102,8 @@ public partial class MainWindow
 
         PlayBluetoothBounce();
 
-        CollapsedContent.BeginAnimation(OpacityProperty, null);
-        CollapsedContent.Opacity = 0;
-        CollapsedContent.Visibility = Visibility.Collapsed;
-
-        if (MusicCompactContent.Visibility == Visibility.Visible)
-        {
-            MusicCompactContent.BeginAnimation(OpacityProperty, null);
-            MusicCompactContent.Opacity = 0;
-            MusicCompactContent.Visibility = Visibility.Collapsed;
-        }
+        HideCompactSurface(CollapsedContent);
+        HideCompactSurface(MusicCompactContent);
 
         var fadeIn = MakeCompactNotificationEntrance(0, 1);
         activeGrid.BeginAnimation(OpacityProperty, fadeIn);
@@ -172,14 +164,16 @@ public partial class MainWindow
         _bluetoothNotificationToken = 0;
         _bluetoothController.MarkDismissed();
 
-        BluetoothNotification.BeginAnimation(OpacityProperty, null);
-        BluetoothNotificationTranslate.BeginAnimation(TranslateTransform.YProperty, null);
-        BluetoothNotification.Opacity = 0;
+        Motion.Stop(BluetoothNotification, OpacityProperty, 0);
+        Motion.Stop(BluetoothNotificationTranslate, TranslateTransform.YProperty, 0);
+        Motion.Stop(BluetoothIconScale, ScaleTransform.ScaleXProperty, 1);
+        Motion.Stop(BluetoothIconScale, ScaleTransform.ScaleYProperty, 1);
         BluetoothNotification.Visibility = Visibility.Collapsed;
 
-        BluetoothDisconnectNotification.BeginAnimation(OpacityProperty, null);
-        BluetoothDisconnectNotificationTranslate.BeginAnimation(TranslateTransform.YProperty, null);
-        BluetoothDisconnectNotification.Opacity = 0;
+        Motion.Stop(BluetoothDisconnectNotification, OpacityProperty, 0);
+        Motion.Stop(BluetoothDisconnectNotificationTranslate, TranslateTransform.YProperty, 0);
+        Motion.Stop(BluetoothDisconnectIconScale, ScaleTransform.ScaleXProperty, 1);
+        Motion.Stop(BluetoothDisconnectIconScale, ScaleTransform.ScaleYProperty, 1);
         BluetoothDisconnectNotification.Visibility = Visibility.Collapsed;
     }
 

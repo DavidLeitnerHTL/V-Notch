@@ -448,7 +448,16 @@ public partial class MainWindow
         _chargeConnected = true;
         int level = ChargeLevel;
         PositionChargeCable();
-        ResetChargeCableHalves();
+        bool entering = !ChargeCable.IsVisible;
+        if (entering) ResetChargeCableHalves();
+        else
+        {
+            // Replugging during the snap restores the live cable instead of resetting its halves.
+            Motion.To(ChargeCableLeftScale, ScaleTransform.ScaleXProperty, 1, Motion.Pop);
+            Motion.To(ChargeCableRightScale, ScaleTransform.ScaleXProperty, 1, Motion.Pop);
+            Motion.To(ChargeCableLeftTurn, RotateTransform.AngleProperty, 0, Motion.Pop);
+            Motion.To(ChargeCableRightTurn, RotateTransform.AngleProperty, 0, Motion.Pop);
+        }
         ChargeCable.Visibility = Visibility.Visible;
 
         if (AnimationConfig.ReduceMotion)
@@ -461,17 +470,19 @@ public partial class MainWindow
             return;
         }
 
-        Motion.To(ChargeCableGrow, ScaleTransform.ScaleXProperty, 1, Motion.Pop, from: 0);
-        Motion.To(this, ChargeCableSagProperty, ChargeCableRestSag, Motion.Pop, from: 5);
+        Motion.To(ChargeCableGrow, ScaleTransform.ScaleXProperty, 1, Motion.Pop, from: entering ? 0 : null);
+        Motion.To(this, ChargeCableSagProperty, ChargeCableRestSag, Motion.Pop, from: entering ? 5 : null);
 
         if (plugged) JoltForCharge(Ms(170));
 
-        var lit = new DoubleAnimation(0, 1, new Duration(Ms(280))) { BeginTime = Motion.Stagger(1) };
+        var lit = new DoubleAnimation(1, new Duration(Ms(180))) { BeginTime = Motion.Stagger(1) };
+        if (entering) lit.From = 0;
         Fps(lit);
         ChargeBolt.BeginAnimation(OpacityProperty, lit);
-        Motion.To(ChargeBoltScale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale, from: Motion.TileFromScale, delay: Motion.Stagger(1));
-        Motion.To(ChargeBoltScale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale, from: Motion.TileFromScale, delay: Motion.Stagger(1));
-        var track = new DoubleAnimation(0, 1, new Duration(Ms(300))) { BeginTime = Motion.Stagger(2) };
+        Motion.To(ChargeBoltScale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale, from: entering ? Motion.TileFromScale : null, delay: Motion.Stagger(1));
+        Motion.To(ChargeBoltScale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale, from: entering ? Motion.TileFromScale : null, delay: Motion.Stagger(1));
+        var track = new DoubleAnimation(1, new Duration(Ms(180))) { BeginTime = Motion.Stagger(2) };
+        if (entering) track.From = 0;
         Fps(track);
         ChargeTrack.BeginAnimation(OpacityProperty, track);
         Motion.To(this, ChargeRingLevelProperty, level, Motion.Glide, delay: Motion.Stagger(2));

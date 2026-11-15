@@ -58,16 +58,9 @@ public partial class MainWindow
         AppPillCodeTick.Visibility = Visibility.Hidden;
         _appPillExpanded = false;
         AppPillBody.Visibility = Visibility.Visible;
-        if (replacing)
-        {
-            CrossFadeText(AppPillSender, SenderLine(toast, othersWaiting));
-            CrossFadeText(AppPillBody, string.Join("\n", toast.Lines.Take(2)));
-        }
-        else
-        {
-            AppPillSender.Text = SenderLine(toast, othersWaiting);
-            AppPillBody.Text = string.Join("\n", toast.Lines.Take(2));
-        }
+        // The frozen outgoing face crossfades with this new face, including its logo and code chip.
+        AppPillSender.Text = SenderLine(toast, othersWaiting);
+        AppPillBody.Text = string.Join("\n", toast.Lines.Take(2));
         AppPillLogo.Source = logo;
         AppPillLogo.Visibility = logo == null ? Visibility.Collapsed : Visibility.Visible;
         AppPillBell.Visibility = logo == null ? Visibility.Visible : Visibility.Collapsed;
@@ -85,7 +78,7 @@ public partial class MainWindow
         }
         else
         {
-            if (!replacing) SetAppNotificationOpacity(AppNotificationPill, 0);
+            SetAppNotificationOpacity(AppNotificationPill, 0);
             AnimateAppNotificationOpacity(AppNotificationPill, 1, 160);
             Motion.To(AppPillTranslate, TranslateTransform.YProperty, 0, Motion.Pop,
                 from: replacing ? null : 6);
@@ -295,6 +288,7 @@ public partial class MainWindow
         Motion.To(NotchBorder, HeightProperty, height, spring, done: () =>
         {
             if (generation != _appPillMotionGeneration || token != _appPillToken || IsCompactSlotStale(token)) return;
+            if (Math.Abs(NotchBorder.Height - height) > .5) return;
             completed?.Invoke();
         });
     }
@@ -309,9 +303,13 @@ public partial class MainWindow
         {
             Motion.To(AppNotificationPill, OpacityProperty, 0, Motion.Exit);
             Motion.To(AppPillTranslate, TranslateTransform.YProperty, -4, Motion.Exit);
-            HideAppPillPart(AppPillLogo.Visibility == Visibility.Visible ? AppPillLogo : AppPillBell);
-            HideAppPillPart(AppPillSender);
-            HideAppPillPart(_appPillExpanded ? AppPillExpandedBody : AppPillBody);
+            foreach (var element in new UIElement[] { AppPillLogo, AppPillBell, AppPillSender,
+                         AppPillBody, AppPillExpandedBody, AppPillImage })
+                if (element.Visibility == Visibility.Visible && element.RenderTransform is ScaleTransform scale)
+                {
+                    Motion.To(scale, ScaleTransform.ScaleXProperty, Motion.ExitToScale, Motion.Exit);
+                    Motion.To(scale, ScaleTransform.ScaleYProperty, Motion.ExitToScale, Motion.Exit);
+                }
         }
         ResizeAppPill(_collapsedWidth, _collapsedHeight, 260, () =>
         {
@@ -377,6 +375,11 @@ public partial class MainWindow
         // The old body leaves above the layout while the new body's measured height takes over immediately.
         KeepCompactDeparture(element);
         Motion.Stop(element, OpacityProperty, 0);
+        if (element.RenderTransform is ScaleTransform scale)
+        {
+            Motion.Stop(scale, ScaleTransform.ScaleXProperty);
+            Motion.Stop(scale, ScaleTransform.ScaleYProperty);
+        }
         element.Visibility = Visibility.Collapsed;
     }
 }

@@ -312,7 +312,7 @@ public sealed class NotchNavigationIntegrationTests
         typeof(MainWindow).GetMethod("CountdownDismiss_Click", Private)!.Invoke(window, [window, click]);
         window.SetDebugViewLock(true);
         Assert.Equal(NotchView.Compact, coordinator.TargetView);
-        await WpfFrameWaiter.UntilAsync(() => !IsAnimating(window), "countdown dismissal", ct);
+        await WpfFrameWaiter.UntilAsync(() => !coordinator.IsTransitionActive && !IsAnimating(window), "countdown dismissal", ct);
         Assert.Equal(NotchView.Compact, coordinator.CurrentView);
         Assert.Equal(NotchView.Compact, ((ShellViewModel)window.DataContext).CurrentView);
         window.SetDebugViewState("TimerStopwatch");

@@ -209,8 +209,10 @@ public partial class MainWindow
             Motion.To(VolumeIndicatorSunRaysScale, ScaleTransform.ScaleXProperty, rayScale, Motion.Glide);
             Motion.To(VolumeIndicatorSunRaysScale, ScaleTransform.ScaleYProperty, rayScale, Motion.Glide);
             Motion.To(VolumeIndicatorSunRays, OpacityProperty, 0.5 + 0.5 * t, Motion.Glide);
-            Motion.To(VolumeIndicatorIconScale, ScaleTransform.ScaleXProperty, 1, Motion.Press, velocity: 2.5);
-            Motion.To(VolumeIndicatorIconScale, ScaleTransform.ScaleYProperty, 1, Motion.Press, velocity: 2.5);
+            Motion.To(VolumeIndicatorIconScale, ScaleTransform.ScaleXProperty, 1, Motion.Press,
+                velocity: Motion.VelocityOf(VolumeIndicatorIconScale, ScaleTransform.ScaleXProperty) + 2.5);
+            Motion.To(VolumeIndicatorIconScale, ScaleTransform.ScaleYProperty, 1, Motion.Press,
+                velocity: Motion.VelocityOf(VolumeIndicatorIconScale, ScaleTransform.ScaleYProperty) + 2.5);
         }
         else
         {
@@ -249,8 +251,10 @@ public partial class MainWindow
         _powerModeIconStep = step;
         if (!animate || previous == 0 || previous == step || _powerModeIconScale == null) return;
         double impulse = step > previous ? 3.5 : 1.9;
-        Motion.To(_powerModeIconScale, ScaleTransform.ScaleXProperty, 1, Motion.Press, velocity: impulse);
-        Motion.To(_powerModeIconScale, ScaleTransform.ScaleYProperty, 1, Motion.Press, velocity: impulse);
+        Motion.To(_powerModeIconScale, ScaleTransform.ScaleXProperty, 1, Motion.Press,
+            velocity: Motion.VelocityOf(_powerModeIconScale, ScaleTransform.ScaleXProperty) + impulse);
+        Motion.To(_powerModeIconScale, ScaleTransform.ScaleYProperty, 1, Motion.Press,
+            velocity: Motion.VelocityOf(_powerModeIconScale, ScaleTransform.ScaleYProperty) + impulse);
     }
 
     private static void TintPath(Shape path, Color color, bool fill)

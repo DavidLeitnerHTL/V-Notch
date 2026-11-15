@@ -32,8 +32,10 @@ public sealed class CompactPillMotionTests
         Assert.Equal(300, window.NotchBorder.Width, 3);
     });
 
-    [Fact]
-    public void PreemptionKeepsAnExitFaceAndDoesNotReturnTheShellToRest() => SharedStaTestRunner.RunAsync(async ct =>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void PreemptionKeepsAnExitFaceAndDoesNotReturnTheShellToRest(bool banner) => SharedStaTestRunner.RunAsync(async ct =>
     {
         await using var fixture = Create();
         var window = fixture.Window;
@@ -45,8 +47,13 @@ public sealed class CompactPillMotionTests
         Motion.Stop(window.NotchBorder, FrameworkElement.WidthProperty, 420);
         host.Window.UpdateLayout();
         int before = window.NotchLiveContent.Children.Count;
-        object[] args = { CompactPillSlot.AppNotification, 0 };
-        Assert.True((bool)Invoke(window, "TryAcquireCompactSlot", args)!);
+        if (banner) window.ShowAppNotification(new Models.AppNotificationInfo
+            { AppName = "Test", Title = "Download ready", Body = "Open the app to continue." });
+        else
+        {
+            object[] args = { CompactPillSlot.AppNotification, 0 };
+            Assert.True((bool)Invoke(window, "TryAcquireCompactSlot", args)!);
+        }
         Assert.Equal(420, window.NotchBorder.Width, 3);
         Assert.True(window.NotchLiveContent.Children.Count > before, "The outgoing face must remain visible through an Exit.");
         await WpfFrameWaiter.UntilAsync(() => window.NotchLiveContent.Children.Count == before,
@@ -75,7 +82,8 @@ public sealed class CompactPillMotionTests
     });
 
     private static GreetingAcceptanceTests.MainWindowFixture Create() => new("en", false,
-        settings => { settings.EnableLocalOnlyMode = true; settings.DisableMouseLeaveAutoClose = true; },
+        settings => { settings.EnableLocalOnlyMode = true; settings.DisableMouseLeaveAutoClose = true;
+            settings.ShowSystemNotifications = true; },
         services => services.AddSingleton<IMediaDetectionService>(new FakeMediaDetectionService()));
 
     private static object? Invoke(MainWindow window, string name, params object[] args)

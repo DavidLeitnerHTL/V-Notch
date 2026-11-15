@@ -203,6 +203,7 @@ public partial class MainWindow
     private void RenderMediaVolume(bool animate)
     {
         if (MediaVolumeFillScale == null) return;
+        animate = animate && MediaVolumeColumn.IsVisible && AmbientAnimationsAllowed;
 
         double target = Math.Clamp(_mediaVolume, 0, 1);
         var scale = MediaVolumeFillScale;
@@ -218,7 +219,7 @@ public partial class MainWindow
             int before = MediaVolumeLevel(MediaVolumeIcon.Text), after = MediaVolumeLevel(glyph);
             if (animate) CrossFadeText(MediaVolumeIcon, glyph);
             else MediaVolumeIcon.Text = glyph;
-            if (before >= 0) HopMediaVolumeIcon(after > before ? 1.3 : 0.75);
+            if (animate && before >= 0) HopMediaVolumeIcon(after > before ? 1.3 : 0.75);
         }
         if (animate) Motion.To(MediaVolumeColumn, OpacityProperty, _mediaVolumeAvailable ? 1.0 : 0.35, Motion.Glide);
         else Motion.Stop(MediaVolumeColumn, OpacityProperty, _mediaVolumeAvailable ? 1.0 : 0.35);
@@ -386,7 +387,8 @@ public partial class MainWindow
     {
         if (AnimationConfig.ReduceMotion) return;
         MediaVolumeTrack.RenderTransformOrigin = new Point(0.5, up ? 1 : 0);
-        Motion.To(MediaVolumeTrackScale, ScaleTransform.ScaleYProperty, 1, Motion.Press, velocity: 1.8);
+        Motion.To(MediaVolumeTrackScale, ScaleTransform.ScaleYProperty, 1, Motion.Press,
+            velocity: Motion.VelocityOf(MediaVolumeTrackScale, ScaleTransform.ScaleYProperty) + 1.8);
         HopMediaVolumeIcon(up ? 1.25 : 0.8);
     }
 
@@ -396,8 +398,10 @@ public partial class MainWindow
         var scale = MediaVolumeIcon.RenderTransform as ScaleTransform ?? new ScaleTransform(1, 1);
         MediaVolumeIcon.RenderTransform = scale;
         MediaVolumeIcon.RenderTransformOrigin = new Point(0.5, 0.5);
-        Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.Press, velocity: (peak - 1) * 16);
-        Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.Press, velocity: (peak - 1) * 16);
+        Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.Press,
+            velocity: Motion.VelocityOf(scale, ScaleTransform.ScaleXProperty) + (peak - 1) * 16);
+        Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.Press,
+            velocity: Motion.VelocityOf(scale, ScaleTransform.ScaleYProperty) + (peak - 1) * 16);
     }
 
     #endregion

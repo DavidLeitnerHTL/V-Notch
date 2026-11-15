@@ -194,10 +194,26 @@ internal sealed class PhoneMirrorWindow : Window
     {
         if (State == MirrorState.Hidden || _anchor() is not { } anchor) return;
         _fullscreen = !_fullscreen;
-        _fullGlyph.Text = _fullscreen ? "\uE73F" : "\uE740";
+        SetFullscreenGlyph();
         State = MirrorState.Docked;
         Topmost = !_fullscreen;
         Spring(CurrentRect(), DockedRect(anchor), Motion.Glide, done: RevealScreen);
+    }
+
+    private void SetFullscreenGlyph()
+    {
+        string glyph = _fullscreen ? "\uE73F" : "\uE740";
+        if (!IsVisible || AnimationConfig.ReduceMotion)
+        {
+            Motion.Stop(_fullGlyph, OpacityProperty, 1);
+            _fullGlyph.Text = glyph;
+            return;
+        }
+        Motion.To(_fullGlyph, OpacityProperty, 0, Motion.Exit, done: () =>
+        {
+            _fullGlyph.Text = glyph;
+            Motion.To(_fullGlyph, OpacityProperty, 1, Motion.Tile);
+        });
     }
 
     /// <summary>Pulls the mirror back into the notch; scrcpy stays warm for a little while.</summary>
@@ -263,7 +279,7 @@ internal sealed class PhoneMirrorWindow : Window
             started.Dispose();
             return false;
         }
-        // Hidden until the body has grown around it.
+        // The adopted picture joins the live resize as soon as it is ready.
         var child = await ScrcpyChild.AdoptAsync(started.Window, _hwnd);
         if (child == null || cancel.IsCancellationRequested)
         {
@@ -399,8 +415,7 @@ internal sealed class PhoneMirrorWindow : Window
     }
 
     /// <summary>
-    /// Moves the window along damped springs: height leads, width follows a touch softer, so the body
-    /// stretches out of the notch like a drop and settles with a small overshoot.
+    /// Moves the native rectangle with the same spring as the notch, retaining speed on a reversal.
     /// </summary>
     private void Spring(Int32Rect from, Int32Rect to, SpringMotion spring, Action? done)
     {
@@ -457,6 +472,11 @@ internal sealed class PhoneMirrorWindow : Window
 
     public void RefreshMotionVisibility()
     {
+        if (!IsVisible)
+        {
+            Motion.Stop(_fullGlyph, OpacityProperty, 1);
+            _fullGlyph.Text = _fullscreen ? "\uE73F" : "\uE740";
+        }
         if (_frame == null || (IsVisible && _motionAllowed() && !AnimationConfig.ReduceMotion)) return;
         StopFrame();
         PlaceNow(_springTarget);

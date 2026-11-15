@@ -205,6 +205,26 @@ public sealed class AppNotificationPillTests
     });
 
     [Fact]
+    public void CompactReplacementKeepsTheOldFaceWhileTheNewFaceFadesIn() => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        await using var fixture = Create();
+        var window = fixture.Window;
+        await ShowAsync(window, ct);
+        ShowPill(window, Toast("Anna", "First message"));
+        await WpfFrameWaiter.UntilAsync(() => window.AppNotificationPill.Opacity == 1 &&
+            !Motion.IsRunning(window.NotchBorder, FrameworkElement.WidthProperty), "first message arrives", ct);
+        int children = window.NotchLiveContent.Children.Count;
+        double width = window.NotchBorder.Width;
+        ShowPill(window, Toast("Ben", "Second message"));
+        Assert.Equal(width, window.NotchBorder.Width);
+        Assert.Equal("Ben", window.AppPillSender.Text);
+        Assert.Equal(0, window.AppNotificationPill.Opacity);
+        Assert.True(window.NotchLiveContent.Children.Count > children);
+        await WpfFrameWaiter.UntilAsync(() => window.NotchLiveContent.Children.Count == children &&
+            window.AppNotificationPill.Opacity == 1, "replacement crossfade releases the old face", ct);
+    });
+
+    [Fact]
     public void NewToastWaitsWhileExpanded() => SharedStaTestRunner.RunAsync(async ct =>
     {
         await using var fixture = Create();

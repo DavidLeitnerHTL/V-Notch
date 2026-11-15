@@ -43,6 +43,13 @@ public partial class MainWindow
         HookAmbientVisibility();
         bool allowed = AmbientAnimationsAllowed;
 
+        if (_displayedBattery is { } battery)
+        {
+            if (!allowed || !BatteryFill.IsVisible)
+                Motion.Stop(BatteryFillScale, ScaleTransform.ScaleXProperty, battery.FillRatio);
+            if (!allowed || !ChargingBolt.IsVisible) AnimateChargingBolt(battery.IsPowerConnected);
+        }
+
         if (_chargingPulseWanted && allowed && BatteryFill.IsVisible) StartChargingPulse();
         else StopChargingPulseInternal();
 
@@ -85,7 +92,9 @@ public partial class MainWindow
         }
         AnimationConfig.SetReduceMotion(battery.IsBatterySaver);
 
-        Motion.To(BatteryFillScale, ScaleTransform.ScaleXProperty, battery.FillRatio, Motion.Glide);
+        if (AmbientAnimationsAllowed && BatteryFill.IsVisible)
+            Motion.To(BatteryFillScale, ScaleTransform.ScaleXProperty, battery.FillRatio, Motion.Glide);
+        else Motion.Stop(BatteryFillScale, ScaleTransform.ScaleXProperty, battery.FillRatio);
 
         SolidColorBrush fillBrush;
         SolidColorBrush percentBrush;
@@ -204,13 +213,8 @@ public partial class MainWindow
 
         ChargingBatteryFillScale.ScaleX = battery.FillRatio;
 
-        CollapsedContent.BeginAnimation(OpacityProperty, null);
-        CollapsedContent.Opacity = 0;
-        CollapsedContent.Visibility = Visibility.Collapsed;
-
-        MusicCompactContent.BeginAnimation(OpacityProperty, null);
-        MusicCompactContent.Opacity = 0;
-        MusicCompactContent.Visibility = Visibility.Collapsed;
+        HideCompactSurface(CollapsedContent);
+        HideCompactSurface(MusicCompactContent);
 
         ChargingNotification.Visibility = Visibility.Visible;
         ChargingNotification.Opacity = 0;
@@ -300,9 +304,10 @@ public partial class MainWindow
         _isChargingNotificationVisible = false;
         _chargingGlanceToken = 0;
 
-        ChargingNotification.BeginAnimation(OpacityProperty, null);
-        ChargingNotificationTranslate.BeginAnimation(TranslateTransform.YProperty, null);
-        ChargingNotification.Opacity = 0;
+        Motion.Stop(ChargingNotification, OpacityProperty, 0);
+        Motion.Stop(ChargingNotificationTranslate, TranslateTransform.YProperty, 0);
+        Motion.Stop(ChargingIconScale, ScaleTransform.ScaleXProperty, 1);
+        Motion.Stop(ChargingIconScale, ScaleTransform.ScaleYProperty, 1);
         ChargingNotification.Visibility = Visibility.Collapsed;
     }
 
@@ -316,7 +321,10 @@ public partial class MainWindow
 
     private void PlayChargingBounce()
     {
-        if (_isExpanded || _isAnimating || AnimationConfig.ReduceMotion) return;
+        if (_isExpanded || _isAnimating) return;
+        double extra = ChargingWattText.Visibility == Visibility.Visible ? 56 : 28;
+        AnimateCompactWidth(_collapsedWidth + extra, _dur350, _easeSoftSpring, _chargingGlanceToken);
+        if (AnimationConfig.ReduceMotion) return;
         foreach (var scale in new[] { NotchScale, NotchShadowScale })
         {
             Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.Press, velocity: 1);
@@ -324,7 +332,7 @@ public partial class MainWindow
         }
     }
 
-    private static void AnimateBrushTransition(FrameworkElement element, SolidColorBrush targetBrush)
+    private void AnimateBrushTransition(FrameworkElement element, SolidColorBrush targetBrush)
     {
         SolidColorBrush? currentBrush = element switch
         {
@@ -333,7 +341,7 @@ public partial class MainWindow
             _ => null
         };
 
-        if (currentBrush == null || currentBrush.Color == targetBrush.Color)
+        if (!AmbientAnimationsAllowed || !element.IsVisible || currentBrush == null || currentBrush.Color == targetBrush.Color)
         {
             if (element is TextBlock textBlock)
                 textBlock.Foreground = targetBrush;
@@ -361,6 +369,13 @@ public partial class MainWindow
 
     private void AnimateChargingBolt(bool show)
     {
+        if (!AmbientAnimationsAllowed || !ChargingBolt.IsVisible)
+        {
+            Motion.Stop(ChargingBolt, OpacityProperty, show ? 1 : 0);
+            Motion.Stop(ChargingBoltScale, ScaleTransform.ScaleXProperty, show ? 1 : Motion.ExitToScale);
+            Motion.Stop(ChargingBoltScale, ScaleTransform.ScaleYProperty, show ? 1 : Motion.ExitToScale);
+            return;
+        }
         Motion.To(ChargingBolt, OpacityProperty, show ? 1 : 0, show ? Motion.Tile : Motion.Exit);
         Motion.To(ChargingBoltScale, ScaleTransform.ScaleXProperty, show ? 1 : Motion.ExitToScale, show ? Motion.TileScale : Motion.Exit);
         Motion.To(ChargingBoltScale, ScaleTransform.ScaleYProperty, show ? 1 : Motion.ExitToScale, show ? Motion.TileScale : Motion.Exit);
@@ -409,6 +424,12 @@ public partial class MainWindow
 
         _chargingPulseStoryboard.Stop();
         _chargingPulseStoryboard = null;
+
+        if (!AmbientAnimationsAllowed || !BatteryFill.IsVisible)
+        {
+            Motion.Stop(BatteryFill, OpacityProperty, 1);
+            return;
+        }
 
         var resetAnimation = new DoubleAnimation
         {

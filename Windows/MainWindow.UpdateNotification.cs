@@ -327,7 +327,7 @@ public partial class MainWindow
         Motion.To(UpdateNotificationScale, ScaleTransform.ScaleXProperty, isEnter ? 1.10 : 1, Motion.Press);
         Motion.To(UpdateNotificationScale, ScaleTransform.ScaleYProperty, isEnter ? 1.10 : 1, Motion.Press, done: () =>
         {
-            if (!UpdateNotificationButton.IsMouseOver) UpdateNotificationButton.CacheMode = null;
+            if (!isEnter && !UpdateNotificationButton.IsMouseOver) UpdateNotificationButton.CacheMode = null;
         });
     }
 

@@ -81,16 +81,8 @@ public partial class MainWindow
         NavIconsPanel.Visibility = Visibility.Visible;
         NavIconsPanel.Opacity = 1;
 
-        NavIconsBackground.BeginAnimation(OpacityProperty, null);
-        NavIconsBackground.Opacity = 0;
         NavIconsBackground.Visibility = Visibility.Visible;
-        var navBgFadeIn = new DoubleAnimation(0, 1, new Duration(TimeSpan.FromMilliseconds(300)))
-        {
-            EasingFunction = _easePowerOut3,
-            BeginTime = TimeSpan.FromMilliseconds(200)
-        };
-        Timeline.SetDesiredFrameRate(navBgFadeIn, VNotch.Services.AnimationConfig.TargetFps);
-        NavIconsBackground.BeginAnimation(OpacityProperty, navBgFadeIn);
+        Motion.To(NavIconsBackground, OpacityProperty, 1, Motion.Tile, from: 0, delay: Motion.Stagger(1));
 
         NotchBorder.IsHitTestVisible = false;
 
@@ -922,38 +914,27 @@ public partial class MainWindow
         CountdownCompleteOverlay.BeginAnimation(OpacityProperty, overlayFade);
         Motion.To(overlayTranslate, TranslateTransform.YProperty, 18, Motion.Exit);
 
-        var timerFadeIn = MakeAnim(0, 1, durIn, _easeExpOut6, inDelay);
-        Timeline.SetDesiredFrameRate(timerFadeIn, fps);
-
-        timerFadeIn.Completed += (s, e) =>
+        void FinishRestart()
         {
+            if (!_isTimerView || restartGen != _transitionCoordinator.ActiveTransitionId ||
+                !ReferenceEquals(TimerContent.RenderTransform, timerGroup) ||
+                Math.Abs(TimerContent.Opacity - 1) > .001 || Math.Abs(timerTranslate.Y) > .01 ||
+                Math.Abs(timerScale.ScaleX - 1) > .001 || Math.Abs(timerScale.ScaleY - 1) > .001) return;
             _isAnimating = false;
             NotchBorder.IsHitTestVisible = true;
-            TimerContent.BeginAnimation(OpacityProperty, null);
-            if (!_isTimerView) return;
-            TimerContent.Opacity = 1;
             TimerContent.RenderTransform = null;
-
-            NavIconsPanel.BeginAnimation(OpacityProperty, null);
-            NavIconsPanel.Opacity = 1;
-            Motion.Stop(NavIconsTranslate, TranslateTransform.YProperty);
-            NavIconsTranslate.Y = 0;
-            NavIconsBackground.BeginAnimation(OpacityProperty, null);
-            NavIconsBackground.Opacity = 1;
-
             UpdateTimerNavIconsState();
             CountdownWidget.RefreshProgress();
-
             Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Render, () =>
             {
                 RestoreTimerContentOpacity();
             });
-        };
+        }
 
-        TimerContent.BeginAnimation(OpacityProperty, timerFadeIn);
-        Motion.To(timerTranslate, TranslateTransform.YProperty, 0, Motion.Tile, delay: inDelay);
-        Motion.To(timerScale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale, delay: inDelay);
-        Motion.To(timerScale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale, delay: inDelay);
+        Motion.To(TimerContent, OpacityProperty, 1, Motion.Tile, from: 0, delay: inDelay, done: FinishRestart);
+        Motion.To(timerTranslate, TranslateTransform.YProperty, 0, Motion.Tile, delay: inDelay, done: FinishRestart);
+        Motion.To(timerScale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale, delay: inDelay, done: FinishRestart);
+        Motion.To(timerScale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale, delay: inDelay, done: FinishRestart);
 
         Motion.To(NavIconsPanel, OpacityProperty, 1, Motion.Tile, from: 0, delay: Motion.Stagger(1));
         Motion.To(NavIconsTranslate, TranslateTransform.YProperty, 0, Motion.Tile, delay: Motion.Stagger(1));
@@ -993,9 +974,13 @@ public partial class MainWindow
         _isAnimating = true;
         AnimateCornerRadius(_cornerRadiusCollapsed, TimeSpan.FromMilliseconds(360));
 
+        // A shell session that is still open would ride along on these springs and report its own view at the end.
+        _notchShellPresenter?.CancelCurrentAnimation();
         Motion.To(NotchBorder, WidthProperty, _collapsedWidth, Motion.PopBack);
-        Motion.To(NotchBorder, HeightProperty, _collapsedHeight, Motion.PopBack, done: () =>
+        // Kept: a hover or a content measurement may take the height over, and the dismissal must still end.
+        Motion.To(NotchBorder, HeightProperty, _collapsedHeight, Motion.PopBack, keep: true, done: () => Dispatcher.BeginInvoke(() =>
         {
+            // Posted, not called: a spring with nowhere to go ends inside Motion.To, before the click has returned.
             if (transitionId != _transitionCoordinator.ActiveTransitionId) return;
             _transitionCoordinator.CompleteTransition(transitionId);
             _transitionCoordinator.ForceState(VNotch.Models.NotchView.Compact, VNotch.Controllers.NotchShapeState.Collapsed, "CountdownDismissCompleted");
@@ -1034,7 +1019,7 @@ public partial class MainWindow
                 CollapsedContent.Opacity = 0;
                 AnimateCountdownCollapsedContentIn(CollapsedContent);
             }
-        });
+        }));
 
         CountdownWidget.SetCountdownStartVisual(false);
     }
@@ -1082,14 +1067,17 @@ public partial class MainWindow
         group.Children.Add(translate);
         content.RenderTransform = group;
         content.RenderTransformOrigin = new Point(0.5, 0.5);
-        Motion.To(content, OpacityProperty, 1, Motion.Tile, from: 0);
-        Motion.To(translate, TranslateTransform.YProperty, 0, Motion.Tile, done: () =>
+        void Finish()
         {
-            if (content.Visibility == Visibility.Visible && content.Opacity > 0.99 && Math.Abs(translate.Y) < 0.01 &&
+            if (content.Visibility == Visibility.Visible && Math.Abs(content.Opacity - 1) < 0.001 && Math.Abs(translate.Y) < 0.01 &&
+                Math.Abs(scale.ScaleX - 1) < 0.001 && Math.Abs(scale.ScaleY - 1) < 0.001 &&
                 ReferenceEquals(content.RenderTransform, group)) content.RenderTransform = null;
-        });
-        Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale);
-        Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale);
+        }
+        // Opacity and drift can settle in either order; the last spring releases the shared transform.
+        Motion.To(content, OpacityProperty, 1, Motion.Tile, from: 0, done: Finish);
+        Motion.To(translate, TranslateTransform.YProperty, 0, Motion.Tile, done: Finish);
+        Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale, done: Finish);
+        Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale, done: Finish);
     }
 
     private void RestoreMusicCompactPillAfterCountdownDismiss()

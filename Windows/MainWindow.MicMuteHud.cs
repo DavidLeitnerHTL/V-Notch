@@ -116,7 +116,10 @@ public partial class MainWindow
         Motion.To(MicMutedRestGlyph, OpacityProperty, show ? 1 : 0, show ? Motion.Tile : Motion.Exit,
             from: show && entering ? 0 : null, done: () =>
             {
-                if (token == _micRestToken && !_micRestShown) MicMutedRestGlyph.Visibility = Visibility.Collapsed;
+                if (token != _micRestToken || _micRestShown) return;
+                Motion.Stop(MicMutedRestScale, ScaleTransform.ScaleXProperty);
+                Motion.Stop(MicMutedRestScale, ScaleTransform.ScaleYProperty);
+                MicMutedRestGlyph.Visibility = Visibility.Collapsed;
             });
     }
 
@@ -163,7 +166,8 @@ public partial class MainWindow
             // The hidden face changes above the baseline; a reversal never resets a visible spring.
             Motion.To(VolumeIndicatorMicShift, TranslateTransform.YProperty, 0, Motion.Press, from: -9, done: () =>
             {
-                if (token == _micDiveToken) Motion.Stop(VolumeIndicatorMicShift, TranslateTransform.YProperty, 0);
+                if (token == _micDiveToken && Math.Abs(VolumeIndicatorMicShift.Y) < 0.01)
+                    Motion.Stop(VolumeIndicatorMicShift, TranslateTransform.YProperty, 0);
             });
             Motion.To(VolumeIndicatorMicSquash, ScaleTransform.ScaleYProperty, 1, Motion.Press);
             Motion.To(VolumeIndicatorMicWord, OpacityProperty, 1, Motion.Tile);

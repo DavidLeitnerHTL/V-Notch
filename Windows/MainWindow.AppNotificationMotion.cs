@@ -68,7 +68,8 @@ public partial class MainWindow
 
     private void PresentAppNotification(bool replacing)
     {
-        if (AppNotificationBanner.Opacity <= 0)
+        if (AppNotificationBanner.Opacity <= 0 &&
+            !Motion.IsRunning(AppNotificationBannerTranslate, TranslateTransform.YProperty))
         {
             SetAppNotificationOpacity(AppNotificationBanner, 0);
             SetAppNotificationValue(AppNotificationBannerTranslate, TranslateTransform.YProperty,
@@ -78,6 +79,7 @@ public partial class MainWindow
         AnimateAppNotificationOpacity(AppNotificationBanner, 1, NotificationTransitionMs, easing: _easeAppleOut);
         AnimateAppNotificationValue(AppNotificationBannerTranslate, TranslateTransform.YProperty, 0,
             NotificationTransitionMs, easing: _easeAppleOut);
+        Motion.To(AppNotificationBannerTranslate, TranslateTransform.XProperty, 0, Motion.Pop);
         Motion.To(AppNotificationBannerScale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale);
         Motion.To(AppNotificationBannerScale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale);
         AppNotificationHoverSurface.Visibility = Visibility.Visible;
@@ -182,13 +184,13 @@ public partial class MainWindow
 
     private void ResetAppNotificationVisuals()
     {
-        bool visible = AppNotificationBanner.Visibility == Visibility.Visible;
         if (AppNotificationBanner.Visibility == Visibility.Visible && !_isAppNotificationBannerExiting)
         {
             KeepCompactDeparture(AppNotificationBanner);
         }
         ResetAppNotificationBlurCover();
-        if (!visible) SetAppNotificationOpacity(AppNotificationBanner, 0);
+        // The frozen old face owns departure; new text and artwork reveal together on the live face.
+        SetAppNotificationOpacity(AppNotificationBanner, 0);
         foreach (var element in new UIElement[] { AppNotificationIconHost,
                      AppNotificationAppNameText, AppNotificationTitleText, AppNotificationBodyText })
             SetAppNotificationOpacity(element, 1);

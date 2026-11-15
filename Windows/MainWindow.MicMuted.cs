@@ -144,7 +144,10 @@ public partial class MainWindow
         Motion.To(MicMutedGlyph, OpacityProperty, show ? 1 : 0, show ? Motion.Tile : Motion.Exit,
             from: show && entering ? 0 : null, done: () =>
             {
-                if (token == _micMutedGlyphToken && !_micMutedGlyphShown) MicMutedGlyph.Visibility = Visibility.Collapsed;
+                if (token != _micMutedGlyphToken || _micMutedGlyphShown) return;
+                Motion.Stop(MicMutedGlyphScale, ScaleTransform.ScaleXProperty);
+                Motion.Stop(MicMutedGlyphScale, ScaleTransform.ScaleYProperty);
+                MicMutedGlyph.Visibility = Visibility.Collapsed;
             });
     }
 
