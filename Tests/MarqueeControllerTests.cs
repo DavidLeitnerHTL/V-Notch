@@ -95,10 +95,12 @@ public class MarqueeControllerTests
             controller.UpdateArtistText("Stale artist");
             controller.TransitionTrackText("Final title", "Final artist");
 
+            // Both rows bring their final text in together. The layer that was only just arriving is still
+            // at opacity 0, so it has nowhere to fade and stays at rest.
             Assert.True(targets.TitleLayerA.HasAnimatedProperties);
-            Assert.True(targets.TitleLayerB.HasAnimatedProperties);
             Assert.True(targets.ArtistLayerA.HasAnimatedProperties);
-            Assert.True(targets.ArtistLayerB.HasAnimatedProperties);
+            Assert.Equal(0, targets.TitleLayerB.Opacity, 3);
+            Assert.Equal(0, targets.ArtistLayerB.Opacity, 3);
 
             PumpDispatcherFor(TimeSpan.FromMilliseconds(500));
 

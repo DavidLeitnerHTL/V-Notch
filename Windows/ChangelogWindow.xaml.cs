@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -36,20 +36,7 @@ public partial class ChangelogWindow : Window
         Loaded += ChangelogWindow_Loaded;
     }
 
-    private void PlayEntranceAnimation()
-    {
-        var ease = new QuarticEase { EasingMode = EasingMode.EaseOut };
-        var duration = TimeSpan.FromMilliseconds(400);
-
-        var opacityAnim = new DoubleAnimation(0, 1, duration) { EasingFunction = ease };
-        var scaleAnim = new DoubleAnimation(0.95, 1, duration) { EasingFunction = ease };
-        var translateAnim = new DoubleAnimation(20, 0, duration) { EasingFunction = ease };
-
-        MainShell.BeginAnimation(UIElement.OpacityProperty, opacityAnim);
-        ShellScale.BeginAnimation(ScaleTransform.ScaleXProperty, scaleAnim);
-        ShellScale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleAnim);
-        ShellTranslate.BeginAnimation(TranslateTransform.YProperty, translateAnim);
-    }
+    private void PlayEntranceAnimation() => Motion.GrowFromNotch(this, MainShell, ShellScale, ShellTranslate);
 
     private async void ChangelogWindow_Loaded(object sender, RoutedEventArgs e)
     {
@@ -291,18 +278,13 @@ public partial class ChangelogWindow : Window
         ParseMarkdownContent(entry.Content);
 
         // Animate content transition
-        var ease = new QuarticEase { EasingMode = EasingMode.EaseOut };
-        var duration = TimeSpan.FromMilliseconds(300);
-
-        var opacityAnim = new DoubleAnimation(0, 1, duration) { EasingFunction = ease };
-        ChangelogContent.BeginAnimation(UIElement.OpacityProperty, opacityAnim);
-
-        if (ChangelogContent.RenderTransform is not TranslateTransform)
+        if (ChangelogContent.RenderTransform is not TranslateTransform contentTranslate)
         {
-            ChangelogContent.RenderTransform = new TranslateTransform();
+            contentTranslate = new TranslateTransform();
+            ChangelogContent.RenderTransform = contentTranslate;
         }
-        var translateAnim = new DoubleAnimation(15, 0, duration) { EasingFunction = ease };
-        ChangelogContent.RenderTransform.BeginAnimation(TranslateTransform.YProperty, translateAnim);
+        Motion.To(ChangelogContent, UIElement.OpacityProperty, 1, Motion.Tile, from: 0);
+        Motion.To(contentTranslate, TranslateTransform.YProperty, 0, Motion.Tile, from: 15);
     }
 
     private Border CreateBadge(string text, Color color)
@@ -712,21 +694,13 @@ public partial class ChangelogWindow : Window
         }
     }
 
+    private bool _isClosing;
+
     private void CloseButton_Click(object sender, RoutedEventArgs e)
     {
-        var ease = new QuarticEase { EasingMode = EasingMode.EaseIn };
-        var duration = TimeSpan.FromMilliseconds(250);
-
-        var opacityAnim = new DoubleAnimation(1, 0, duration) { EasingFunction = ease };
-        var scaleAnim = new DoubleAnimation(1, 0.95, duration) { EasingFunction = ease };
-        var translateAnim = new DoubleAnimation(0, 20, duration) { EasingFunction = ease };
-
-        opacityAnim.Completed += (s, ev) => Close();
-
-        MainShell.BeginAnimation(UIElement.OpacityProperty, opacityAnim);
-        ShellScale.BeginAnimation(ScaleTransform.ScaleXProperty, scaleAnim);
-        ShellScale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleAnim);
-        ShellTranslate.BeginAnimation(TranslateTransform.YProperty, translateAnim);
+        if (_isClosing) return;
+        _isClosing = true;
+        Motion.SquishIntoNotch(this, MainShell, ShellScale, ShellTranslate, Close);
     }
 
     protected override void OnSourceInitialized(EventArgs e)
