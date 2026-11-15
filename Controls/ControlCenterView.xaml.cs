@@ -2545,6 +2545,7 @@ public partial class ControlCenterView : UserControl, IDisposable
         foreach (UIElement child in ControlRoot.Children)
             if (child is Panel section && section.Visibility == Visibility.Visible)
                 index = RevealChildren(section, baseDelay, index);
+        if (Page == ControlCenterPage.School) RevealSchoolDetails();
     }
 
     private static void RevealElement(FrameworkElement row, TimeSpan delay)

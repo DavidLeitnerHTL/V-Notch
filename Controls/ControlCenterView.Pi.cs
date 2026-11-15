@@ -207,10 +207,26 @@ public partial class ControlCenterView
         _ => SchoolCalm
     };
 
+    // Parts of the school tab that follow each other in when the tab opens (see RevealSchoolDetails).
+    private readonly List<(FrameworkElement Part, int Index)> _schoolDetails = new();
+    private Action? _resweepSchoolRing;
+
+    /// <summary>
+    /// Opening the school tab: the hero's ring sweeps up to its share again and the parts of the hero and the
+    /// test cards follow each other in, like Claude's hero.
+    /// </summary>
+    private void RevealSchoolDetails()
+    {
+        _resweepSchoolRing?.Invoke();
+        foreach (var (part, index) in _schoolDetails) DetailArrive(part, index);
+    }
+
     private void BuildPiSchool()
     {
         _accent = _mood;
         _piSchoolSection.Children.Clear();
+        _schoolDetails.Clear();
+        _resweepSchoolRing = null;
         if (_isLocalOnly() || _pi?.IsConfigured != true)
         {
             _piSchoolSection.Children.Add(NewRow("\uE7BA", Loc.Get(_isLocalOnly() ? "pi.localOnly" : "pi.notConfigured"), muted: true));
@@ -315,10 +331,18 @@ public partial class ControlCenterView
         bool animate = IsVisible && !AnimationConfig.ReduceMotion;
         if (animate) tween.To(share, from: 0);
         else tween.Play(share, share, 0, WeatherMotion.OutQuint);
+        // A reopened tab sweeps the last stretch again; a sweep still on its way just carries on.
+        _resweepSchoolRing = () =>
+        {
+            if (ring.IsVisible && !Motion.IsRunning(tween, WeatherTween.ValueProperty)) tween.To(share, from: share * .8);
+        };
 
         var title = MakeLabel(deadline.Name, 16, VNotch.Services.UiPalette.PrimaryBrush);
         var meta = MakeLabel($"{ShortCourse(deadline.Course)} · {deadline.Due.ToLocalTime().ToString("ddd d.M. · HH:mm", CultureInfo.CurrentUICulture)}", 12, _moodSoft);
         meta.Margin = new Thickness(0, 3, 0, 0);
+        _schoolDetails.Add((ring, 0));
+        _schoolDetails.Add((title, 1));
+        _schoolDetails.Add((meta, 2));
         var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(16, 0, 0, 0), Children = { title, meta } };
 
         var hero = new Grid { Margin = new Thickness(0, 0, 0, 6), Background = Brushes.Transparent };
@@ -367,8 +391,13 @@ public partial class ControlCenterView
             card.Child = new StackPanel { Children = { date, subject, kind } };
             card.ToolTip = exam.Title;
             Pressable(card, () => soon ? Wash(DueToday, 0.18) : CardBg, CardHover, grow: true);
+            // The subject leans towards the pointer, independently of the card's squish.
+            DetailHover(card, subject);
             OpenOnClick(card, () => SchoolLinks.Untis(_untisUrl()), SignInToSchoolAsync);
             PlaceTile(grid, card, i, PiMaxExams);
+            _schoolDetails.Add((date, 3 + i));
+            _schoolDetails.Add((subject, 4 + i));
+            _schoolDetails.Add((kind, 5 + i));
         }
         _piExamSection.Children.Add(grid);
     }
@@ -476,12 +505,17 @@ public partial class ControlCenterView
             string id = todo.Id;
             AddStatus(row, "", Muted, Toggle(false, done =>
             {
-                // Leave immediately; the switch and row move together.
+                // The box ticks itself with a little hop as the row leaves; the switch and row move together.
+                if (done && RowGlyph(row) is { } glyph)
+                {
+                    glyph.Text = "";
+                    DetailReaction(glyph);
+                }
                 if (done && !AnimationConfig.ReduceMotion)
                 {
                     var away = new TranslateTransform();
                     row.RenderTransform = away;
-                    row.BeginAnimation(OpacityProperty, WeatherMotion.To(row.Opacity, 0, 160, WeatherMotion.Out));
+                    Motion.To(row, OpacityProperty, 0, Motion.Exit);
                     Motion.To(away, TranslateTransform.XProperty, 28, Motion.Exit);
                     GlideHeight(row, 0, from: row.ActualHeight);
                 }
@@ -491,6 +525,10 @@ public partial class ControlCenterView
         }
         if (shown == 0) _piTodoSection.Children.Add(NewRow("\uE73E", Loc.Get("pi.todosEmpty"), muted: true));
     }
+
+    /// <summary>The glyph at the start of a <see cref="NewRow"/>.</summary>
+    private static TextBlock? RowGlyph(Grid row) =>
+        row.Children.OfType<StackPanel>().FirstOrDefault()?.Children.OfType<TextBlock>().FirstOrDefault();
 
     /// <summary>A one-line box: Enter adds the to-do on the Pi and keeps the box ready for the next.</summary>
     private FrameworkElement TodoComposer()

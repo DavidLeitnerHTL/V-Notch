@@ -269,6 +269,24 @@ public sealed partial class WeatherView
         return grid;
     }
 
+    // What the tiles showed before the last redraw: a refresh glides and rolls from there instead of jumping.
+    private double _shownWindKmh = double.NaN;
+    private double _shownWindAngle = double.NaN;
+    private double _shownHumidity = double.NaN;
+    private double _shownUv = double.NaN;
+
+    /// <summary>On a refresh, the tile's number counts from what it showed to the new value, like the temperature.</summary>
+    private static void RollTileValue(StackPanel text, bool entrance, double shown, double target, Func<double, string> format)
+    {
+        if (entrance || AnimationConfig.ReduceMotion || !double.IsFinite(shown) || Math.Round(shown) == Math.Round(target)) return;
+        if (text.Children.Count < 2 || text.Children[1] is not TextBlock value) return;
+        new WeatherTween { Step = v => value.Text = format(v) }.To(target, from: shown);
+    }
+
+    /// <summary>Whether a refresh should move a part from its old value (and not an entrance, which has its own motion).</summary>
+    private static bool Refreshing(bool entrance, double shown, double target) =>
+        !entrance && !AnimationConfig.ReduceMotion && double.IsFinite(shown) && Math.Abs(shown - target) > 0.001;
+
     private static (Border Tile, Grid Body, StackPanel Text) Tile(string label, string value, string? detail, double reserveRight = 0)
     {
         var tile = new Border { CornerRadius = new CornerRadius(12), Background = new SolidColorBrush(TileIdle), Padding = new Thickness(10, 7, 8, 7) };
@@ -286,7 +304,9 @@ public sealed partial class WeatherView
     {
         var now = forecast.Now;
         string? gusts = now.GustKmh is { } g && g >= now.WindKmh + 5 ? Loc.Get("weather.gusts", (int)Math.Round(g)) : null;
-        var (tile, body, _) = Tile(Loc.Get("weather.wind"), $"{(int)Math.Round(now.WindKmh)} km/h", gusts, reserveRight: 38);
+        var (tile, body, windText) = Tile(Loc.Get("weather.wind"), $"{(int)Math.Round(now.WindKmh)} km/h", gusts, reserveRight: 38);
+        RollTileValue(windText, entrance, _shownWindKmh, now.WindKmh, v => $"{(int)Math.Round(v)} km/h");
+        _shownWindKmh = now.WindKmh;
 
         var dial = new Canvas { Width = 34, Height = 34, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
         dial.Children.Add(new Ellipse { Width = 34, Height = 34, Stroke = WeatherIcons.Brush(Color.FromArgb(0x30, 0xFF, 0xFF, 0xFF)), StrokeThickness = 1.2 });
@@ -321,7 +341,12 @@ public sealed partial class WeatherView
         double target = (now.WindFrom + 180) % 360;
         if (entrance && !AnimationConfig.ReduceMotion)
             Motion.To(aim, RotateTransform.AngleProperty, target, Motion.Press, from: target - 150);
+        else if (Refreshing(entrance, _shownWindAngle, target))
+            // The wind turned: the arrow swings the short way round from where it pointed.
+            Motion.To(aim, RotateTransform.AngleProperty, target, Motion.Press,
+                from: target + ((_shownWindAngle - target + 540) % 360 - 180));
         else aim.Angle = target;
+        _shownWindAngle = target;
         double gustiness = now.GustKmh is { } gk ? Math.Clamp((gk - now.WindKmh) / 4, 0, 9) : 2;
         double swing = 3 + gustiness + Math.Min(now.WindKmh, 40) / 10;
         _loops.Swing(gust, RotateTransform.AngleProperty, -swing, swing, Math.Max(0.6, 1.6 - now.WindKmh / 60), entrance ? 1.8 : 0);
@@ -331,7 +356,8 @@ public sealed partial class WeatherView
     private Border HumidityTile(WeatherForecast forecast, bool entrance)
     {
         int humidity = Math.Clamp(forecast.Now.Humidity, 0, 100);
-        var (tile, body, _) = Tile(Loc.Get("weather.humidity"), $"{humidity} %", null, reserveRight: 38);
+        var (tile, body, humidityText) = Tile(Loc.Get("weather.humidity"), $"{humidity} %", null, reserveRight: 38);
+        RollTileValue(humidityText, entrance, _shownHumidity, humidity, v => $"{(int)Math.Round(v)} %");
 
         var ring = new Grid { Width = 34, Height = 34, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
         const double thickness = 3.6, size = 32;
@@ -352,6 +378,10 @@ public sealed partial class WeatherView
         ring.Children.Add(progress);
         if (entrance && !AnimationConfig.ReduceMotion)
             Motion.To(progress, Shape.StrokeDashOffsetProperty, units * (1 - humidity / 100.0), Motion.Glide, from: units);
+        else if (Refreshing(entrance, _shownHumidity, humidity))
+            Motion.To(progress, Shape.StrokeDashOffsetProperty, units * (1 - humidity / 100.0), Motion.Glide,
+                from: units * (1 - _shownHumidity / 100.0));
+        _shownHumidity = humidity;
 
         var drop = new Path
         {
@@ -387,7 +417,7 @@ public sealed partial class WeatherView
             <= 10 => Loc.Get("weather.uv.veryHigh"),
             _ => Loc.Get("weather.uv.extreme")
         };
-        var (tile, body, _) = Tile(Loc.Get("weather.uv"), $"{rounded} Â· {level}", null);
+        var (tile, body, _) = Tile(Loc.Get("weather.uv"), $"{rounded} · {level}", null);
 
         const double barWidth = TileWidth - 18;
         var bar = new Canvas { Width = barWidth, Height = 8, VerticalAlignment = VerticalAlignment.Bottom, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 2) };
@@ -408,7 +438,10 @@ public sealed partial class WeatherView
         double x = Math.Clamp(uv / 11.0, 0, 1) * (barWidth - 8);
         if (entrance && !AnimationConfig.ReduceMotion)
             Motion.To(slide, TranslateTransform.XProperty, x, Motion.Glide, from: 0);
+        else if (Refreshing(entrance, _shownUv, uv))
+            Motion.To(slide, TranslateTransform.XProperty, x, Motion.Glide, from: Math.Clamp(_shownUv / 11.0, 0, 1) * (barWidth - 8));
         else slide.X = x;
+        _shownUv = uv;
         body.Children.Add(bar);
         return tile;
     }

@@ -145,7 +145,7 @@ public sealed partial class WeatherView
                 StrokeThickness = 1,
                 StrokeDashArray = new DoubleCollection { 2, 4 }
             });
-            var zero = Text("0Â°", 9, WeatherIcons.Brush(Color.FromArgb(0xA0, 0xA5, 0xB4, 0xFF)));
+            var zero = Text("0°", 9, WeatherIcons.Brush(Color.FromArgb(0xA0, 0xA5, 0xB4, 0xFF)));
             Canvas.SetLeft(zero, width - ChartPad + 2);
             Canvas.SetTop(zero, y0 - 7);
             canvas.Children.Add(zero);
@@ -485,9 +485,9 @@ public sealed partial class WeatherView
             current = index;
             var p = points[index];
             string rain = p.Chance >= 0
-                ? (p.Chance >= 5 ? $"  Â·  {p.Chance} %" : "")
-                : (p.Precipitation >= 0.05 ? $"  Â·  {p.Precipitation.ToString("0.#", CultureInfo.CurrentCulture)} mm" : "");
-            bubbleText.Text = $"{p.Time.ToString("t", CultureInfo.CurrentCulture)}  Â·  {Degrees(p.Temperature)}{rain}";
+                ? (p.Chance >= 5 ? $"  ·  {p.Chance} %" : "")
+                : (p.Precipitation >= 0.05 ? $"  ·  {p.Precipitation.ToString("0.#", CultureInfo.CurrentCulture)} mm" : "");
+            bubbleText.Text = $"{p.Time.ToString("t", CultureInfo.CurrentCulture)}  ·  {Degrees(p.Temperature)}{rain}";
             bubble.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
             double bx = Math.Clamp(p.X - bubble.DesiredSize.Width / 2, 0, width - bubble.DesiredSize.Width);
             double ms = placed ? 170 : 0;
