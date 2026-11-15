@@ -438,29 +438,19 @@ public sealed class SpotifyCanvasPresenter : ISpotifyCanvasPresenter
             _refs.BlurFallbackBackground.Visibility != Visibility.Visible ||
             _refs.BlurFallbackBackground.Opacity <= 0.01)
         {
-            _refs.BlurFallbackBackground.BeginAnimation(UIElement.OpacityProperty, null);
-            _refs.BlurFallbackBackground.Opacity = 0;
+            Motion.Stop(_refs.BlurFallbackBackground, UIElement.OpacityProperty, 0);
             _refs.BlurFallbackBackground.Visibility = Visibility.Collapsed;
             return;
         }
 
-        double fromOpacity = _refs.BlurFallbackBackground.Opacity;
-        _refs.BlurFallbackBackground.BeginAnimation(UIElement.OpacityProperty, null);
-        _refs.BlurFallbackBackground.Opacity = fromOpacity;
-
-        var fadeOut = new DoubleAnimation(fromOpacity, 0, TimeSpan.FromMilliseconds(480))
-        {
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut }
-        };
-        fadeOut.Completed += (_, _) =>
+        // The blurred cover gives way to the Canvas on Exit, from wherever it is (it may still be fading in).
+        var fallback = _refs.BlurFallbackBackground;
+        Motion.To(fallback, UIElement.OpacityProperty, 0, Motion.Exit, done: () =>
         {
             if (_disposed || (!_isMediaOpen && (_options?.IsLyricsActive ?? false))) return;
-            _refs.BlurFallbackBackground.BeginAnimation(UIElement.OpacityProperty, null);
-            _refs.BlurFallbackBackground.Opacity = 0;
-            _refs.BlurFallbackBackground.Visibility = Visibility.Collapsed;
-        };
-        Timeline.SetDesiredFrameRate(fadeOut, AnimationConfig.TargetFps);
-        _refs.BlurFallbackBackground.BeginAnimation(UIElement.OpacityProperty, fadeOut);
+            Motion.Stop(fallback, UIElement.OpacityProperty, 0);
+            fallback.Visibility = Visibility.Collapsed;
+        });
     }
 
     public void RestoreBlurFallback()
@@ -491,20 +481,16 @@ public sealed class SpotifyCanvasPresenter : ISpotifyCanvasPresenter
 
             if (_refs.BlurFallbackBackground.Visibility != Visibility.Visible || currentOpacity < 0.5)
             {
+                // A fallback still giving way turns round with its speed; a hidden one rises from dark.
+                bool shown = _refs.BlurFallbackBackground.Visibility == Visibility.Visible;
                 _refs.BlurFallbackBackground.Visibility = Visibility.Visible;
-                _refs.BlurFallbackBackground.BeginAnimation(UIElement.OpacityProperty, null);
-                var fadeIn = new DoubleAnimation(currentOpacity, 0.55, new Duration(TimeSpan.FromMilliseconds(350)))
-                {
-                    EasingFunction = new ExponentialEase { Exponent = 4, EasingMode = EasingMode.EaseOut }
-                };
-                Timeline.SetDesiredFrameRate(fadeIn, AnimationConfig.TargetFps);
-                _refs.BlurFallbackBackground.BeginAnimation(UIElement.OpacityProperty, fadeIn);
+                Motion.To(_refs.BlurFallbackBackground, UIElement.OpacityProperty, 0.55, Motion.Tile,
+                    from: shown ? null : 0);
             }
         }
         else
         {
-            _refs.BlurFallbackBackground.BeginAnimation(UIElement.OpacityProperty, null);
-            _refs.BlurFallbackBackground.Opacity = 0;
+            Motion.Stop(_refs.BlurFallbackBackground, UIElement.OpacityProperty, 0);
             _refs.BlurFallbackBackground.Visibility = Visibility.Collapsed;
         }
     }

@@ -466,43 +466,11 @@ public partial class MainWindow
             _isLyricsSearchVisible = true;
             int transitionVersion = ++_lyricsSearchTransitionVersion;
             TranslateTransform searchTranslate = GetLyricsSearchTransform();
-            LyricsSearchPanel.BeginAnimation(OpacityProperty, null);
-            searchTranslate.BeginAnimation(TranslateTransform.YProperty, null);
+            // A search panel still going out turns round where it is; a hidden one rises in on Tile.
+            bool returning = LyricsSearchPanel.Visibility == Visibility.Visible;
             LyricsSearchPanel.Visibility = Visibility.Visible;
-
-            if (AnimationConfig.ReduceMotion)
-            {
-                LyricsSearchPanel.Opacity = 1;
-                searchTranslate.Y = 0;
-            }
-            else
-            {
-                LyricsSearchPanel.Opacity = 0;
-                searchTranslate.Y = 8;
-
-                var dur = new Duration(TimeSpan.FromMilliseconds(240));
-                var easeOut = new CubicEase { EasingMode = EasingMode.EaseOut };
-                var fadeIn = new DoubleAnimation(0, 1, dur) { EasingFunction = easeOut };
-                var slideIn = new DoubleAnimation(8, 0, dur) { EasingFunction = easeOut };
-                Timeline.SetDesiredFrameRate(fadeIn, AnimationConfig.TargetFps);
-                Timeline.SetDesiredFrameRate(slideIn, AnimationConfig.TargetFps);
-                fadeIn.Completed += (s, e) =>
-                {
-                    if (!_isLyricsSearchVisible || transitionVersion != _lyricsSearchTransitionVersion)
-                        return;
-                    LyricsSearchPanel.BeginAnimation(OpacityProperty, null);
-                    LyricsSearchPanel.Opacity = 1;
-                };
-                slideIn.Completed += (s, e) =>
-                {
-                    if (!_isLyricsSearchVisible || transitionVersion != _lyricsSearchTransitionVersion)
-                        return;
-                    searchTranslate.BeginAnimation(TranslateTransform.YProperty, null);
-                    searchTranslate.Y = 0;
-                };
-                LyricsSearchPanel.BeginAnimation(OpacityProperty, fadeIn);
-                searchTranslate.BeginAnimation(TranslateTransform.YProperty, slideIn);
-            }
+            Motion.To(LyricsSearchPanel, OpacityProperty, 1, Motion.Tile, from: returning ? null : 0);
+            Motion.To(searchTranslate, TranslateTransform.YProperty, 0, Motion.Tile, from: returning ? null : 8);
 
             StartLyricsSearchShimmer();
         }
@@ -527,10 +495,8 @@ public partial class MainWindow
             StopLyricsSearchShimmer();
             if (LyricsSearchPanel != null)
             {
-                LyricsSearchPanel.BeginAnimation(OpacityProperty, null);
-                searchTranslate?.BeginAnimation(TranslateTransform.YProperty, null);
-                LyricsSearchPanel.Opacity = 0;
-                if (searchTranslate != null) searchTranslate.Y = 0;
+                Motion.Stop(LyricsSearchPanel, OpacityProperty, 0);
+                if (searchTranslate != null) Motion.Stop(searchTranslate, TranslateTransform.YProperty, 0);
                 LyricsSearchPanel.Visibility = Visibility.Collapsed;
             }
         }
@@ -541,21 +507,9 @@ public partial class MainWindow
             return;
         }
 
-        var duration = new Duration(TimeSpan.FromMilliseconds(160));
-        var ease = new CubicEase { EasingMode = EasingMode.EaseIn };
-        var fadeOut = new DoubleAnimation(LyricsSearchPanel.Opacity, 0, duration)
-        {
-            EasingFunction = ease
-        };
-        var slideOut = new DoubleAnimation(searchTranslate.Y, -8, duration)
-        {
-            EasingFunction = ease
-        };
-        fadeOut.Completed += (s, e) => FinishHide();
-        Timeline.SetDesiredFrameRate(fadeOut, AnimationConfig.TargetFps);
-        Timeline.SetDesiredFrameRate(slideOut, AnimationConfig.TargetFps);
-        LyricsSearchPanel.BeginAnimation(OpacityProperty, fadeOut);
-        searchTranslate.BeginAnimation(TranslateTransform.YProperty, slideOut);
+        // Leaves from wherever its arrival got to, with the speed it had.
+        Motion.To(LyricsSearchPanel, OpacityProperty, 0, Motion.Exit, done: FinishHide);
+        Motion.To(searchTranslate, TranslateTransform.YProperty, -8, Motion.Exit);
     }
 
     private TranslateTransform GetLyricsSearchTransform()
@@ -686,54 +640,30 @@ public partial class MainWindow
         if (hasActiveLyrics && !AnimationConfig.ReduceMotion)
         {
             int lineVersion = ++_lyricsLineTransitionVersion;
-            var lyricEase = new CubicEase { EasingMode = EasingMode.EaseIn };
-            var lyricDur = new Duration(TimeSpan.FromMilliseconds(220));
 
-            if (hasActiveLyricA)
+            // Each visible line leaves on Exit from where it is, with the speed of an exit already under way.
+            void ExitLine(TextBlock text, TranslateTransform? translate)
             {
-                double opacity = LyricTextA!.Opacity;
-                double y = LyricTranslateA?.Y ?? 0;
-                LyricTextA!.BeginAnimation(OpacityProperty, null);
-                LyricTranslateA?.BeginAnimation(TranslateTransform.YProperty, null);
-                LyricTextA.Opacity = opacity;
-                if (LyricTranslateA != null) LyricTranslateA.Y = y;
-                var fadeOutA = new DoubleAnimation(opacity, 0, lyricDur) { EasingFunction = lyricEase };
-                var slideOutA = new DoubleAnimation(y, -10, lyricDur) { EasingFunction = lyricEase };
-                Timeline.SetDesiredFrameRate(fadeOutA, AnimationConfig.TargetFps);
-                Timeline.SetDesiredFrameRate(slideOutA, AnimationConfig.TargetFps);
-                fadeOutA.Completed += (s, e) =>
+                double opacity = text.Opacity;
+                double y = translate?.Y ?? 0;
+                text.BeginAnimation(OpacityProperty, null);
+                translate?.BeginAnimation(TranslateTransform.YProperty, null);
+                text.Opacity = opacity;
+                if (translate != null)
+                {
+                    translate.Y = y;
+                    Motion.To(translate, TranslateTransform.YProperty, -10, Motion.Exit);
+                }
+                Motion.To(text, OpacityProperty, 0, Motion.Exit, done: () =>
                 {
                     if (lineVersion != _lyricsLineTransitionVersion || !_isLyricsPlaceholderActive) return;
-                    LyricTextA.BeginAnimation(OpacityProperty, null);
-                    LyricTextA.Opacity = 0;
-                    LyricTextA.Text = "";
-                };
-                LyricTextA.BeginAnimation(OpacityProperty, fadeOutA);
-                LyricTranslateA?.BeginAnimation(TranslateTransform.YProperty, slideOutA);
+                    Motion.Stop(text, OpacityProperty, 0);
+                    text.Text = "";
+                });
             }
 
-            if (hasActiveLyricB)
-            {
-                double opacity = LyricTextB!.Opacity;
-                double y = LyricTranslateB?.Y ?? 0;
-                LyricTextB!.BeginAnimation(OpacityProperty, null);
-                LyricTranslateB?.BeginAnimation(TranslateTransform.YProperty, null);
-                LyricTextB.Opacity = opacity;
-                if (LyricTranslateB != null) LyricTranslateB.Y = y;
-                var fadeOutB = new DoubleAnimation(opacity, 0, lyricDur) { EasingFunction = lyricEase };
-                var slideOutB = new DoubleAnimation(y, -10, lyricDur) { EasingFunction = lyricEase };
-                Timeline.SetDesiredFrameRate(fadeOutB, AnimationConfig.TargetFps);
-                Timeline.SetDesiredFrameRate(slideOutB, AnimationConfig.TargetFps);
-                fadeOutB.Completed += (s, e) =>
-                {
-                    if (lineVersion != _lyricsLineTransitionVersion || !_isLyricsPlaceholderActive) return;
-                    LyricTextB.BeginAnimation(OpacityProperty, null);
-                    LyricTextB.Opacity = 0;
-                    LyricTextB.Text = "";
-                };
-                LyricTextB.BeginAnimation(OpacityProperty, fadeOutB);
-                LyricTranslateB?.BeginAnimation(TranslateTransform.YProperty, slideOutB);
-            }
+            if (hasActiveLyricA) ExitLine(LyricTextA!, LyricTranslateA);
+            if (hasActiveLyricB) ExitLine(LyricTextB!, LyricTranslateB);
         }
         else
         {
@@ -857,32 +787,15 @@ public partial class MainWindow
             return;
         }
 
-        var duration = new Duration(TimeSpan.FromMilliseconds(220));
-        var easeIn = new CubicEase { EasingMode = EasingMode.EaseIn };
-
-        double currentOpacity = LyricsPlaceholderPanel.Opacity;
-        if (currentOpacity <= 0.01)
+        if (LyricsPlaceholderPanel.Opacity <= 0.01)
         {
             FinishHide();
             return;
         }
 
-        var fadeOut = new DoubleAnimation(currentOpacity, 0, duration)
-        {
-            EasingFunction = easeIn
-        };
-        var slideOut = new DoubleAnimation(transform.Y, -8, duration)
-        {
-            EasingFunction = easeIn
-        };
-
-        fadeOut.Completed += (s, e) => FinishHide();
-
-        Timeline.SetDesiredFrameRate(fadeOut, AnimationConfig.TargetFps);
-        Timeline.SetDesiredFrameRate(slideOut, AnimationConfig.TargetFps);
-
-        LyricsPlaceholderPanel.BeginAnimation(OpacityProperty, fadeOut);
-        transform.BeginAnimation(TranslateTransform.YProperty, slideOut);
+        // Leaves on Exit from wherever its entrance got to.
+        Motion.To(LyricsPlaceholderPanel, OpacityProperty, 0, Motion.Exit, done: FinishHide);
+        Motion.To(transform, TranslateTransform.YProperty, -8, Motion.Exit);
     }
 
     private TimeSpan GetLyricsPosition() => GetLyricsPlayback().Position;
@@ -1015,10 +928,15 @@ public partial class MainWindow
         double outgoingOpacity = outgoing.Opacity;
         double outgoingY = outTransform.Y;
 
+        // Clearing a clock leaves Motion's record of it, so an outgoing line still on its exit spring hands
+        // that speed on below. The incoming line enters on a tween: forget its old exit so a stale speed
+        // never reaches its next one.
         outgoing.BeginAnimation(OpacityProperty, null);
         outTransform.BeginAnimation(TranslateTransform.YProperty, null);
         incoming.BeginAnimation(OpacityProperty, null);
         inTransform.BeginAnimation(TranslateTransform.YProperty, null);
+        Motion.Forget(incoming, OpacityProperty);
+        Motion.Forget(inTransform, TranslateTransform.YProperty);
 
         double startY = (transitionFromSearch || transitionFromPlaceholder) ? 10 : 14;
         bool hasOutgoingText = !string.IsNullOrWhiteSpace(outgoing.Text);
@@ -1052,7 +970,6 @@ public partial class MainWindow
         AnimatedLyricsLayer.OpacityMask = _lyricsLayerFadeMask;
 
         int fps = VNotch.Services.AnimationConfig.TargetFps;
-        var outDur = new Duration(TimeSpan.FromMilliseconds(hasWordTiming ? 180 : 300));
         var inDur = new Duration(TimeSpan.FromMilliseconds(hasWordTiming ? 220 : 450));
         double delayMs = 80;
         if (transitionFromSearch)
@@ -1067,17 +984,12 @@ public partial class MainWindow
 
         var inDelay = TimeSpan.FromMilliseconds(delayMs);
         var easeOut = _easeExpOut5;
-        var easeIn = _easeCubicIn;
-
-        var fadeOut = new DoubleAnimation(outgoingOpacity, 0, outDur) { EasingFunction = easeIn };
-        var slideOut = new DoubleAnimation(outgoingY, hasWordTiming ? -6 : -14, outDur) { EasingFunction = easeIn };
-        Timeline.SetDesiredFrameRate(fadeOut, fps);
-        Timeline.SetDesiredFrameRate(slideOut, fps);
 
         if (hasOutgoingText)
         {
-            outgoing.BeginAnimation(OpacityProperty, fadeOut);
-            outTransform.BeginAnimation(TranslateTransform.YProperty, slideOut);
+            // The old line leaves on Exit from wherever it was, even halfway through its own entrance.
+            Motion.To(outgoing, OpacityProperty, 0, Motion.Exit);
+            Motion.To(outTransform, TranslateTransform.YProperty, hasWordTiming ? -6 : -14, Motion.Exit);
         }
 
         var fadeIn = new DoubleAnimation(0, 1, inDur)
