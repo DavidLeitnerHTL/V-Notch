@@ -337,6 +337,13 @@ public partial class App : Application
             return;
         }
 
+        if (IsRenderThreadFailure(args.Exception))
+        {
+            args.Handled = true;
+            RestartAfterRenderThreadFailure(args.Exception);
+            return;
+        }
+
         if (IsRecoverableException(args.Exception))
         {
             CrashReporter.LogCrash("DispatcherUnhandledException (Recovered)", args.Exception,
@@ -468,6 +475,38 @@ public partial class App : Application
         }
 
         RequestShutdownAsync().SafeFireAndForget("APP-RESTART");
+    }
+
+    private const int UceErrRenderThreadFailure = unchecked((int)0x88980406);
+    private static int _renderRestartRequested;
+
+    internal static bool IsRenderThreadFailure(Exception ex) =>
+        ex is System.Runtime.InteropServices.COMException { HResult: UceErrRenderThreadFailure };
+
+    // Once WPF's render thread has died, nothing in this process draws again. Swallowing the error
+    // leaves an invisible notch, so start a fresh instance instead. A failure right after start is
+    // not retried, so a broken GPU state cannot turn into a restart loop.
+    private static void RestartAfterRenderThreadFailure(Exception ex)
+    {
+        if (Interlocked.Exchange(ref _renderRestartRequested, 1) != 0) return;
+
+        var uptime = DateTime.Now - Process.GetCurrentProcess().StartTime;
+        bool restart = uptime > TimeSpan.FromSeconds(30);
+        CrashReporter.LogCrash("DispatcherUnhandledException (RenderThread)", ex,
+            restart ? "WPF render thread failed; restarting V-Notch" : "WPF render thread failed right after start; not restarting",
+            isTerminating: restart);
+        RuntimeLog.Error("RENDER-THREAD", ex, restart ? "Render thread failed; restarting" : "Render thread failed shortly after start");
+        if (!restart) return;
+
+        // The normal shutdown closes windows, which can stall without a render thread.
+        // The new instance waits up to 10 s for the mutex, so exit hard well before that.
+        var fallback = new Thread(() =>
+        {
+            Thread.Sleep(TimeSpan.FromSeconds(4));
+            Environment.Exit(1);
+        }) { IsBackground = true, Name = "RenderRestartFallback" };
+        fallback.Start();
+        RestartApplication();
     }
 
     private static bool IsRecoverableException(Exception ex)
