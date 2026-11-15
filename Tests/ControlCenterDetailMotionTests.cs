@@ -3,6 +3,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using VNotch.Controls;
 using VNotch.Services;
 using Xunit;
@@ -65,7 +67,7 @@ public sealed class ControlCenterDetailMotionTests
         Assert.Equal(0, hover.X);
         Invoke("DetailReaction", scene.Glyph);
         var reaction = Transforms(scene.Glyph).OfType<TranslateTransform>().Last();
-        await WpfFrameWaiter.UntilAsync(() => reaction.Y < -.1, "state hop moves", ct);
+        await TestWait.UntilAsync(() => reaction.Y < -.1, "state hop moves", ct);
         Assert.InRange(reaction.Y, -4, 0);
         double y = reaction.Y;
         Invoke("DetailReaction", scene.Glyph);
@@ -102,6 +104,7 @@ public sealed class ControlCenterDetailMotionTests
         public readonly StackPanel Root = new() { Background = new SolidColorBrush(Color.FromRgb(22, 23, 25)) };
         public readonly Border Button;
         public readonly BackgroundWindow Window;
+        private readonly DetailMotionFrames _frames;
 
         public Scene()
         {
@@ -113,13 +116,36 @@ public sealed class ControlCenterDetailMotionTests
             Window = new BackgroundWindow { Left = -20000, Top = -20000, Width = 240, Height = 150, Content = Root };
             Window.Show();
             Window.UpdateLayout();
+            _frames = new DetailMotionFrames(Root);
         }
 
         public void Dispose()
         {
+            _frames.Dispose();
             Window.Close();
             AnimationConfig.SetReduceMotion(_reduced);
             AnimationConfig.ClientAreaAnimationOverride = _override;
         }
     }
+}
+
+// Transparent test windows can be culled by WPF; rendering their content keeps their clocks observable.
+internal sealed class DetailMotionFrames : IDisposable
+{
+    private readonly DispatcherTimer _timer = new(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(33) };
+
+    internal DetailMotionFrames(FrameworkElement content)
+    {
+        _timer.Tick += (_, _) =>
+        {
+            content.InvalidateVisual();
+            content.UpdateLayout();
+            var bitmap = new RenderTargetBitmap(Math.Max(1, (int)Math.Ceiling(content.ActualWidth)),
+                Math.Max(1, (int)Math.Ceiling(content.ActualHeight)), 96, 96, PixelFormats.Pbgra32);
+            bitmap.Render(content);
+        };
+        _timer.Start();
+    }
+
+    public void Dispose() => _timer.Stop();
 }

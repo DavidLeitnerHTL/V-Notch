@@ -182,7 +182,10 @@ public partial class ControlCenterView
         grid.Children.Add(card);
 
         var tile = new OutputTile { Card = card, Name = name, Sub = sub, Fill = fill, Chevron = chevron,
-            Number = new RollingNumber(n => sub.Text = sub.Tag is true ? "🔇" : $"{Math.Round(n)} %", sub) };
+            Number = new RollingNumber(n =>
+            {
+                if (sub.Tag is not true) SetRollingDetailText(sub, $"{Math.Round(n)} %");
+            }, sub) };
         card.IsVisibleChanged += (_, _) =>
         {
             if (!card.IsVisible)
@@ -218,8 +221,9 @@ public partial class ControlCenterView
         tile.Level = Math.Clamp(volume, 0, 1);
         tile.Muted = muted;
         tile.Sub.Tag = muted;
-        tile.Number.To(volume * 100, animate ? 650 : 0);
-        if (muted) tile.Sub.Text = "🔇";
+        if (changed) SetDetailText(tile.Sub, muted ? "🔇" : $"{Math.Round(volume * 100)} %");
+        tile.Number.To(volume * 100, animate && !muted ? 650 : 0);
+        if (muted && !changed) SetDetailText(tile.Sub, "🔇");
         if (changed && animate) DetailReaction(tile.Sub);
         if (!animate || AnimationConfig.ReduceMotion || !tile.Card.IsVisible)
         {
@@ -517,9 +521,10 @@ public partial class ControlCenterView
         bar.Muted = muted;
         bar.Value.Tag = muted;
         var number = AppNumbers.GetValue(bar.Value, label => new RollingNumber(
-            n => label.Text = label.Tag is true ? "🔇" : $"{Math.Round(n)} %", label));
-        number.To(volume * 100, animate ? 650 : 0);
-        if (muted) bar.Value.Text = "🔇";
+            n => { if (label.Tag is not true) SetRollingDetailText(label, $"{Math.Round(n)} %"); }, label));
+        if (changed) SetDetailText(bar.Value, muted ? "🔇" : $"{Math.Round(volume * 100)} %");
+        number.To(volume * 100, animate && !muted ? 650 : 0);
+        if (muted && !changed) SetDetailText(bar.Value, "🔇");
         if (changed && animate) DetailReaction(bar.Value);
         if (!animate || AnimationConfig.ReduceMotion || !bar.Value.IsVisible)
         {

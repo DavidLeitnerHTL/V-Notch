@@ -163,6 +163,7 @@ public partial class ControlCenterView
         public required string Target;
         public required TranslateTransform Shift;
         public bool Leaving;
+        public Func<bool>? Reparenting;
     }
 
     private static readonly ConditionalWeakTable<TextBlock, DetailTextState> DetailTexts = new();
@@ -176,21 +177,15 @@ public partial class ControlCenterView
             AddDetailTransform(label, created.Shift);
             label.IsVisibleChanged += (_, _) =>
             {
-                if (label.IsVisible) return;
-                created.Leaving = false;
-                label.Text = created.Target;
-                Motion.Stop(label, OpacityProperty, 1);
-                Motion.Stop(created.Shift, TranslateTransform.YProperty, 0);
+                if (label.IsVisible || created.Reparenting?.Invoke() == true) return;
+                SettleDetailText(label, created);
             };
             return created;
         });
         if (!text.IsVisible || AnimationConfig.ReduceMotion)
         {
             state.Target = value;
-            state.Leaving = false;
-            text.Text = value;
-            Motion.Stop(text, OpacityProperty, 1);
-            Motion.Stop(state.Shift, TranslateTransform.YProperty, 0);
+            SettleDetailText(text, state);
             return;
         }
         if (state.Target == value) return;
@@ -213,6 +208,25 @@ public partial class ControlCenterView
             Motion.To(state.Shift, TranslateTransform.YProperty, 0, Motion.Press);
             Motion.To(text, OpacityProperty, 1, Motion.Press);
         });
+    }
+
+    private static void SettleDetailText(TextBlock text, DetailTextState state)
+    {
+        state.Leaving = false;
+        text.Text = state.Target;
+        Motion.Stop(text, OpacityProperty, 1);
+        Motion.Stop(state.Shift, TranslateTransform.YProperty, 0);
+    }
+
+    // A numeric roll can arrive during a label swap; let the dip reveal its latest frame.
+    private static void SetRollingDetailText(TextBlock text, string value)
+    {
+        if (DetailTexts.TryGetValue(text, out var state))
+        {
+            state.Target = value;
+            if (state.Leaving) return;
+        }
+        text.Text = value;
     }
 
     private static void AddDetailTransform(FrameworkElement element, Transform transform)
@@ -291,7 +305,7 @@ public partial class ControlCenterView
         });
         if (!element.IsVisible || AnimationConfig.ReduceMotion) return;
         bool moving = Motion.IsRunning(shift, TranslateTransform.YProperty);
-        var delay = Motion.Stagger(index);
+        var delay = moving ? TimeSpan.Zero : Motion.Stagger(index);
         Motion.To(shift, TranslateTransform.YProperty, 0, Motion.Tile, from: moving ? null : 3, delay: delay);
         Motion.To(element, OpacityProperty, 1, Motion.Tile, from: moving ? null : 0, delay: delay);
     }
@@ -418,6 +432,7 @@ public partial class ControlCenterView
 
         public void To(double value, double ms = 650)
         {
+            if (_shown == value && ms > 0 && !AnimationConfig.ReduceMotion && _owner is not { IsVisible: false }) return;
             // From wherever the roll is right now, so a new value mid-roll just turns it around.
             double from = double.IsNaN(_shown) ? value : _tween.Value;
             _shown = value;

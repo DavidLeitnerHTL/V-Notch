@@ -35,6 +35,7 @@ public partial class ControlCenterView
         public required RollingNumber ShareNumber;
         public required TextBlock Share;
         public bool Filled;
+        public bool HasShare;
     }
 
     /// <summary>Two small figures under a hairline: context and share of the five-hour limit.</summary>
@@ -49,12 +50,16 @@ public partial class ControlCenterView
         stack.Children.Add(new Border { Height = 1, Background = TokenDivider, Margin = new Thickness(0, 14, 0, 11) });
         stack.Children.Add(grid);
 
-        var row = new TokenRow
+        TokenRow? row = null;
+        row = new TokenRow
         {
             SessionId = lead.Id,
             Host = stack,
             Context = new RollingNumber(v => context.Text = FormatTokens(v), context),
-            ShareNumber = new RollingNumber(v => share.Text = FormatShare(v), share),
+            ShareNumber = new RollingNumber(v =>
+            {
+                if (row?.HasShare == true) SetRollingDetailText(share, FormatShare(v));
+            }, share),
             Share = share
         };
         _tokenRow = row;
@@ -99,9 +104,15 @@ public partial class ControlCenterView
             row.ShareNumber.To(0, 0);
         }
         row.Context.To(tokens.Context, 900);
-        if (tokens.TaskLimitPercent is { } percent) row.ShareNumber.To(percent);
+        if (tokens.TaskLimitPercent is { } percent)
+        {
+            if (!row.HasShare) SetDetailText(row.Share, FormatShare(percent));
+            row.HasShare = true;
+            row.ShareNumber.To(percent);
+        }
         else
         {
+            row.HasShare = false;
             row.ShareNumber.To(0, 0);
             SetDetailText(row.Share, "–");
         }

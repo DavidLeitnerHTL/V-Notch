@@ -614,7 +614,10 @@ public partial class ControlCenterView : UserControl, IDisposable
 
         if (metric != null)
         {
-            tile.Roll = new RollingNumber(v => value.Text = $"{Math.Round(v)} %", value);
+            tile.Roll = new RollingNumber(v =>
+            {
+                if (double.IsFinite(tile.Last)) SetRollingDetailText(value, $"{Math.Round(v)} %");
+            }, value);
             tile.Roll.To(0, 0);
             var fill = new ScaleTransform(0, 1);
             var peak = new TranslateTransform();
@@ -720,7 +723,12 @@ public partial class ControlCenterView : UserControl, IDisposable
             tile.Last = p;
             tile.Roll.To(p);
         }
-        else tile.Value.Text = "–";
+        else
+        {
+            tile.Last = double.NaN;
+            tile.Roll?.To(0, 0);
+            SetDetailText(tile.Value, "–");
+        }
         if (tile.Spark != null) DrawSpark(tile.Spark);
         if (tile.Fill == null) return;
         double target = Math.Clamp((percent ?? 0) / 100, 0, 1);

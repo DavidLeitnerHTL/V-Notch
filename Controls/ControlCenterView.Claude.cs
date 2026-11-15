@@ -118,6 +118,7 @@ public partial class ControlCenterView
         public required ScaleTransform Grow;
         public required WeatherTween Number;
         public required StackPanel Host;
+        public required TextBlock Label;
         public required TextBlock Percent;
         public DateTimeOffset? ResetsAt;
         public bool AskedAfterReset;
@@ -126,6 +127,7 @@ public partial class ControlCenterView
     private readonly Dictionary<string, LimitBar> _limitVisuals = new(StringComparer.Ordinal);
     private readonly Dictionary<string, double> _limitShown = new(StringComparer.Ordinal);
     private readonly Dictionary<(string Session, string Part), TextBlock> _claudeTexts = new();
+    private readonly List<FrameworkElement> _heroDetails = new();
 
     private TransformGroup StarMotion => _starMotion ??= new TransformGroup { Children = { _starPulse, _starSpin } };
 
@@ -207,9 +209,6 @@ public partial class ControlCenterView
         if (key == _claudeKey) return;
         _claudeKey = key;
 
-        foreach (var textKey in _claudeTexts.Keys.ToList())
-            if (!sessions.Exists(s => s.Id == textKey.Session)) _claudeTexts.Remove(textKey);
-
         ApplyClaudeMood(ClaudeMoodFor(sessions, limits));
         var work = NearLimit(limits) ? ClaudeNearLimit.Main : ClaudeAtWork.Main;
         if (work != _workColor)
@@ -230,6 +229,7 @@ public partial class ControlCenterView
         _requestCards.Clear();
         _limitBars.Clear();
         _heroTick = null;
+        _heroDetails.Clear();
         _tokenRow = null;
         foreach (var seen in new List<string>(_tokensSeen.Keys))
             if (!sessions.Exists(s => s.Id == seen)) _tokensSeen.Remove(seen);
@@ -253,9 +253,19 @@ public partial class ControlCenterView
         {
             Motion.Stop(stale.Grow, ScaleTransform.ScaleXProperty, stale.Used / 100);
             stale.Number.Stop(stale.Used);
+            if (DetailTexts.TryGetValue(stale.Label, out var staleCaptionState)) SettleDetailText(stale.Label, staleCaptionState);
             _limitVisuals.Remove(stale.Key);
         }
         _rebuildingResetRows = false;
+        foreach (var bar in _limitBars)
+            if (!bar.Label.IsVisible && DetailTexts.TryGetValue(bar.Label, out var hiddenCaptionState))
+                SettleDetailText(bar.Label, hiddenCaptionState);
+        foreach (var pair in _claudeTexts.ToList())
+        {
+            if (!pair.Value.IsVisible && DetailTexts.TryGetValue(pair.Value, out var state))
+                SettleDetailText(pair.Value, state);
+            if (!sessions.Exists(s => s.Id == pair.Key.Session)) _claudeTexts.Remove(pair.Key);
+        }
 
         RevealNewCards(_cardScratch);
         _cardScratch.Clear();
@@ -439,7 +449,9 @@ public partial class ControlCenterView
         top.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         for (int i = 0; i < 3; i++) top.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-        top.Children.Add(WhoRow(lead.Name, lead.Title is { Length: > 0 } && lead.Project != lead.Title ? lead.Project : null, lead.Cwd));
+        var who = WhoRow(lead.Name, lead.Title is { Length: > 0 } && lead.Project != lead.Title ? lead.Project : null, lead.Cwd);
+        top.Children.Add(who);
+        _heroDetails.Add(who);
 
         var state = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 7, 0, 4) };
         state.Children.Add(ClaudeText(lead.Id, "state", new TextBlock
@@ -469,6 +481,7 @@ public partial class ControlCenterView
         }
         Grid.SetRow(state, 1);
         top.Children.Add(state);
+        _heroDetails.Add(state);
 
         if (HeroLine(lead) is { Length: > 0 } line)
         {
@@ -485,6 +498,7 @@ public partial class ControlCenterView
             });
             Grid.SetRow(doing, 2);
             top.Children.Add(doing);
+            _heroDetails.Add(doing);
         }
 
         if (HeroTimeLabel(lead) is { } time)
@@ -492,6 +506,7 @@ public partial class ControlCenterView
             Grid.SetColumn(time, 1);
             Grid.SetRowSpan(time, 2);
             top.Children.Add(time);
+            _heroDetails.Add(time);
         }
 
         // Shown on hover with the open arrow; a waiting session wants its request answered first.
@@ -619,6 +634,7 @@ public partial class ControlCenterView
     {
         if (!_claudeTexts.TryGetValue((session, part), out var text))
         {
+            PreserveClaudeText(next);
             _claudeTexts[(session, part)] = next;
             return next;
         }
@@ -628,6 +644,12 @@ public partial class ControlCenterView
         string value = next.Text;
         Dispatcher.BeginInvoke(new Action(() => SetDetailText(text, value)));
         return text;
+    }
+
+    private void PreserveClaudeText(TextBlock text)
+    {
+        SetDetailText(text, text.Text);
+        if (DetailTexts.TryGetValue(text, out var state)) state.Reparenting = () => _rebuildingResetRows;
     }
 
     /// <summary>The star and the session's name; the folder follows a name Claude Code gave it.</summary>
@@ -844,6 +866,7 @@ public partial class ControlCenterView
         {
             Motion.Stop(previous.Grow, ScaleTransform.ScaleXProperty, previous.Used / 100);
             previous.Number.Stop(previous.Used);
+            if (DetailTexts.TryGetValue(previous.Label, out var captionState)) SettleDetailText(previous.Label, captionState);
             _limitVisuals.Remove(key);
         }
         if (_limitVisuals.TryGetValue(key, out var existing))
@@ -853,6 +876,7 @@ public partial class ControlCenterView
             if (existing.ResetsAt != window.ResetsAt) existing.AskedAfterReset = false;
             existing.ResetsAt = window.ResetsAt;
             existing.Percent.Foreground = used >= NearLimitPercent ? _moodInk : LimitValue;
+            Dispatcher.BeginInvoke(new Action(() => SetDetailText(existing.Label, label)));
             _limitBars.Add(existing);
             PlayLimit(existing, _limitShown.GetValueOrDefault(key), 0);
             return existing.Host;
@@ -860,7 +884,7 @@ public partial class ControlCenterView
         var top = new Grid();
         top.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         top.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        top.Children.Add(new TextBlock
+        var caption = new TextBlock
         {
             Text = label,
             FontFamily = ControlFont,
@@ -868,7 +892,9 @@ public partial class ControlCenterView
             FontWeight = FontWeights.SemiBold,
             Foreground = LimitLabel,
             TextTrimming = TextTrimming.CharacterEllipsis
-        });
+        };
+        PreserveClaudeText(caption);
+        top.Children.Add(caption);
         var percent = new TextBlock
         {
             FontFamily = ControlFont,
@@ -895,7 +921,7 @@ public partial class ControlCenterView
         stack.Children.Add(bar);
         var limitBar = new LimitBar
         {
-            Key = key, Used = used, Grow = grow, Host = stack, Percent = percent, ResetsAt = window.ResetsAt,
+            Key = key, Used = used, Grow = grow, Host = stack, Label = caption, Percent = percent, ResetsAt = window.ResetsAt,
             Number = new WeatherTween { Step = v => percent.Text = $"{Math.Round(v)} %" }
         };
         stack.IsVisibleChanged += (_, _) =>
@@ -1029,6 +1055,7 @@ public partial class ControlCenterView
             GlideIn(element, start + Motion.Stagger(index++).TotalMilliseconds);
         }
         foreach (var bar in _limitBars) PlayLimit(bar, 0, start, entrance: true);
+        for (int i = 0; i < _heroDetails.Count; i++) DetailArrive(_heroDetails[i], i);
         RollTokensIn();
         PopTick(start);
     }

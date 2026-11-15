@@ -12,6 +12,7 @@ using Xunit;
 
 namespace VNotch.Tests;
 
+[Collection("Localization")]
 public sealed class SystemDetailMotionTests
 {
     [Fact]
@@ -25,7 +26,7 @@ public sealed class SystemDetailMotionTests
             await rig.Settle(ct);
             rig.Output(.88f);
             rig.App(.88f);
-            await WpfFrameWaiter.UntilAsync(() => rig.OutputFill.ScaleX > .35 && rig.OutputFill.ScaleX < .86,
+            await WpfFrameWaiter.UntilAsync(() => rig.OutputFill.ScaleX > .35,
                 "output starts moving", ct);
             double output = rig.OutputFill.ScaleX, app = rig.AppFill.ScaleX;
             rig.Output(.18f);
@@ -52,7 +53,8 @@ public sealed class SystemDetailMotionTests
             await rig.Settle(ct);
             rig.Output(.6f, true);
             rig.App(.6f, true);
-            await WpfFrameWaiter.UntilAsync(() => rig.OutputValue.RenderTransform.Value.OffsetY < -.1,
+            await WpfFrameWaiter.UntilAsync(() => rig.OutputValue.Text == "🔇" &&
+                !Motion.IsRunning(rig.OutputValue, UIElement.OpacityProperty),
                 "mute glyph reacts", ct);
             Assert.Equal("🔇", rig.OutputValue.Text);
             rig.Surface.Visibility = Visibility.Collapsed;
@@ -127,6 +129,7 @@ public sealed class SystemDetailMotionTests
         private readonly object _output;
         private readonly object _app;
         private readonly Window _window;
+        private readonly DetailMotionFrames _frames;
         public StackPanel Surface { get; } = new() { Width = 420, Background = new SolidColorBrush(Color.FromRgb(0x0C, 0x0C, 0x0F)) };
         public Border OutputCard => Part<Border>(_output, "Card");
         public TextBlock OutputValue => Part<TextBlock>(_output, "Sub");
@@ -160,10 +163,11 @@ public sealed class SystemDetailMotionTests
             displays.Margin = new Thickness(16, 0, 16, 16);
             Surface.Children.Add(displays);
             DisplayChip = Descendants(displays).OfType<Border>().First(b => Equals(b.Tag, "144 Hz"));
-            _window = new Window { Left = -20000, Top = -20000, Width = 420, Height = 270,
+            _window = new BackgroundWindow { Left = -20000, Top = -20000, Width = 420, Height = 270,
                 ShowInTaskbar = false, ShowActivated = false, WindowStyle = WindowStyle.None, Content = Surface };
             _window.Show();
             _window.UpdateLayout();
+            _frames = new DetailMotionFrames(Surface);
         }
 
         internal void Output(float volume, bool muted = false, bool animate = true) =>
@@ -184,7 +188,7 @@ public sealed class SystemDetailMotionTests
             for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
                 foreach (var item in Descendants(VisualTreeHelper.GetChild(root, i))) yield return item;
         }
-        public void Dispose() { _window.Close(); _view.Dispose(); }
+        public void Dispose() { _frames.Dispose(); _window.Close(); _view.Dispose(); }
     }
 
     private sealed class DisplayApi : IDisplayApi

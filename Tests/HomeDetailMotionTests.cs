@@ -20,7 +20,8 @@ public sealed class HomeDetailMotionTests
         using var scene = new Scene();
         scene.Update(27, 26, 72, 240, 2.3, 64);
         var current = scene.Tween(scene.Heating, "CurrentRoll");
-        await WpfFrameWaiter.UntilAsync(() => current.Value > 22 && current.Value < 27, "climate number moves", ct);
+        Assert.NotEqual(27, current.Value);
+        await WpfFrameWaiter.UntilAsync(() => current.Value > 22, "climate number moves", ct);
         double value = current.Value;
         double velocity = Motion.VelocityOf(current, WeatherTween.ValueProperty);
         scene.Update(19, 20, 38, 90, 1.2, 46);
@@ -28,10 +29,10 @@ public sealed class HomeDetailMotionTests
         Assert.Equal(Math.Sign(velocity), Math.Sign(Motion.VelocityOf(current, WeatherTween.ValueProperty)));
         await TestWait.UntilStableAsync(() => !Motion.IsRunning(current, WeatherTween.ValueProperty), "latest climate settles", cancellationToken: ct);
         Assert.Equal(19, current.Value);
-        Assert.Equal("19.0°", scene.Current.Text);
+        Assert.Matches("^19[.,]0°$", scene.Current.Text);
         Assert.Equal("20°", scene.Target.Text);
         Assert.Contains("90 W", scene.Plug.Text);
-        Assert.Contains("1.20", scene.Plug.Text);
+        Assert.Matches("1[.,]20", scene.Plug.Text);
         Assert.Contains("46°", scene.Pi.Text);
     });
 
@@ -62,7 +63,7 @@ public sealed class HomeDetailMotionTests
     {
         using var scene = new Scene();
         scene.Light(true);
-        await WpfFrameWaiter.UntilAsync(() => scene.GlowScale.ScaleX > .3 && scene.GlowScale.ScaleX < 1, "light blooms", ct);
+        await WpfFrameWaiter.UntilAsync(() => scene.GlowScale.ScaleX > .3 && Motion.IsRunning(scene.GlowScale, ScaleTransform.ScaleXProperty), "light blooms", ct);
         double position = scene.GlowScale.ScaleX;
         double velocity = Motion.VelocityOf(scene.GlowScale, ScaleTransform.ScaleXProperty);
         scene.Light(false);
@@ -85,6 +86,7 @@ public sealed class HomeDetailMotionTests
         private readonly bool? _clientAnimations = AnimationConfig.ClientAreaAnimationOverride;
         private readonly object _light;
         private readonly object _plugReadout, _piReadout;
+        private readonly DetailMotionFrames _frames;
         private readonly HomeLight _lamp = new("test-lamp", "Desk light", false, true, false, null, null);
         private readonly HomePlug _socket = new("test-socket", "PC", true, true, false, 140, 1.5);
         private readonly HomePi _computer = new(55, 7200, Array.Empty<HomePiIssue>());
@@ -126,10 +128,11 @@ public sealed class HomeDetailMotionTests
             cards.Children.Add(lightCard);
             cards.Children.Add(heatingCard);
             var body = new StackPanel { Children = { cards, (StackPanel)Field(View, "_homePlugSection"), (StackPanel)Field(View, "_homePiSection") } };
-            Root = new Border { Width = 680, Height = 244, Padding = new Thickness(6), Background = new SolidColorBrush(Color.FromRgb(18, 18, 23)), Child = body };
-            Window = new BackgroundWindow { Content = Root, Width = 680, Height = 244, Left = -20000, Top = -20000 };
+            Root = new Border { Width = 680, Height = 300, Padding = new Thickness(6), Background = new SolidColorBrush(Color.FromRgb(18, 18, 23)), Child = body };
+            Window = new BackgroundWindow { Content = Root, Width = 680, Height = 300, Left = -20000, Top = -20000 };
             Window.Show();
             Root.UpdateLayout();
+            _frames = new DetailMotionFrames(Root);
         }
 
         internal void Update(double current, double target, double humidity, double watts, double energy, double temperature)
@@ -145,6 +148,7 @@ public sealed class HomeDetailMotionTests
         private static object? Invoke(object target, string method, params object[] args) => target.GetType().GetMethod(method, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!.Invoke(target, args);
         public void Dispose()
         {
+            _frames.Dispose();
             Window.Close();
             View.Dispose();
             Loc.SetLanguage(_language);

@@ -281,11 +281,17 @@ public partial class ControlCenterView
                 BrightnessRoll ??= new RollingNumber(value =>
                 {
                     ShownBrightness = value;
-                    State.Text = StateText();
+                    if (Light.On && Light.Rgb && View._musicSync != true)
+                        SetRollingDetailText(State, StateText());
                 }, State);
+                SetDetailText(State, StateText());
                 BrightnessRoll.To(brightness, moving ? 650 : 0);
             }
-            else SetDetailText(State, StateText());
+            else
+            {
+                BrightnessRoll?.To(ShownBrightness ?? 0, 0);
+                SetDetailText(State, StateText());
+            }
             foreach (var (dot, c) in Dots) dot.Stroke = light.On && Near(c, color) ? Brushes.White : RingOff;
             if (!moving)
             {
@@ -615,6 +621,7 @@ public partial class ControlCenterView
             if (climate.Current is { } current) CurrentRoll.To(current);
             if (!keepTarget && climate.Target is { } target) TargetRoll.To(target);
             HasHumidity = climate.Humidity != null;
+            if (!HasHumidity) SetDetailText(Humidity, "");
             HumidityRoll.To(climate.Humidity ?? 0);
         }
     }
@@ -669,7 +676,10 @@ public partial class ControlCenterView
         card.Child = new StackPanel { Children = { head, middle, humidity } };
 
         HeatingParts? parts = null;
-        var humidityRoll = new RollingNumber(value => humidity.Text = parts?.HasHumidity == true ? Loc.Get("home.humidity", Math.Round(value)) : "", humidity);
+        var humidityRoll = new RollingNumber(value =>
+        {
+            if (parts?.HasHumidity == true) SetRollingDetailText(humidity, Loc.Get("home.humidity", Math.Round(value)));
+        }, humidity);
         parts = new HeatingParts { Status = status, Current = current, Target = target, Humidity = humidity, CurrentRoll = roll, TargetRoll = targetRoll, HumidityRoll = humidityRoll };
         _heating = parts;
         _heating.Show(climate, keepTarget: false);
