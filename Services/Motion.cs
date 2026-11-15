@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
@@ -98,7 +98,9 @@ internal static partial class Motion
         // Arrived means within half a percent of the way, so a scale going 0.72 -> 1 settles as finely as a
         // width going 150 -> 720.
         double settle = Math.Clamp(Math.Abs(to - start) * 0.005, 0.0005, SpringDoubleAnimation.PixelSettle);
-        var animation = spring.Animate(start, to, speed, settle);
+        // A width or height that swings below zero throws, so sizes stop at zero.
+        bool isSize = property == FrameworkElement.WidthProperty || property == FrameworkElement.HeightProperty;
+        var animation = spring.Animate(start, to, speed, settle, isSize ? 0 : double.NegativeInfinity);
         if (animation.Duration.TimeSpan <= TimeSpan.Zero)
         {
             live.Remove(property);

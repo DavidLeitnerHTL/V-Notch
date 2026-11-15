@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
@@ -399,32 +399,13 @@ public partial class MainWindow
                     var dur = _dur200;
                     var easing = _easeExpOut6;
 
-                    var widthAnim = new DoubleAnimation(NotchBorder.ActualWidth > 0 ? NotchBorder.ActualWidth : _collapsedWidth, _collapsedWidth, dur)
-                    {
-                        EasingFunction = easing,
-                        FillBehavior = FillBehavior.Stop
-                    };
-                    Timeline.SetDesiredFrameRate(widthAnim, fps);
-                    widthAnim.Completed += (s, e) =>
-                    {
-                        NotchBorder.BeginAnimation(WidthProperty, null);
-                        NotchBorder.Width = _collapsedWidth;
-                    };
-
-                    var heightAnim = new DoubleAnimation(NotchBorder.ActualHeight > 0 ? NotchBorder.ActualHeight : _collapsedHeight, _collapsedHeight, dur)
-                    {
-                        EasingFunction = easing,
-                        FillBehavior = FillBehavior.Stop
-                    };
-                    Timeline.SetDesiredFrameRate(heightAnim, fps);
-                    heightAnim.Completed += (s, e) =>
-                    {
-                        NotchBorder.BeginAnimation(HeightProperty, null);
-                        NotchBorder.Height = _collapsedHeight;
-                    };
-
-                    NotchBorder.BeginAnimation(WidthProperty, widthAnim);
-                    NotchBorder.BeginAnimation(HeightProperty, heightAnim);
+                    double restWidth = _collapsedWidth, restHeight = _collapsedHeight;
+                    Motion.To(NotchBorder, WidthProperty, restWidth, Motion.PopBack,
+                        from: NotchBorder.ActualWidth > 0 ? NotchBorder.ActualWidth : restWidth, fps: fps,
+                        done: () => Motion.Stop(NotchBorder, WidthProperty, restWidth));
+                    Motion.To(NotchBorder, HeightProperty, restHeight, Motion.PopBack,
+                        from: NotchBorder.ActualHeight > 0 ? NotchBorder.ActualHeight : restHeight, fps: fps,
+                        done: () => Motion.Stop(NotchBorder, HeightProperty, restHeight));
 
                     double targetRadius = _cornerRadiusCollapsed;
                     if (Math.Abs(targetRadius - currentRadius) > 0.5)

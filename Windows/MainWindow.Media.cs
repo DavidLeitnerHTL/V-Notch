@@ -880,12 +880,9 @@ public partial class MainWindow
             VNotch.Services.RuntimeLog.Log("NOTCH-WIDTH",
                 $"UpdateMusicCompactMode -> animating to _collapsedWidth={_collapsedWidth}, shouldBeCompact={shouldBeCompact}, _isExpanded={_isExpanded}");
 
-            var widthAnim = new DoubleAnimation(_collapsedWidth, TimeSpan.FromMilliseconds(450))
-            {
-                EasingFunction = _easeExpOut6
-            };
-            System.Windows.Media.Animation.Timeline.SetDesiredFrameRate(widthAnim, VNotch.Services.AnimationConfig.TargetFps);
-            NotchBorder.BeginAnimation(WidthProperty, widthAnim);
+            // The pill pops wider when music arrives and settles back calmer when it leaves.
+            VNotch.Services.Motion.To(NotchBorder, WidthProperty, _collapsedWidth,
+                shouldBeCompact ? VNotch.Services.Motion.Pop : VNotch.Services.Motion.PopBack);
 
             if (_isMusicCompactMode)
             {

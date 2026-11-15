@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Windows;
 using System.Windows.Media.Animation;
 
@@ -16,8 +16,10 @@ public sealed record SpringMotion(TimeSpan Response, double Bounce)
 
     /// <param name="settle">How close counts as arrived, in the property's own unit: a quarter pixel for sizes,
     /// far less for scales and opacities that only travel a fraction of 1.</param>
-    internal SpringDoubleAnimation Animate(double from, double to, double velocity = 0, double settle = SpringDoubleAnimation.PixelSettle) =>
-        new(from, to, velocity, AngularFrequency, DampingRatio, settle);
+    /// <param name="floor">The value never goes below this, however far the spring swings (a size may not be negative).</param>
+    internal SpringDoubleAnimation Animate(double from, double to, double velocity = 0, double settle = SpringDoubleAnimation.PixelSettle,
+        double floor = double.NegativeInfinity) =>
+        new(from, to, velocity, AngularFrequency, DampingRatio, settle, floor);
 }
 
 /// <summary>
@@ -37,9 +39,12 @@ internal sealed class SpringDoubleAnimation : DoubleAnimationBase
     private readonly double _velocity;
     private readonly double _omega;
     private readonly double _zeta;
+    private readonly double _floor;
 
-    internal SpringDoubleAnimation(double from, double to, double velocity, double angularFrequency, double dampingRatio, double settle = PixelSettle)
+    internal SpringDoubleAnimation(double from, double to, double velocity, double angularFrequency, double dampingRatio, double settle = PixelSettle,
+        double floor = double.NegativeInfinity)
     {
+        _floor = double.IsNaN(floor) ? double.NegativeInfinity : floor;
         _settle = settle > 0 && double.IsFinite(settle) ? settle : PixelSettle;
         _from = from;
         _to = to;
@@ -66,10 +71,10 @@ internal sealed class SpringDoubleAnimation : DoubleAnimationBase
     protected override double GetCurrentValueCore(double defaultOriginValue, double defaultDestinationValue, AnimationClock animationClock)
     {
         if (animationClock.CurrentProgress is not { } progress || progress >= 1) return _to;
-        return ValueAt(progress * Duration.TimeSpan.TotalSeconds);
+        return Math.Max(_floor, ValueAt(progress * Duration.TimeSpan.TotalSeconds));
     }
 
-    protected override Freezable CreateInstanceCore() => new SpringDoubleAnimation(_from, _to, _velocity, _omega, _zeta, _settle);
+    protected override Freezable CreateInstanceCore() => new SpringDoubleAnimation(_from, _to, _velocity, _omega, _zeta, _settle, _floor);
 
     // Distance from the target (and its rate of change) for x'' + 2 zeta omega x' + omega^2 x = 0.
     private double Offset(double t, out double velocity)

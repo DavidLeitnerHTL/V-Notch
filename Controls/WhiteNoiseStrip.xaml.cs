@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -314,9 +314,7 @@ public partial class WhiteNoiseStrip : UserControl
             _toggleKnob.X = target;
             return;
         }
-        var anim = new DoubleAnimation(target, TimeSpan.FromMilliseconds(180)) { EasingFunction = Ease };
-        Timeline.SetDesiredFrameRate(anim, AnimationConfig.TargetFps);
-        _toggleKnob.BeginAnimation(TranslateTransform.XProperty, anim);
+        Motion.To(_toggleKnob, TranslateTransform.XProperty, target, Motion.Press);
     }
 
     private void UpdateVolumeFill(bool animate)
@@ -328,9 +326,8 @@ public partial class WhiteNoiseStrip : UserControl
             VolumeFill.Width = target;
             return;
         }
-        var anim = new DoubleAnimation(target, TimeSpan.FromMilliseconds(160)) { EasingFunction = Ease };
-        Timeline.SetDesiredFrameRate(anim, AnimationConfig.TargetFps);
-        VolumeFill.BeginAnimation(WidthProperty, anim);
+        if (!double.IsFinite(VolumeFill.Width)) VolumeFill.Width = Math.Max(0, VolumeFill.ActualWidth);
+        Motion.To(VolumeFill, WidthProperty, target, Motion.Glide);
     }
 
     private void SetVolumeFromPoint(MouseEventArgs e)

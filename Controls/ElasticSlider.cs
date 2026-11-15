@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Automation;
@@ -492,15 +492,14 @@ public partial class ElasticSlider : Slider
             return;
         }
 
-        int durMs = _isDragging ? 75 : 170;
-        var anim = new DoubleAnimation(targetWidth, TimeSpan.FromMilliseconds(durMs))
+        // Under the finger the fill follows tightly; let go (or set from outside) and it glides to rest with
+        // whatever speed it had.
+        var fill = _fillBorder;
+        if (!Motion.IsRunning(fill, WidthProperty)) Motion.Stop(fill, WidthProperty, currentWidth);
+        Motion.To(fill, WidthProperty, targetWidth, _isDragging ? Motion.PressDown : Motion.Glide, done: () =>
         {
-            EasingFunction = SmoothOutEase,
-            FillBehavior = FillBehavior.Stop
-        };
-        Timeline.SetDesiredFrameRate(anim, AnimationConfig.TargetFps);
-        _fillBorder.BeginAnimation(WidthProperty, anim, HandoffBehavior.SnapshotAndReplace);
-        _fillBorder.Width = targetWidth;
+            if (Math.Abs(fill.Width - targetWidth) < 0.5) Motion.Stop(fill, WidthProperty, targetWidth);
+        });
     }
 
     #endregion

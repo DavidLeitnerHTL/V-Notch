@@ -515,34 +515,22 @@ public partial class MainWindow
         bool growing = target > current;
         if (growing) ResizeHostWindowHeight(target);
 
-        NotchBorder.BeginAnimation(HeightProperty, null);
-        AudioScrollViewer.BeginAnimation(HeightProperty, null);
-        NotchBorder.Height = current;
-        AudioScrollViewer.Height = currentScrollHeight;
-
         _isAnimating = true;
 
-        var notchAnim = MakeAnim(current, target, dur, ease);
-        var scrollAnim = MakeAnim(currentScrollHeight, Math.Max(0.0, target - _audioViewChrome), dur, ease);
-        Timeline.SetDesiredFrameRate(notchAnim, fps);
-        Timeline.SetDesiredFrameRate(scrollAnim, fps);
-
-        notchAnim.Completed += (_, _) =>
+        // One spring pair: a group that opens while the last one still settles takes its speed over.
+        Motion.To(AudioScrollViewer, HeightProperty, Math.Max(0.0, target - _audioViewChrome), Motion.Glide,
+            from: Motion.IsRunning(AudioScrollViewer, HeightProperty) ? null : currentScrollHeight, fps: fps);
+        Motion.To(NotchBorder, HeightProperty, target, Motion.Glide,
+            from: Motion.IsRunning(NotchBorder, HeightProperty) ? null : current, fps: fps, done: () =>
         {
             if (generation != _audioNotchHeightGeneration) return;
             _isAnimating = false;
-            if (generation != _audioNotchHeightGeneration || !_isAudioView)
-                return;
+            if (!_isAudioView) return;
 
-            NotchBorder.BeginAnimation(HeightProperty, null);
-            NotchBorder.Height = target;
-            AudioScrollViewer.BeginAnimation(HeightProperty, null);
-            AudioScrollViewer.Height = target - _audioViewChrome;
+            Motion.Stop(NotchBorder, HeightProperty, target);
+            Motion.Stop(AudioScrollViewer, HeightProperty, target - _audioViewChrome);
             if (!growing) ResizeHostWindowHeight(target);
-        };
-
-        NotchBorder.BeginAnimation(HeightProperty, notchAnim, HandoffBehavior.SnapshotAndReplace);
-        AudioScrollViewer.BeginAnimation(HeightProperty, scrollAnim, HandoffBehavior.SnapshotAndReplace);
+        });
     }
 
 }

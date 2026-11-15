@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System;
 using System.Threading.Tasks;
 using System.Windows;
@@ -1005,10 +1005,9 @@ public partial class MainWindow
             {
                 _isCompactThumbnailHovered = false;
 
-                NotchBorder.BeginAnimation(HeightProperty, null);
                 AnimateCompactWidth(targetWidth, _dur400, _easeExpOut6, _volumeIndicatorToken);
-                var heightAnim = MakeAnim(fromHeight, targetHeight, _dur400, _easeExpOut6, VNotch.Services.AnimationConfig.TargetFps);
-                NotchBorder.BeginAnimation(HeightProperty, heightAnim);
+                Motion.To(NotchBorder, HeightProperty, targetHeight, Motion.Pop,
+                    from: Motion.IsRunning(NotchBorder, HeightProperty) ? null : fromHeight);
 
                 CompactHoverInfo.BeginAnimation(OpacityProperty, null);
                 var hoverFadeOut = MakeAnim(0.0, _dur200, _easeQuadOut);
@@ -1020,9 +1019,8 @@ public partial class MainWindow
             else
             {
                 AnimateCompactWidth(targetWidth, morphDur, _easeExpOut6, _volumeIndicatorToken);
-                NotchBorder.BeginAnimation(HeightProperty, null);
-                var heightAnim = MakeAnim(fromHeight, targetHeight, morphDur, _easeExpOut6, VNotch.Services.AnimationConfig.TargetFps);
-                NotchBorder.BeginAnimation(HeightProperty, heightAnim);
+                Motion.To(NotchBorder, HeightProperty, targetHeight, Motion.Pop,
+                    from: Motion.IsRunning(NotchBorder, HeightProperty) ? null : fromHeight);
                 AnimateCornerRadius(trans.TargetCornerRadius, morphDur.TimeSpan);
             }
 
@@ -1216,11 +1214,10 @@ public partial class MainWindow
         AnimateCompactWidth(trans.TargetWidth, morphDur, _easeExpOut6, 0);
         double fallbackFromHeight = double.IsFinite(NotchBorder.Height) && NotchBorder.Height > 0 ? NotchBorder.Height : _collapsedHeight + VolumeHudExtraHeight;
         double fromHeight = NotchBorder.ActualHeight > 0 ? NotchBorder.ActualHeight : fallbackFromHeight;
-        NotchBorder.BeginAnimation(HeightProperty, null);
-        NotchBorder.Height = trans.TargetHeight;
-        var heightAnim = MakeAnim(fromHeight, trans.TargetHeight, morphDur, _easeExpOut6, VNotch.Services.AnimationConfig.TargetFps);
-        heightAnim.FillBehavior = FillBehavior.Stop;
-        NotchBorder.BeginAnimation(HeightProperty, heightAnim);
+        double restHeight = trans.TargetHeight;
+        Motion.To(NotchBorder, HeightProperty, restHeight, Motion.PopBack,
+            from: Motion.IsRunning(NotchBorder, HeightProperty) ? null : fromHeight,
+            done: () => Motion.Stop(NotchBorder, HeightProperty, restHeight));
         AnimateCornerRadius(trans.TargetCornerRadius, morphDur.TimeSpan);
 
         if (!AnimationConfig.ReduceMotion)
