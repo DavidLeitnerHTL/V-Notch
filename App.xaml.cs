@@ -104,6 +104,15 @@ public partial class App : Application
                         System.Windows.Window.GetWindow(element) is VNotch.MainWindow) args.Handled = true;
                 }));
 
+            if (e.Args.Length > 0 && e.Args[0] == "--preview-quota")
+            {
+                int result = e.Args.Length is 2 or 3
+                    ? VNotch.Services.AiUsage.AiQuotaPreview.Send(e.Args[1], e.Args.Length == 3 ? e.Args[2] : "Codex")
+                    : -1;
+                Shutdown(result == 0 ? 0 : 2);
+                return;
+            }
+
             bool isSetupOrUninstall = IsSetupOrUninstall(e.Args);
             bool specialStartup = isSetupOrUninstall;
 #if DEBUG

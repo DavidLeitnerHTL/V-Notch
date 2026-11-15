@@ -253,7 +253,11 @@ public partial class MainWindow
         if (oldSettings == null || oldSettings.EnablePrivacyIndicators != _settings.EnablePrivacyIndicators)
             ApplyPrivacyIndicatorSettings();
         if (oldSettings == null || oldSettings.ShowAppNotifications != _settings.ShowAppNotifications)
+        {
             ApplyAppNotificationSetting();
+            if (_settings.ShowAppNotifications && IsAppNotificationBannerActive)
+                BeginAppNotificationDismiss(0, immediate: true);
+        }
         ApplyNotificationBannerSetting();
         _mediaService.KeepPinnedOnTrackChange = _settings.KeepMediaPinnedOnTrackChange;
         if (oldSettings == null || oldSettings.AnimationFps != _settings.AnimationFps ||

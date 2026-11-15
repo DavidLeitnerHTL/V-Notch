@@ -260,11 +260,17 @@ public sealed partial class ClipboardTray
         if (element.Name == "LockPanel") { delay = 0; driftY = 6; }
         var (scale, translate) = LayerTransforms(element);
         double opacity = fresh ? 0 : element.Opacity;
-        double targetOpacity = entering ? 1 : 0;
-        element.Opacity = targetOpacity;
+        // Leave style and binding values, such as the disabled search opacity, in control.
+        bool ownsOpacity = element.ReadLocalValue(OpacityProperty) is double;
+        double restingOpacity = ownsOpacity ? 1 : (double)element.GetAnimationBaseValue(OpacityProperty);
+        double targetOpacity = entering ? restingOpacity : 0;
+        element.BeginAnimation(OpacityProperty, null);
+        if (ownsOpacity) element.Opacity = targetOpacity;
         if (AnimationConfig.ReduceMotion)
         {
-            element.BeginAnimation(OpacityProperty, null);
+            if (!entering && !ownsOpacity)
+                element.BeginAnimation(OpacityProperty,
+                    new DoubleAnimation(0, new Duration(TimeSpan.Zero)) { FillBehavior = FillBehavior.HoldEnd });
             Motion.Stop(scale, ScaleTransform.ScaleXProperty, 1);
             Motion.Stop(scale, ScaleTransform.ScaleYProperty, 1);
             Motion.Stop(translate, TranslateTransform.XProperty, 0);
@@ -282,6 +288,7 @@ public sealed partial class ClipboardTray
         Motion.To(translate, TranslateTransform.YProperty, entering ? 0 : driftY, spring,
             from: fresh ? driftY : null, delay: wait);
         var fade = CreateLayerAnimation(opacity, targetOpacity, (int)wait.TotalMilliseconds, entering ? 180 : 140);
+        if (!entering && !ownsOpacity) fade.FillBehavior = FillBehavior.HoldEnd;
         if (completed != null) fade.Completed += (_, _) => completed();
         element.BeginAnimation(OpacityProperty, fade, HandoffBehavior.SnapshotAndReplace);
     }
@@ -693,7 +700,7 @@ public sealed partial class ClipboardTray
     {
         element.RenderTransform = Transform.Identity;
         element.BeginAnimation(OpacityProperty, null);
-        element.Opacity = 1;
+        if (element.ReadLocalValue(OpacityProperty) is double) element.Opacity = 1;
     }
 
     private static void AnimateCardPress(FrameworkElement element, bool pressed)

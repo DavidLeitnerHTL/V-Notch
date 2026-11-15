@@ -106,6 +106,7 @@ public sealed class SpotlightPersonalizationAndMorphTests
         var vm = (SpotlightViewModel)window.DataContext;
         window.SearchBox.Text = "pow";
         Invoke(window, "CancelSearchDebounce");
+        // Search now starts immediately; cancel its publication before seeding the keyboard-navigation fixture.
         vm.CancelPendingSearch();
         var item1 = ApplicationItem(fixture, "app1");
         for (int i = 0; i < 9; i++)

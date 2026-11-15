@@ -48,7 +48,12 @@ public partial class SpotlightWindow
             if (!Dispatcher.HasShutdownStarted) Dispatcher.BeginInvoke(OnSearchMotionPreferenceChanged);
             return;
         }
-        if (AnimationConfig.ReduceMotion) Motion.Stop(StatusPanel, OpacityProperty, 1);
+        if (AnimationConfig.ReduceMotion)
+        {
+            ResetAiPromptReveal();
+            StatusPanel.BeginAnimation(OpacityProperty, null);
+            StatusPanel.Opacity = 1;
+        }
         RefreshSearchActivityMotion();
     }
 }

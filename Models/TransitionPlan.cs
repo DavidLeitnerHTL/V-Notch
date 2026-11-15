@@ -4,8 +4,6 @@ using VNotch.Controllers;
 
 namespace VNotch.Models;
 
-/// <param name="Spring">When set, the shell's width and height follow this spring (keeping their momentum when
-/// a new transition interrupts them) instead of <paramref name="Duration"/> and <paramref name="Easing"/>.</param>
 public sealed record TransitionMotionConfig(
     Duration Duration,
     IEasingFunction Easing,

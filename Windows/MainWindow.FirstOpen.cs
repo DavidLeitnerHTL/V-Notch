@@ -68,7 +68,7 @@ public partial class MainWindow
             _settingsPreparationExpiry = new UiScheduledTimer(TimeSpan.FromSeconds(30),
                 System.Windows.Threading.DispatcherPriority.Background, (_, _) => DetachPreparedSettingsWindow()?.Close(), Dispatcher);
             await Dispatcher.InvokeAsync(static () => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
-            if (!await WaitForSettingsPreparationIdleAsync(generation)) return;
+            if (!await WaitForSettingsPreparationIdleAsync(generation) || !ReferenceEquals(prepared, _preparedSettingsWindow)) return;
             await prepared.PrepareForFirstShowAsync();
         }
         catch (Exception ex)
@@ -80,8 +80,10 @@ public partial class MainWindow
 
     private async Task<bool> WaitForSettingsPreparationIdleAsync(int generation)
     {
-        // Dispatcher idle can fall between frames of the notch entrance or an expansion.
-        while (!_cleanedUp && generation == _settingsPreparationGeneration)
+        // ApplicationIdle can run between animation frames. A click immediately
+        // after startup must not compete with Settings XAML or native realization.
+        // Recheck each stage because input can arrive while preparation yields.
+        while (!_cleanedUp && generation == _settingsPreparationGeneration && _activeSettingsWindow == null)
         {
             if (_postAppearInitializationStarted && !_isAnimating) return true;
             await Task.Delay(50);

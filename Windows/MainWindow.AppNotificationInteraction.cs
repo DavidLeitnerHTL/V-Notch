@@ -154,7 +154,7 @@ public partial class MainWindow
         else
         {
             SnapAppNotificationBack(shellVelocity);
-            if (!_isAppNotificationHovered && _settings.AutoDismissNotifications)
+            if (!_isAppNotificationHovered && AutoDismissAppNotification)
                 ScheduleAppNotificationDismiss(_appNotificationRemainingMs, _appNotificationGeneration);
         }
         return isClickByte != 0;
@@ -184,7 +184,7 @@ public partial class MainWindow
     {
         if (!_isAppNotificationBannerVisible || _isAppNotificationBannerExiting) return;
         e.Handled = true;
-        AppNotificationBanner.Focus();
+        if (!_isAiQuotaNotification) AppNotificationBanner.Focus();
         BeginAppNotificationInteraction(e.GetPosition(this), Environment.TickCount64);
         if (!AppNotificationBanner.CaptureMouse())
         {
@@ -217,15 +217,16 @@ public partial class MainWindow
         ResetAppNotificationPointer();
         if (!_isAppNotificationBannerVisible || _isAppNotificationBannerExiting) return;
         SnapAppNotificationBack();
-        if (!_isAppNotificationHovered && _settings.AutoDismissNotifications)
+        if (!_isAppNotificationHovered && AutoDismissAppNotification)
             ScheduleAppNotificationDismiss(_appNotificationRemainingMs, _appNotificationGeneration);
     }
 
     private void ActivateAppNotification(bool keyboard = false)
     {
         var active = _activeAppNotification;
+        bool activateApp = !_isAiQuotaNotification;
         BeginAppNotificationDismiss(0, keyboard);
-        if (active != null) _ = AppNotificationService.TryActivateApp(active.AppId, active.AppName);
+        if (activateApp && active != null) _ = AppNotificationService.TryActivateApp(active.AppId, active.AppName);
     }
 
     private void AppNotificationBanner_KeyDown(object sender, KeyEventArgs e)
