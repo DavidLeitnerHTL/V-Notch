@@ -262,35 +262,19 @@ public partial class MainWindow
     private void SetCopiedPopOffset(double x)
     {
         var transform = CopiedPopTransform;
-        transform.BeginAnimation(TranslateTransform.XProperty, null);
-        transform.X = x;
+        Motion.Stop(transform, TranslateTransform.XProperty, x);
     }
 
     private void SpringCopiedPopBack()
     {
-        var transform = CopiedPopTransform;
-        double from = transform.X;
-        transform.BeginAnimation(TranslateTransform.XProperty, null);
-        transform.X = 0;
-        if (Math.Abs(from) < 0.5 || AnimationConfig.ReduceMotion) return;
-        var back = MakeAnim(from, 0.0, TimeSpan.FromMilliseconds(420), _easeSoftSpring);
-        back.FillBehavior = FillBehavior.Stop;
-        transform.BeginAnimation(TranslateTransform.XProperty, back);
+        Motion.To(CopiedPopTransform, TranslateTransform.XProperty, 0, Motion.Press);
     }
 
     /// <summary>Handed over: the pop carries on in the direction it went and the pill closes.</summary>
     private void PlayCopiedPopLeaving()
     {
         var transform = CopiedPopTransform;
-        double from = transform.X;
-        transform.BeginAnimation(TranslateTransform.XProperty, null);
-        transform.X = 0;
-        if (!AnimationConfig.ReduceMotion)
-        {
-            var away = MakeAnim(from, from + 36, TimeSpan.FromMilliseconds(220), _easeQuadOut);
-            away.FillBehavior = FillBehavior.Stop;
-            transform.BeginAnimation(TranslateTransform.XProperty, away);
-        }
+        Motion.To(transform, TranslateTransform.XProperty, transform.X + 36, Motion.Exit);
         if (_isCopiedPillShown) AnimateClaudeNotificationOut();
         else if (_isClipboardPeekActive)
         {

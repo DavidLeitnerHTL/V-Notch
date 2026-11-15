@@ -521,6 +521,8 @@ public partial class MainWindow
         var slash = VolumeIndicatorMuteSlash;
         var gap = VolumeIndicatorMuteSlashGap;
         if (slash == null || gap == null) return;
+        // Nothing to wipe away: a slash that is not there must not flash up just to leave again.
+        if (motion && !muted && slash.Visibility != Visibility.Visible) return;
         if (!motion)
         {
             slash.BeginAnimation(System.Windows.Shapes.Shape.StrokeDashOffsetProperty, null);

@@ -30,7 +30,7 @@ public sealed class MicMuteHudTests
     {
         Invoke(window, "OnMicMuteChanged", false);
         Invoke(window, "OnMicMuteChanged", true);
-        await Task.Delay(450, ct);
+        await WpfFrameWaiter.UntilAsync(() => Element<TextBlock>(window, "VolumeIndicatorMicWord").Text == Loc.Get("levelHud.micMuted"), "muted face reaches the hidden midpoint", ct);
         Assert.Equal("MicMute", Get<object>(window, "_levelHudKind").ToString());
         Assert.Equal(Visibility.Visible, Element<Path>(window, "VolumeIndicatorMicSlash").Visibility);
         Assert.Equal(Color.FromRgb(0xD2, 0x85, 0x7E), ((SolidColorBrush)Element<Path>(window, "VolumeIndicatorMicSlash").Stroke).Color);
@@ -150,8 +150,8 @@ public sealed class MicMuteHudTests
     {
         Invoke(window, "OnMicMuteChanged", false);
         Invoke(window, "OnMicMuteChanged", true);
-        await Task.Delay(300, ct);
         var glyph = Element<FrameworkElement>(window, "MicMutedRestGlyph");
+        await WpfFrameWaiter.UntilAsync(() => !Motion.IsRunning(glyph, UIElement.OpacityProperty), "rest glyph appears", ct);
         Assert.Equal(Visibility.Visible, glyph.Visibility);
         Assert.Equal(1, glyph.Opacity, 2);
     });
@@ -161,11 +161,11 @@ public sealed class MicMuteHudTests
     {
         Invoke(window, "OnCaptureDefaultChanged", 0.3f, true);
         Invoke(window, "OnCaptureEndpointGone");
-        await Task.Delay(250, ct);
+        await WpfFrameWaiter.UntilAsync(() => Element<FrameworkElement>(window, "MicMutedRestGlyph").Visibility == Visibility.Collapsed, "rest glyph hides without capture", ct);
         Assert.Null(Get<bool?>(window, "_micMuteKnown"));
         Assert.Equal(Visibility.Collapsed, Element<FrameworkElement>(window, "MicMutedRestGlyph").Visibility);
         Invoke(window, "OnCaptureDefaultChanged", 0.3f, true);
-        await Task.Delay(250, ct);
+        await WpfFrameWaiter.UntilAsync(() => !Motion.IsRunning(Element<FrameworkElement>(window, "MicMutedRestGlyph"), UIElement.OpacityProperty), "rest glyph returns", ct);
         Assert.Equal(Visibility.Visible, Element<FrameworkElement>(window, "MicMutedRestGlyph").Visibility);
     });
 
@@ -175,7 +175,7 @@ public sealed class MicMuteHudTests
         Invoke(window, "OnCaptureDefaultChanged", 0.3f, true);
         Set(window, "_micMutedShown", true);
         Invoke(window, "UpdateMicRestGlyph");
-        await Task.Delay(250, ct);
+        await WpfFrameWaiter.UntilAsync(() => Element<FrameworkElement>(window, "MicMutedRestGlyph").Visibility == Visibility.Collapsed, "call warning replaces rest glyph", ct);
         Assert.Equal(Visibility.Collapsed, Element<FrameworkElement>(window, "MicMutedRestGlyph").Visibility);
     });
 
@@ -185,7 +185,7 @@ public sealed class MicMuteHudTests
         Invoke(window, "OnCaptureDefaultChanged", 0.3f, true);
         Get<VNotch.Models.NotchSettings>(window, "_settings").ShowMutedMicGlyph = false;
         Invoke(window, "UpdateMicRestGlyph");
-        await Task.Delay(250, ct);
+        await WpfFrameWaiter.UntilAsync(() => Element<FrameworkElement>(window, "MicMutedRestGlyph").Visibility == Visibility.Collapsed, "setting hides rest glyph", ct);
         Assert.Equal(Visibility.Collapsed, Element<FrameworkElement>(window, "MicMutedRestGlyph").Visibility);
     });
 

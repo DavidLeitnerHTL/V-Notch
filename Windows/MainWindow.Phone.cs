@@ -97,7 +97,7 @@ public partial class MainWindow
         {
             if (_phoneMirror == null)
             {
-                _phoneMirror = new PhoneMirrorWindow(GetNotchAnchor);
+                _phoneMirror = new PhoneMirrorWindow(GetNotchAnchor, () => _isNotchVisible && !_isHiddenByFullscreen);
                 _phoneMirror.MirrorClosed += () => ControlCenter.RefreshPhone();
             }
             return _phoneMirror;

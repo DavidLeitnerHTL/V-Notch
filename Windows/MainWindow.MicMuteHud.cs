@@ -104,35 +104,23 @@ public partial class MainWindow
         if (show == _micRestShown) return;
         _micRestShown = show;
         int token = ++_micRestToken;
-        double opacity = MicMutedRestGlyph.Opacity;
-        double scale = MicMutedRestScale.ScaleX;
-        MicMutedRestGlyph.BeginAnimation(OpacityProperty, null);
-        MicMutedRestScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-        MicMutedRestScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        bool entering = MicMutedRestGlyph.Visibility != Visibility.Visible;
         if (show) MicMutedRestGlyph.Visibility = Visibility.Visible;
         // The clock makes room by gliding, in step with the glyph.
         var clockMargin = show ? new Thickness(17, 0, 0, 0) : new Thickness(0);
-        if (AnimationConfig.ReduceMotion) { IdleClock.BeginAnimation(MarginProperty, null); IdleClock.Margin = clockMargin; }
-        else
-        {
-            var glide = new ThicknessAnimation(clockMargin, new Duration(TimeSpan.FromMilliseconds(180))) { EasingFunction = _easeQuadOut };
-            Timeline.SetDesiredFrameRate(glide, AnimationConfig.TargetFps);
-            IdleClock.BeginAnimation(MarginProperty, glide);
-        }
-        if (AnimationConfig.ReduceMotion || (!show && opacity <= 0))
-        {
-            MicMutedRestGlyph.Opacity = show ? 1 : 0;
-            MicMutedRestScale.ScaleX = MicMutedRestScale.ScaleY = show ? 1 : 0.6;
-            MicMutedRestGlyph.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-            return;
-        }
-        var duration = TimeSpan.FromMilliseconds(180);
-        var fade = MakeAnim(show && opacity == 0 ? 0 : opacity, show ? 1 : 0, duration, _easeQuadOut);
-        fade.Completed += (_, _) => { if (token == _micRestToken && !_micRestShown) MicMutedRestGlyph.Visibility = Visibility.Collapsed; };
-        MicMutedRestGlyph.BeginAnimation(OpacityProperty, fade);
-        var pop = MakeAnim(show && opacity == 0 ? 0.6 : scale, show ? 1 : 0.6, duration, show ? _easeSoftSpring : _easeQuadOut);
-        MicMutedRestScale.BeginAnimation(ScaleTransform.ScaleXProperty, pop);
-        MicMutedRestScale.BeginAnimation(ScaleTransform.ScaleYProperty, pop);
+        Motion.MarginTo(IdleClock, clockMargin, Motion.Glide);
+        Motion.To(MicMutedRestScale, ScaleTransform.ScaleXProperty, show ? 1 : Motion.ExitToScale,
+            show ? Motion.TileScale : Motion.Exit, from: show && entering ? Motion.TileFromScale : null);
+        Motion.To(MicMutedRestScale, ScaleTransform.ScaleYProperty, show ? 1 : Motion.ExitToScale,
+            show ? Motion.TileScale : Motion.Exit, from: show && entering ? Motion.TileFromScale : null);
+        Motion.To(MicMutedRestGlyph, OpacityProperty, show ? 1 : 0, show ? Motion.Tile : Motion.Exit,
+            from: show && entering ? 0 : null, done: () =>
+            {
+                if (token != _micRestToken || _micRestShown) return;
+                Motion.Stop(MicMutedRestScale, ScaleTransform.ScaleXProperty);
+                Motion.Stop(MicMutedRestScale, ScaleTransform.ScaleYProperty);
+                MicMutedRestGlyph.Visibility = Visibility.Collapsed;
+            });
     }
 
     private void ApplyMicMuteFace(bool muted)
@@ -151,19 +139,11 @@ public partial class MainWindow
     private void CancelMicDive(bool reset = true)
     {
         ++_micDiveToken;
-        // Preserve the visible values when a second toggle replaces an unfinished dive.
-        double y = VolumeIndicatorMicShift.Y;
-        double squash = VolumeIndicatorMicSquash.ScaleY;
-        double opacity = VolumeIndicatorMic.Opacity;
-        double wordOpacity = VolumeIndicatorMicWord.Opacity;
-        VolumeIndicatorMicShift.BeginAnimation(TranslateTransform.YProperty, null);
-        VolumeIndicatorMicSquash.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-        VolumeIndicatorMic.BeginAnimation(OpacityProperty, null);
-        VolumeIndicatorMicWord.BeginAnimation(OpacityProperty, null);
-        VolumeIndicatorMicShift.Y = reset ? 0 : y;
-        VolumeIndicatorMicSquash.ScaleY = reset ? 1 : squash;
-        VolumeIndicatorMic.Opacity = reset ? 1 : opacity;
-        VolumeIndicatorMicWord.Opacity = reset ? 1 : wordOpacity;
+        if (!reset) return;
+        Motion.Stop(VolumeIndicatorMicShift, TranslateTransform.YProperty, 0);
+        Motion.Stop(VolumeIndicatorMicSquash, ScaleTransform.ScaleYProperty, 1);
+        Motion.Stop(VolumeIndicatorMic, OpacityProperty, 1);
+        Motion.Stop(VolumeIndicatorMicWord, OpacityProperty, 1);
     }
 
     /// <summary>Fade the word with the dive, swap at the hidden midpoint, then bring the new mic face back from above.</summary>
@@ -175,28 +155,23 @@ public partial class MainWindow
             ApplyMicMuteFace(toMuted);
             return;
         }
-
         int token = _micDiveToken;
-        var dive = new Duration(TimeSpan.FromMilliseconds(140));
-        var rise = new Duration(TimeSpan.FromMilliseconds(200));
-        VolumeIndicatorMicShift.BeginAnimation(TranslateTransform.YProperty, MakeAnim(VolumeIndicatorMicShift.Y, 9, dive, _easeQuadIn));
-        VolumeIndicatorMicSquash.BeginAnimation(ScaleTransform.ScaleYProperty, MakeAnim(VolumeIndicatorMicSquash.ScaleY, 0.7, dive, _easeQuadIn));
-        VolumeIndicatorMicWord.BeginAnimation(OpacityProperty, MakeAnim(VolumeIndicatorMicWord.Opacity, 0, dive, _easeQuadIn));
-        var fade = MakeAnim(VolumeIndicatorMic.Opacity, 0, dive, _easeQuadIn);
-        fade.Completed += (_, _) =>
+        Motion.To(VolumeIndicatorMicShift, TranslateTransform.YProperty, 9, Motion.PressDown);
+        Motion.To(VolumeIndicatorMicSquash, ScaleTransform.ScaleYProperty, Motion.TileFromScale, Motion.PressDown);
+        Motion.To(VolumeIndicatorMicWord, OpacityProperty, 0, Motion.PressDown);
+        Motion.To(VolumeIndicatorMic, OpacityProperty, 0, Motion.PressDown, done: () =>
         {
             if (token != _micDiveToken || _cleanedUp || !_isVolumeIndicatorActive || _levelHudKind != LevelHudKind.MicMute) return;
             ApplyMicMuteFace(toMuted);
-            VolumeIndicatorMicShift.BeginAnimation(TranslateTransform.YProperty, MakeAnim(-9, 0, rise, _easeSoftSpring));
-            VolumeIndicatorMicSquash.BeginAnimation(ScaleTransform.ScaleYProperty, MakeAnim(0.8, 1, rise, _easeSoftSpring));
-            VolumeIndicatorMicWord.BeginAnimation(OpacityProperty, MakeAnim(0, 1, rise, _easeQuadOut));
-            var appear = MakeAnim(0, 1, rise, _easeQuadOut);
-            appear.Completed += (_, _) =>
+            // The hidden face changes above the baseline; a reversal never resets a visible spring.
+            Motion.To(VolumeIndicatorMicShift, TranslateTransform.YProperty, 0, Motion.Press, from: -9, done: () =>
             {
-                if (token == _micDiveToken) CancelMicDive();
-            };
-            VolumeIndicatorMic.BeginAnimation(OpacityProperty, appear);
-        };
-        VolumeIndicatorMic.BeginAnimation(OpacityProperty, fade);
+                if (token == _micDiveToken && Math.Abs(VolumeIndicatorMicShift.Y) < 0.01)
+                    Motion.Stop(VolumeIndicatorMicShift, TranslateTransform.YProperty, 0);
+            });
+            Motion.To(VolumeIndicatorMicSquash, ScaleTransform.ScaleYProperty, 1, Motion.Press);
+            Motion.To(VolumeIndicatorMicWord, OpacityProperty, 1, Motion.Tile);
+            Motion.To(VolumeIndicatorMic, OpacityProperty, 1, Motion.Tile);
+        });
     }
 }

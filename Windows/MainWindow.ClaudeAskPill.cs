@@ -167,24 +167,14 @@ public partial class MainWindow
 
     private void SetAskOffset(double x, double y)
     {
-        ClaudeNotificationTranslate.BeginAnimation(TranslateTransform.XProperty, null);
-        ClaudeNotificationTranslate.BeginAnimation(TranslateTransform.YProperty, null);
-        ClaudeNotificationTranslate.X = x;
-        ClaudeNotificationTranslate.Y = y;
+        Motion.Stop(ClaudeNotificationTranslate, TranslateTransform.XProperty, x);
+        Motion.Stop(ClaudeNotificationTranslate, TranslateTransform.YProperty, y);
     }
 
     private void SpringAskBack()
     {
-        foreach (var property in new[] { TranslateTransform.XProperty, TranslateTransform.YProperty })
-        {
-            double from = (double)ClaudeNotificationTranslate.GetValue(property);
-            ClaudeNotificationTranslate.BeginAnimation(property, null);
-            ClaudeNotificationTranslate.SetValue(property, 0.0);
-            if (Math.Abs(from) < 0.5 || AnimationConfig.ReduceMotion) continue;
-            var back = MakeAnim(from, 0.0, TimeSpan.FromMilliseconds(420), _easeSoftSpring);
-            back.FillBehavior = FillBehavior.Stop;
-            ClaudeNotificationTranslate.BeginAnimation(property, back);
-        }
+        Motion.To(ClaudeNotificationTranslate, TranslateTransform.XProperty, 0, Motion.Press);
+        Motion.To(ClaudeNotificationTranslate, TranslateTransform.YProperty, 0, Motion.Press);
     }
 
     /// <summary>Decided: the pill names it in the answer's colour, carries on a little that way, then goes.</summary>
@@ -193,15 +183,9 @@ public partial class MainWindow
         _askRequest = null;
         CrossFadeText(ClaudeNotificationStatus, Loc.Get(allowed ? "claude.pill.allowed" : "claude.pill.denied"));
         ClaudeNotificationStatus.Foreground = allowed ? AskAllowBrush : AskDenyBrush;
-        if (!AnimationConfig.ReduceMotion)
-        {
-            double direction = allowed ? 1 : -1;
-            var nudge = new DoubleAnimationUsingKeyFrames { FillBehavior = FillBehavior.Stop };
-            nudge.KeyFrames.Add(new EasingDoubleKeyFrame(direction * 14, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(120)), _easeQuadOut));
-            nudge.KeyFrames.Add(new EasingDoubleKeyFrame(0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(520)), _easeSoftSpring));
-            Timeline.SetDesiredFrameRate(nudge, AnimationConfig.TargetFps);
-            ClaudeNotificationTranslate.BeginAnimation(TranslateTransform.XProperty, nudge);
-        }
+        // A small directional impulse settles at home and carries an interrupted swipe's speed.
+        Motion.To(ClaudeNotificationTranslate, TranslateTransform.XProperty, 0, Motion.Press,
+            velocity: Motion.VelocityOf(ClaudeNotificationTranslate, TranslateTransform.XProperty) + (allowed ? 1 : -1) * 220);
         // Read it, then the next one waiting or the pill goes.
         var linger = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(900) };
         linger.Tick += (_, _) =>

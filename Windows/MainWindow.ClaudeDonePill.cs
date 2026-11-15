@@ -132,16 +132,10 @@ public partial class MainWindow
     private void StepClaudeDonePillAside()
     {
         int token = _claudeNotificationToken;
+        KeepCompactDeparture(ClaudeNotification);
         CancelClaudeNotificationImmediate();
         _compactPillArbiter.Release(token);
         RestorePrivacyDotVisibility();
-        // The pill had hidden what rests below; the alert taking over starts from it like from an empty notch.
-        System.Windows.FrameworkElement content = _isMusicCompactMode && _currentMediaInfo != null
-            ? MusicCompactContent
-            : CollapsedContent;
-        content.BeginAnimation(OpacityProperty, null);
-        content.Opacity = 1;
-        content.Visibility = System.Windows.Visibility.Visible;
     }
 
     /// <summary>A right-click pushes the done pill away without going to the session.</summary>

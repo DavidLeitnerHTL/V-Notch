@@ -163,30 +163,18 @@ public partial class MainWindow
     /// <summary>The name slides in from where the fingers came from, and the whole HUD gives a little lean.</summary>
     private void PlaySpeakerNameEntrance(int direction)
     {
-        if (AnimationConfig.ReduceMotion || VolumeIndicatorPercentText == null) return;
-        var fade = new DoubleAnimation(0.0, 1.0, new Duration(TimeSpan.FromMilliseconds(220))) { EasingFunction = _easeQuadOut };
-        Timeline.SetDesiredFrameRate(fade, AnimationConfig.TargetFps);
-        fade.FillBehavior = FillBehavior.Stop;
-        VolumeIndicatorPercentText.BeginAnimation(OpacityProperty, fade);
-
+        if (VolumeIndicatorPercentText == null) return;
+        Motion.To(VolumeIndicatorPercentText, OpacityProperty, 1, Motion.Tile);
         if (VolumeIndicatorPercentScale != null)
         {
-            var pop = new DoubleAnimationUsingKeyFrames { FillBehavior = FillBehavior.Stop };
-            pop.KeyFrames.Add(new EasingDoubleKeyFrame(0.86, KeyTime.FromTimeSpan(TimeSpan.Zero)));
-            pop.KeyFrames.Add(new EasingDoubleKeyFrame(1.06, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(140)), _easeQuadOut));
-            pop.KeyFrames.Add(new EasingDoubleKeyFrame(1.0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(360)), _easeSoftSpring));
-            Timeline.SetDesiredFrameRate(pop, AnimationConfig.TargetFps);
-            VolumeIndicatorPercentScale.BeginAnimation(ScaleTransform.ScaleXProperty, pop);
-            VolumeIndicatorPercentScale.BeginAnimation(ScaleTransform.ScaleYProperty, pop);
+            Motion.To(VolumeIndicatorPercentScale, ScaleTransform.ScaleXProperty, 1, Motion.Press,
+                velocity: Motion.VelocityOf(VolumeIndicatorPercentScale, ScaleTransform.ScaleXProperty) + 1.5);
+            Motion.To(VolumeIndicatorPercentScale, ScaleTransform.ScaleYProperty, 1, Motion.Press,
+                velocity: Motion.VelocityOf(VolumeIndicatorPercentScale, ScaleTransform.ScaleYProperty) + 1.5);
         }
-
         if (direction == 0 || VolumeIndicatorContentTranslate == null) return;
-        // Fingers moving left scroll right (positive): the new speaker comes in from the right.
-        var lean = new DoubleAnimationUsingKeyFrames { FillBehavior = FillBehavior.Stop };
-        lean.KeyFrames.Add(new EasingDoubleKeyFrame(-direction * 9.0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(90)), _easeQuadOut));
-        lean.KeyFrames.Add(new EasingDoubleKeyFrame(0.0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(460)), _easeSoftSpring));
-        Timeline.SetDesiredFrameRate(lean, AnimationConfig.TargetFps);
-        VolumeIndicatorContentTranslate.BeginAnimation(TranslateTransform.XProperty, lean);
+        Motion.To(VolumeIndicatorContentTranslate, TranslateTransform.XProperty, 0, Motion.Press,
+            velocity: Motion.VelocityOf(VolumeIndicatorContentTranslate, TranslateTransform.XProperty) - direction * 70);
     }
 
     #endregion

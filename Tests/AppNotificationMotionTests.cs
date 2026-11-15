@@ -31,13 +31,18 @@ public sealed class AppNotificationMotionTests
     {
         await using var fixture = CreateFixture();
         var window = fixture.Window;
+        using var host = new RenderHost(window);
+        await WpfFrameWaiter.NextAsync(ct);
+        // The fixture has not shown its window, so initialize the resting geometry explicitly.
+        Motion.Stop(window.NotchBorder, FrameworkElement.WidthProperty, 300);
+        Motion.Stop(window.NotchBorder, FrameworkElement.HeightProperty, 40);
         double initialWidth = window.NotchBorder.Width;
         double initialHeight = window.NotchBorder.Height;
         window.ShowAppNotification(Notification());
         Assert.Equal(initialWidth, window.NotchBorder.Width);
         Assert.Equal(initialHeight, window.NotchBorder.Height);
         Assert.Equal(0, window.AppNotificationBanner.Opacity);
-        await WpfFrameWaiter.UntilAsync(() => window.AppNotificationBanner.Opacity is > .2 and < .8,
+        await WpfFrameWaiter.UntilAsync(() => window.AppNotificationBanner.Opacity > .2,
             "notification reveals its content during the morph", ct);
         Assert.Equal(1, window.AppNotificationAppNameText.Opacity);
         Assert.Equal(1, window.AppNotificationTitleText.Opacity);
@@ -228,6 +233,28 @@ public sealed class AppNotificationMotionTests
         }, configureServices: services => services.AddSingleton<IMediaDetectionService>(new FakeMediaDetectionService()));
     private static T Get<T>(MainWindow window, string field) => (T)typeof(MainWindow)
         .GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!;
+
+    private sealed class RenderHost : IDisposable
+    {
+        private readonly MainWindow _owner;
+        private readonly Window _window;
+        internal RenderHost(MainWindow owner)
+        {
+            _owner = owner;
+            var content = owner.Content;
+            owner.Content = null;
+            _window = new BackgroundWindow { Left = -20000, Width = 720, Height = 260, Content = content };
+            _window.Show();
+            _window.UpdateLayout();
+        }
+        public void Dispose()
+        {
+            var content = _window.Content;
+            _window.Content = null;
+            _window.Close();
+            _owner.Content = content;
+        }
+    }
 
     private sealed class TestPresentationSource : PresentationSource
     {

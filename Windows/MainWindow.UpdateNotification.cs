@@ -22,6 +22,7 @@ public partial class MainWindow
     private const string LocKeyUpdateClickToInstall = "update.clickToInstall";
     private UiScheduledTimer? _updatePulseTimer;
     private DateTime _updatePulseStartedAtUtc;
+    private int _updateTooltipToken;
 
     [System.Runtime.InteropServices.LibraryImport("VNotch.Native.dll")]
     private static partial int vn_animation_compute_update_pulse_rgb(double elapsedMs, out byte outR, out byte outG, out byte outB);
@@ -124,73 +125,23 @@ public partial class MainWindow
             HideUpdateNotification();
             return;
         }
-
         int visibilityGeneration = ++_updateVisibilityGeneration;
-        bool wasVisible = UpdateNotificationButton.Visibility == Visibility.Visible;
+        bool entering = UpdateNotificationButton.Visibility != Visibility.Visible;
         double iconRestY = _settings.EnableDynamicIslandMode ? 5 : 0;
-
-        // A visible button may actually be halfway through a stale fade-out.
-        // Remove that clock before restoring its visible base state.
-        UpdateNotificationButton.BeginAnimation(OpacityProperty, null);
-        UpdateNotificationTranslate.BeginAnimation(TranslateTransform.YProperty, null);
         UpdateNotificationButton.Visibility = Visibility.Visible;
         UpdateNotificationButton.IsHitTestVisible = true;
         UpdateNotificationButton.Tag = Loc.Get(LocKeyUpdateVersion, _availableUpdate.Version?.ToString() ?? "-");
         UpdateNotificationButton.Cursor = Cursors.Hand;
-        UpdateNotificationButton.Opacity = 1.0;
-        UpdateNotificationTranslate.Y = iconRestY;
         SetUpdateInlineTooltipContent(
             Loc.Get(LocKeyUpdateVersion, _availableUpdate.Version?.ToString() ?? "-"),
             Loc.Get(LocKeyUpdateClickToInstall));
-
-        if (wasVisible)
+        Motion.To(UpdateNotificationTranslate, TranslateTransform.YProperty, iconRestY, Motion.Tile,
+            from: entering ? iconRestY - 4 : null);
+        Motion.To(UpdateNotificationButton, OpacityProperty, 1, Motion.Tile, from: entering ? 0 : null, done: () =>
         {
-            if (!_isUpdateInstalling)
-            {
-                StartUpdatePulseAnimation();
-            }
-            return;
-        }
-
-        UpdateIconBrush.BeginAnimation(SolidColorBrush.ColorProperty, null);
-        UpdateIconBrush.Color = Color.FromRgb(48, 209, 88);
-
-        var fadeIn = new DoubleAnimation
-        {
-            From = 0,
-            To = 1.0,
-            Duration = TimeSpan.FromMilliseconds(400),
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
-        };
-
-        var slideIn = new DoubleAnimation
-        {
-            From = iconRestY - 4,
-            To = iconRestY,
-            Duration = TimeSpan.FromMilliseconds(400),
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
-        };
-
-        fadeIn.Completed += (s, e) =>
-        {
-            Dispatcher.BeginInvoke(new Action(() =>
-            {
-                if (visibilityGeneration != _updateVisibilityGeneration ||
-                    !_isUpdateAvailable ||
-                    _isUpdateInstalling ||
-                    UpdateNotificationButton.Visibility != Visibility.Visible)
-                {
-                    return;
-                }
-
-                StartUpdatePulseAnimation();
-            }), DispatcherPriority.Render);
-        };
-
-        System.Windows.Media.Animation.Timeline.SetDesiredFrameRate(fadeIn, VNotch.Services.AnimationConfig.TargetFps);
-        UpdateNotificationButton.BeginAnimation(OpacityProperty, fadeIn);
-        System.Windows.Media.Animation.Timeline.SetDesiredFrameRate(slideIn, VNotch.Services.AnimationConfig.TargetFps);
-        UpdateNotificationTranslate.BeginAnimation(TranslateTransform.YProperty, slideIn);
+            if (visibilityGeneration == _updateVisibilityGeneration) StartUpdatePulseAnimation();
+        });
+        HookAmbientVisibility();
     }
 
     private void HideUpdateNotification()
@@ -198,36 +149,16 @@ public partial class MainWindow
         int visibilityGeneration = ++_updateVisibilityGeneration;
         HideUpdateInlineTooltip();
         StopUpdatePulseAnimation();
-
-        if (UpdateNotificationButton.Visibility == Visibility.Collapsed)
-        {
-            UpdateNotificationButton.BeginAnimation(OpacityProperty, null);
-            UpdateNotificationButton.Opacity = 0;
-            return;
-        }
-
+        if (UpdateNotificationButton.Visibility == Visibility.Collapsed) return;
         UpdateNotificationButton.IsHitTestVisible = false;
         UpdateNotificationButton.Cursor = Cursors.Hand;
-
-        var fadeOut = new DoubleAnimation
+        Motion.To(UpdateNotificationTranslate, TranslateTransform.YProperty,
+            (_settings.EnableDynamicIslandMode ? 5 : 0) - 4, Motion.Exit);
+        Motion.To(UpdateNotificationButton, OpacityProperty, 0, Motion.Exit, done: () =>
         {
-            To = 0,
-            Duration = TimeSpan.FromMilliseconds(300),
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
-        };
-
-        fadeOut.Completed += (s, e) =>
-        {
-            if (visibilityGeneration != _updateVisibilityGeneration || _isUpdateAvailable)
-                return;
-
-            UpdateNotificationButton.Visibility = Visibility.Collapsed;
-            UpdateNotificationButton.BeginAnimation(OpacityProperty, null);
-            UpdateNotificationButton.Opacity = 0;
-        };
-
-        System.Windows.Media.Animation.Timeline.SetDesiredFrameRate(fadeOut, VNotch.Services.AnimationConfig.TargetFps);
-        UpdateNotificationButton.BeginAnimation(OpacityProperty, fadeOut);
+            if (visibilityGeneration == _updateVisibilityGeneration && !_isUpdateAvailable)
+                UpdateNotificationButton.Visibility = Visibility.Collapsed;
+        });
     }
 
     private void StartUpdatePulseAnimation()
@@ -235,10 +166,12 @@ public partial class MainWindow
         if (_cleanedUp || UpdateIconBrush == null ||
             !_isUpdateAvailable ||
             _isUpdateInstalling ||
-            UpdateNotificationButton.Visibility != Visibility.Visible)
+            !UpdateNotificationButton.IsVisible || !AmbientAnimationsAllowed)
         {
+            StopUpdatePulseAnimation();
             return;
         }
+        if (_updatePulseTimer?.IsEnabled == true) return;
 
         UpdateIconBrush.BeginAnimation(SolidColorBrush.ColorProperty, null);
         UpdateIconBrush.Color = Color.FromRgb(48, 209, 88);
@@ -255,7 +188,7 @@ public partial class MainWindow
     private void UpdatePulseTimer_Tick(object? sender, EventArgs e)
     {
         if (_cleanedUp || UpdateIconBrush == null) { StopUpdatePulseAnimationCore(); return; }
-        if (!_isUpdateAvailable || UpdateNotificationButton.Visibility != Visibility.Visible)
+        if (!_isUpdateAvailable || _isUpdateInstalling || !UpdateNotificationButton.IsVisible || !AmbientAnimationsAllowed)
         {
             StopUpdatePulseAnimation();
             return;
@@ -390,31 +323,12 @@ public partial class MainWindow
 
     private void AnimateUpdateNotificationHover(bool isEnter)
     {
-        if (isEnter)
-            UpdateNotificationButton.CacheMode ??= new System.Windows.Media.BitmapCache(1.5);
-
-        int fps = VNotch.Services.AnimationConfig.TargetFps;
-        var scaleAnim = new DoubleAnimation
+        if (isEnter) UpdateNotificationButton.CacheMode ??= new BitmapCache(1.5);
+        Motion.To(UpdateNotificationScale, ScaleTransform.ScaleXProperty, isEnter ? 1.10 : 1, Motion.Press);
+        Motion.To(UpdateNotificationScale, ScaleTransform.ScaleYProperty, isEnter ? 1.10 : 1, Motion.Press, done: () =>
         {
-            To = isEnter ? 1.10 : 1.0,
-            Duration = TimeSpan.FromMilliseconds(isEnter ? 180 : 220),
-            EasingFunction = isEnter
-                ? new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.20 }
-                : _easeQuadOut
-        };
-
-        if (!isEnter)
-        {
-            scaleAnim.Completed += (_, _) =>
-            {
-                if (!UpdateNotificationButton.IsMouseOver)
-                    UpdateNotificationButton.CacheMode = null;
-            };
-        }
-
-        Timeline.SetDesiredFrameRate(scaleAnim, fps);
-        UpdateNotificationScale.BeginAnimation(ScaleTransform.ScaleXProperty, scaleAnim, HandoffBehavior.SnapshotAndReplace);
-        UpdateNotificationScale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleAnim, HandoffBehavior.SnapshotAndReplace);
+            if (!isEnter && !UpdateNotificationButton.IsMouseOver) UpdateNotificationButton.CacheMode = null;
+        });
     }
 
     private void SetUpdateInlineTooltipContent(string status, string hint)
@@ -431,17 +345,10 @@ public partial class MainWindow
 
         _isUpdateTooltipOpen = true;
         _suspendTopmostUntilUtc = DateTime.UtcNow.AddMilliseconds(1200);
-        UpdateInlineTooltip.BeginAnimation(OpacityProperty, null);
+        ++_updateTooltipToken;
+        bool entering = UpdateInlineTooltip.Visibility != Visibility.Visible;
         UpdateInlineTooltip.Visibility = Visibility.Visible;
-
-        var fadeIn = new DoubleAnimation
-        {
-            To = 1.0,
-            Duration = TimeSpan.FromMilliseconds(140),
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
-        };
-        System.Windows.Media.Animation.Timeline.SetDesiredFrameRate(fadeIn, VNotch.Services.AnimationConfig.TargetFps);
-        UpdateInlineTooltip.BeginAnimation(OpacityProperty, fadeIn, HandoffBehavior.SnapshotAndReplace);
+        Motion.To(UpdateInlineTooltip, OpacityProperty, 1, Motion.Tile, from: entering ? 0 : null);
     }
 
     private void HideUpdateInlineTooltip()
@@ -451,22 +358,12 @@ public partial class MainWindow
 
         if (UpdateInlineTooltip.Visibility != Visibility.Visible) return;
 
-        UpdateInlineTooltip.BeginAnimation(OpacityProperty, null);
-        var fadeOut = new DoubleAnimation
+        int token = ++_updateTooltipToken;
+        Motion.To(UpdateInlineTooltip, OpacityProperty, 0, Motion.Exit, done: () =>
         {
-            To = 0.0,
-            Duration = TimeSpan.FromMilliseconds(120),
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
-        };
-
-        fadeOut.Completed += (_, _) =>
-        {
-            UpdateInlineTooltip.Visibility = Visibility.Collapsed;
-            UpdateInlineTooltip.Opacity = 0;
-        };
-
-        System.Windows.Media.Animation.Timeline.SetDesiredFrameRate(fadeOut, VNotch.Services.AnimationConfig.TargetFps);
-        UpdateInlineTooltip.BeginAnimation(OpacityProperty, fadeOut, HandoffBehavior.SnapshotAndReplace);
+            if (token == _updateTooltipToken && !_isUpdateTooltipOpen)
+                UpdateInlineTooltip.Visibility = Visibility.Collapsed;
+        });
     }
 
     #endregion

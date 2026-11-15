@@ -16,6 +16,26 @@ public sealed class NotificationDropTests
     private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
 
     [Fact]
+    public void HidingTheDropLayerStopsItsFrameLoopAndSpringClocks() => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        await using var fixture = new GreetingAcceptanceTests.MainWindowFixture("en", greeting: false,
+            configureSettings: settings => settings.EnableLocalOnlyMode = true,
+            configureServices: services => services.AddSingleton<IMediaDetectionService>(new FakeMediaDetectionService()));
+        var window = fixture.Window;
+        window.Show();
+        var logo = new DrawingImage(new GeometryDrawing(Brushes.Gray, null, new RectangleGeometry(new Rect(0, 0, 14, 14))));
+        Invoke(window, "ShowNotchPill", "Discord", "Alex: hi", logo, false, new Func<bool>(() => true), null, null, null);
+        await WpfFrameWaiter.UntilAsync(() => window.ClaudeNotification.Opacity > 0.99, "pill shown", ct);
+        Invoke(window, "PlayNotificationDrop", IntPtr.Zero);
+        var layer = Field<System.Windows.Controls.Canvas>(window, "_dropLayer");
+        Assert.NotNull(Field<EventHandler?>(window, "_dropFrame"));
+        layer.Visibility = Visibility.Collapsed;
+        Assert.Null(Field<EventHandler?>(window, "_dropFrame"));
+        Assert.False(Field<TranslateTransform>(window, "_dropMove").HasAnimatedProperties);
+        Assert.False(Field<ScaleTransform>(window, "_dropScale").HasAnimatedProperties);
+    });
+
+    [Fact]
     public void TappingAnAppPillDropsItsLogoOutOfTheNotchOnATearingNeck() => SharedStaTestRunner.RunAsync(async ct =>
     {
         await using var fixture = new GreetingAcceptanceTests.MainWindowFixture("en", greeting: false,
@@ -84,8 +104,12 @@ public sealed class NotificationDropTests
         ct.ThrowIfCancellationRequested();
     });
 
-    private static object? Invoke(MainWindow window, string name, params object?[] arguments) =>
-        typeof(MainWindow).GetMethod(name, Private)!.Invoke(window, arguments);
+    private static object? Invoke(MainWindow window, string name, params object?[] arguments)
+    {
+        var method = typeof(MainWindow).GetMethod(name, Private)!;
+        return method.Invoke(window, arguments.Concat(Enumerable.Repeat<object?>(Type.Missing,
+            method.GetParameters().Length - arguments.Length)).ToArray());
+    }
 
     private static T Field<T>(MainWindow window, string name) => (T)typeof(MainWindow).GetField(name, Private)!.GetValue(window)!;
 }
