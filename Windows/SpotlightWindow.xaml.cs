@@ -987,25 +987,21 @@ public partial class SpotlightWindow : Window
             var icon = _quickActionRightIcons[i];
             if (animateIcons)
             {
-                var fade = AnimationPrimitives.MakeAnim(targetOpacity, new Duration(TimeSpan.FromMilliseconds(140)), CreateContentResizeEase());
-                icon.BeginAnimation(OpacityProperty, fade);
+                // The selected icon hops up on Press; the one it left settles back the same way.
+                Motion.To(icon, OpacityProperty, targetOpacity, Motion.Press);
                 if (i < _quickActionIconScales.Count)
                 {
-                    var scaleAnim = AnimationPrimitives.MakeAnim(targetScale, new Duration(TimeSpan.FromMilliseconds(160)), CreateContentResizeEase());
-                    _quickActionIconScales[i].BeginAnimation(ScaleTransform.ScaleXProperty, scaleAnim);
-                    _quickActionIconScales[i].BeginAnimation(ScaleTransform.ScaleYProperty, scaleAnim);
+                    Motion.To(_quickActionIconScales[i], ScaleTransform.ScaleXProperty, targetScale, Motion.Press);
+                    Motion.To(_quickActionIconScales[i], ScaleTransform.ScaleYProperty, targetScale, Motion.Press);
                 }
             }
             else
             {
-                icon.BeginAnimation(OpacityProperty, null);
-                icon.Opacity = targetOpacity;
+                Motion.Stop(icon, OpacityProperty, targetOpacity);
                 if (i < _quickActionIconScales.Count)
                 {
-                    _quickActionIconScales[i].BeginAnimation(ScaleTransform.ScaleXProperty, null);
-                    _quickActionIconScales[i].BeginAnimation(ScaleTransform.ScaleYProperty, null);
-                    _quickActionIconScales[i].ScaleX = targetScale;
-                    _quickActionIconScales[i].ScaleY = targetScale;
+                    Motion.Stop(_quickActionIconScales[i], ScaleTransform.ScaleXProperty, targetScale);
+                    Motion.Stop(_quickActionIconScales[i], ScaleTransform.ScaleYProperty, targetScale);
                 }
             }
         }
@@ -1037,17 +1033,12 @@ public partial class SpotlightWindow : Window
 
         if (!animate || AnimationConfig.ReduceMotion)
         {
-            QuickActionsGlideTransform.BeginAnimation(TranslateTransform.YProperty, null);
-            QuickActionsGlideTransform.Y = targetY;
+            Motion.Stop(QuickActionsGlideTransform, TranslateTransform.YProperty, targetY);
             return;
         }
 
-        var glideAnim = new DoubleAnimation(targetY, TimeSpan.FromMilliseconds(165))
-        {
-            EasingFunction = CreateContentResizeEase()
-        };
-        Timeline.SetDesiredFrameRate(glideAnim, AnimationConfig.TargetFps);
-        QuickActionsGlideTransform.BeginAnimation(TranslateTransform.YProperty, glideAnim, HandoffBehavior.SnapshotAndReplace);
+        // Held arrow keys retarget the glide while it moves; the spring carries its speed into the next row.
+        Motion.To(QuickActionsGlideTransform, TranslateTransform.YProperty, targetY, Motion.Glide);
     }
 
     private double MeasureTargetContentHeight()
@@ -1128,20 +1119,14 @@ public partial class SpotlightWindow : Window
         bool canAnimate = animate && !AnimationConfig.ReduceMotion && IsSpotlightOpen && !_isClosing;
         if (!canAnimate)
         {
-            QuickActionsPanel.BeginAnimation(OpacityProperty, null);
-            QuickActionsTranslate.BeginAnimation(TranslateTransform.XProperty, null);
-            QuickActionsTranslate.BeginAnimation(TranslateTransform.YProperty, null);
-            QuickActionsPanel.Opacity = 0;
-            QuickActionsTranslate.X = 0;
-            QuickActionsTranslate.Y = 0;
+            Motion.Stop(QuickActionsPanel, OpacityProperty, 0);
+            Motion.Stop(QuickActionsTranslate, TranslateTransform.XProperty, 0);
+            Motion.Stop(QuickActionsTranslate, TranslateTransform.YProperty, 0);
             QuickActionsPanel.Visibility = Visibility.Collapsed;
 
-            ResultsList.BeginAnimation(OpacityProperty, null);
-            ResultsListTranslate.BeginAnimation(TranslateTransform.XProperty, null);
-            ResultsListTranslate.BeginAnimation(TranslateTransform.YProperty, null);
-            ResultsList.Opacity = 1;
-            ResultsListTranslate.X = 0;
-            ResultsListTranslate.Y = 0;
+            Motion.Stop(ResultsList, OpacityProperty, 1);
+            Motion.Stop(ResultsListTranslate, TranslateTransform.XProperty, 0);
+            Motion.Stop(ResultsListTranslate, TranslateTransform.YProperty, 0);
             ResultsList.IsHitTestVisible = true;
             if (_viewModel.Results.Count > 0)
                 ResultsList.Visibility = Visibility.Visible;
@@ -1164,41 +1149,21 @@ public partial class SpotlightWindow : Window
         ResultsList.IsHitTestVisible = true;
         QuickActionsPanel.IsHitTestVisible = false;
 
-        var exitDur = new Duration(TimeSpan.FromMilliseconds(motion.ExitDurationMs));
-        var enterDur = new Duration(TimeSpan.FromMilliseconds(motion.EnterDurationMs));
-        var revealEase = CreateContentResizeEase();
-        var contractEase = CreateContentContractEase();
-
-        var actionsOutX = AnimationPrimitives.MakeAnim(QuickActionsTranslate.X, motion.ActionsToX, exitDur, contractEase);
-        var actionsOutY = AnimationPrimitives.MakeAnim(QuickActionsTranslate.Y, -4, exitDur, contractEase);
-        var actionsOutFade = AnimationPrimitives.MakeAnim(QuickActionsPanel.Opacity, 0, exitDur, contractEase);
-        actionsOutFade.Completed += (_, _) =>
+        // The menu leaves on Exit from wherever its own entrance got to; the results come back on Tile.
+        Motion.To(QuickActionsTranslate, TranslateTransform.XProperty, motion.ActionsToX, Motion.Exit);
+        Motion.To(QuickActionsTranslate, TranslateTransform.YProperty, -4, Motion.Exit);
+        Motion.To(QuickActionsPanel, OpacityProperty, 0, Motion.Exit, done: () =>
         {
             if (slideGen != _quickActionsSlideVersion || _quickActionsOpen) return;
-            QuickActionsPanel.BeginAnimation(OpacityProperty, null);
-            QuickActionsTranslate.BeginAnimation(TranslateTransform.XProperty, null);
-            QuickActionsTranslate.BeginAnimation(TranslateTransform.YProperty, null);
-            QuickActionsPanel.Opacity = 0;
-            QuickActionsTranslate.X = 0;
-            QuickActionsTranslate.Y = 0;
+            Motion.Stop(QuickActionsPanel, OpacityProperty, 0);
+            Motion.Stop(QuickActionsTranslate, TranslateTransform.XProperty, 0);
+            Motion.Stop(QuickActionsTranslate, TranslateTransform.YProperty, 0);
             QuickActionsPanel.Visibility = Visibility.Collapsed;
-        };
-        QuickActionsTranslate.BeginAnimation(TranslateTransform.XProperty, actionsOutX);
-        QuickActionsTranslate.BeginAnimation(TranslateTransform.YProperty, actionsOutY);
-        QuickActionsPanel.BeginAnimation(OpacityProperty, actionsOutFade);
+        });
 
-        var resultsInX = AnimationPrimitives.MakeAnim(motion.ResultsFromX, motion.ResultsToX, enterDur, revealEase);
-        var resultsInY = AnimationPrimitives.MakeAnim(-8, 0, enterDur, revealEase);
-        var resultsInFade = AnimationPrimitives.MakeAnim(0, 1, new Duration(TimeSpan.FromMilliseconds(230)), revealEase);
-        resultsInX.FillBehavior = FillBehavior.Stop;
-        resultsInY.FillBehavior = FillBehavior.Stop;
-        resultsInFade.FillBehavior = FillBehavior.Stop;
-        ResultsListTranslate.X = 0;
-        ResultsListTranslate.Y = 0;
-        ResultsList.Opacity = 1;
-        ResultsListTranslate.BeginAnimation(TranslateTransform.XProperty, resultsInX);
-        ResultsListTranslate.BeginAnimation(TranslateTransform.YProperty, resultsInY);
-        ResultsList.BeginAnimation(OpacityProperty, resultsInFade);
+        Motion.To(ResultsListTranslate, TranslateTransform.XProperty, motion.ResultsToX, Motion.Tile, from: motion.ResultsFromX);
+        Motion.To(ResultsListTranslate, TranslateTransform.YProperty, 0, Motion.Tile, from: -8);
+        Motion.To(ResultsList, OpacityProperty, 1, Motion.Tile, from: 0);
 
         AnimateQuickActionsViewportHeight(lockedHeight);
         ScheduleGlideUpdate();
@@ -1211,6 +1176,18 @@ public partial class SpotlightWindow : Window
         LaunchSelected();
         // If the launch failed and the window stays open, typing must keep working.
         if (IsSpotlightOpen && !_isClosing) SearchBox.Focus();
+    }
+
+    // A row's hover surface lights up on Press and goes on Exit, from wherever it is, so sweeping the pointer
+    // across the list never restarts a half-lit row from dark.
+    private void ResultItem_MouseEnter(object sender, MouseEventArgs e) => SetResultRowHover(sender, true);
+
+    private void ResultItem_MouseLeave(object sender, MouseEventArgs e) => SetResultRowHover(sender, false);
+
+    private static void SetResultRowHover(object sender, bool hovered)
+    {
+        if (sender is not ListBoxItem row || row.Template?.FindName("HoverSurface", row) is not Border surface) return;
+        Motion.To(surface, OpacityProperty, hovered ? 1 : 0, hovered ? Motion.Press : Motion.Exit);
     }
 
     private void ResultItem_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
@@ -1267,7 +1244,6 @@ public partial class SpotlightWindow : Window
         var sfPro = (FontFamily)FindResource("SFProDisplay");
         var primaryBrush = (Brush)FindResource("TitleTextBrush");
         var hoverBrush = (Brush)FindResource("HoverItemBrush");
-        var revealEase = CreateContentResizeEase();
 
         for (int i = 0; i < menu.Items.Count; i++)
         {
@@ -1356,14 +1332,9 @@ public partial class SpotlightWindow : Window
             rowContainer.MouseEnter += (_, _) =>
             {
                 SelectQuickActionIndex(actionIndex, animateGlide: true);
-                var hoverIn = new DoubleAnimation(1, TimeSpan.FromMilliseconds(120)) { EasingFunction = revealEase };
-                hoverSurface.BeginAnimation(OpacityProperty, hoverIn);
+                Motion.To(hoverSurface, OpacityProperty, 1, Motion.Press);
             };
-            rowContainer.MouseLeave += (_, _) =>
-            {
-                var hoverOut = new DoubleAnimation(0, TimeSpan.FromMilliseconds(160)) { EasingFunction = revealEase };
-                hoverSurface.BeginAnimation(OpacityProperty, hoverOut);
-            };
+            rowContainer.MouseLeave += (_, _) => Motion.To(hoverSurface, OpacityProperty, 0, Motion.Exit);
             rowContainer.MouseLeftButtonUp += (_, me) =>
             {
                 CloseResultContextMenu(animate: false);
@@ -1375,29 +1346,16 @@ public partial class SpotlightWindow : Window
 
             if (!AnimationConfig.ReduceMotion && motion.EnterDurationMs > 0)
             {
-                rowContainer.Opacity = 0;
-                rowTranslate.Y = -5;
-                rightIcon.Opacity = 0;
-                iconScale.ScaleX = 0.68;
-                iconScale.ScaleY = 0.68;
+                // Rows arrive on Tile one after another; each icon pops in a step behind its row.
+                var delay = Motion.Stagger(actionIndex);
+                var iconDelay = Motion.Stagger(actionIndex + 1);
+                Motion.To(rowTranslate, TranslateTransform.XProperty, 0, Motion.Tile, from: motion.ItemSlideX, delay: delay);
+                Motion.To(rowTranslate, TranslateTransform.YProperty, 0, Motion.Tile, from: -5, delay: delay);
+                Motion.To(rowContainer, OpacityProperty, 1, Motion.Tile, from: 0, delay: delay);
 
-                var delay = TimeSpan.FromMilliseconds(actionIndex * motion.StaggerStepMs);
-                var iconDelay = TimeSpan.FromMilliseconds(actionIndex * motion.StaggerStepMs + 25);
-                var dur = new Duration(TimeSpan.FromMilliseconds(motion.EnterDurationMs));
-                var fadeDur = new Duration(TimeSpan.FromMilliseconds(220));
-
-                var rowSlideX = AnimationPrimitives.MakeAnim(motion.ItemSlideX, 0, dur, revealEase, delay);
-                var rowSlideY = AnimationPrimitives.MakeAnim(-5, 0, dur, revealEase, delay);
-                var rowFade = AnimationPrimitives.MakeAnim(0, 1, fadeDur, revealEase, delay);
-                rowTranslate.BeginAnimation(TranslateTransform.XProperty, rowSlideX);
-                rowTranslate.BeginAnimation(TranslateTransform.YProperty, rowSlideY);
-                rowContainer.BeginAnimation(OpacityProperty, rowFade);
-
-                var iconFade = AnimationPrimitives.MakeAnim(0, initialOpacity, fadeDur, revealEase, iconDelay);
-                var iconScaleIn = AnimationPrimitives.MakeAnim(0.68, initialScale, dur, AnimationPrimitives._easeBackOut022, iconDelay);
-                rightIcon.BeginAnimation(OpacityProperty, iconFade);
-                iconScale.BeginAnimation(ScaleTransform.ScaleXProperty, iconScaleIn);
-                iconScale.BeginAnimation(ScaleTransform.ScaleYProperty, iconScaleIn);
+                Motion.To(rightIcon, OpacityProperty, initialOpacity, Motion.Tile, from: 0, delay: iconDelay);
+                Motion.To(iconScale, ScaleTransform.ScaleXProperty, initialScale, Motion.Tile, from: 0.68, delay: iconDelay);
+                Motion.To(iconScale, ScaleTransform.ScaleYProperty, initialScale, Motion.Tile, from: 0.68, delay: iconDelay);
             }
             else
             {
@@ -1429,54 +1387,36 @@ public partial class SpotlightWindow : Window
 
         if (AnimationConfig.ReduceMotion || motion.EnterDurationMs <= 0)
         {
-            ResultsList.BeginAnimation(OpacityProperty, null);
-            ResultsListTranslate.BeginAnimation(TranslateTransform.XProperty, null);
-            ResultsListTranslate.BeginAnimation(TranslateTransform.YProperty, null);
-            ResultsList.Opacity = 1;
-            ResultsListTranslate.X = 0;
-            ResultsListTranslate.Y = 0;
+            Motion.Stop(ResultsList, OpacityProperty, 1);
+            Motion.Stop(ResultsListTranslate, TranslateTransform.XProperty, 0);
+            Motion.Stop(ResultsListTranslate, TranslateTransform.YProperty, 0);
             ResultsList.Visibility = Visibility.Collapsed;
 
-            QuickActionsPanel.BeginAnimation(OpacityProperty, null);
-            QuickActionsTranslate.BeginAnimation(TranslateTransform.XProperty, null);
-            QuickActionsTranslate.BeginAnimation(TranslateTransform.YProperty, null);
-            QuickActionsPanel.Opacity = 1;
-            QuickActionsTranslate.X = 0;
-            QuickActionsTranslate.Y = 0;
+            Motion.Stop(QuickActionsPanel, OpacityProperty, 1);
+            Motion.Stop(QuickActionsTranslate, TranslateTransform.XProperty, 0);
+            Motion.Stop(QuickActionsTranslate, TranslateTransform.YProperty, 0);
             ScheduleContentResize();
             return menu;
         }
 
         ResultsList.IsHitTestVisible = false;
-        var exitDur = new Duration(TimeSpan.FromMilliseconds(motion.ExitDurationMs));
-        var enterDur = new Duration(TimeSpan.FromMilliseconds(motion.EnterDurationMs));
-        var contractEase = CreateContentContractEase();
-
-        var resultsOutX = AnimationPrimitives.MakeAnim(0, motion.ResultsToX, exitDur, contractEase);
-        var resultsOutY = AnimationPrimitives.MakeAnim(0, -4, exitDur, contractEase);
-        var resultsOutFade = AnimationPrimitives.MakeAnim(1, 0, exitDur, contractEase);
-        resultsOutFade.Completed += (_, _) =>
+        // The results leave on Exit from wherever they are (they may still be coming back from the last
+        // menu); the menu arrives on Tile.
+        Motion.To(ResultsListTranslate, TranslateTransform.XProperty, motion.ResultsToX, Motion.Exit);
+        Motion.To(ResultsListTranslate, TranslateTransform.YProperty, -4, Motion.Exit);
+        Motion.To(ResultsList, OpacityProperty, 0, Motion.Exit, done: () =>
         {
             if (slideGen != _quickActionsSlideVersion || !_quickActionsOpen) return;
-            ResultsList.BeginAnimation(OpacityProperty, null);
-            ResultsListTranslate.BeginAnimation(TranslateTransform.XProperty, null);
-            ResultsListTranslate.BeginAnimation(TranslateTransform.YProperty, null);
-            ResultsList.Opacity = 1;
-            ResultsListTranslate.X = 0;
-            ResultsListTranslate.Y = 0;
+            Motion.Stop(ResultsList, OpacityProperty, 1);
+            Motion.Stop(ResultsListTranslate, TranslateTransform.XProperty, 0);
+            Motion.Stop(ResultsListTranslate, TranslateTransform.YProperty, 0);
             ResultsList.IsHitTestVisible = true;
             ResultsList.Visibility = Visibility.Collapsed;
-        };
-        ResultsListTranslate.BeginAnimation(TranslateTransform.XProperty, resultsOutX);
-        ResultsListTranslate.BeginAnimation(TranslateTransform.YProperty, resultsOutY);
-        ResultsList.BeginAnimation(OpacityProperty, resultsOutFade);
+        });
 
-        var actionsInX = AnimationPrimitives.MakeAnim(motion.ActionsFromX, motion.ActionsToX, enterDur, revealEase);
-        var actionsInY = AnimationPrimitives.MakeAnim(-8, 0, enterDur, revealEase);
-        var actionsInFade = AnimationPrimitives.MakeAnim(0, 1, new Duration(TimeSpan.FromMilliseconds(220)), revealEase);
-        QuickActionsTranslate.BeginAnimation(TranslateTransform.XProperty, actionsInX);
-        QuickActionsTranslate.BeginAnimation(TranslateTransform.YProperty, actionsInY);
-        QuickActionsPanel.BeginAnimation(OpacityProperty, actionsInFade);
+        Motion.To(QuickActionsTranslate, TranslateTransform.XProperty, motion.ActionsToX, Motion.Tile, from: motion.ActionsFromX);
+        Motion.To(QuickActionsTranslate, TranslateTransform.YProperty, 0, Motion.Tile, from: -8);
+        Motion.To(QuickActionsPanel, OpacityProperty, 1, Motion.Tile, from: 0);
 
         AnimateQuickActionsViewportHeight(lockedHeight);
         return menu;
@@ -1859,29 +1799,14 @@ public partial class SpotlightWindow : Window
 
         if (_glideVisible && !AnimationConfig.ReduceMotion)
         {
-            // A To-only animation departs from the current animated value, so
-            var glide = new DoubleAnimation(position.Y, TimeSpan.FromMilliseconds(260))
-            {
-                EasingFunction = new ExponentialEase { EasingMode = EasingMode.EaseOut, Exponent = 6 }
-            };
-            Timeline.SetDesiredFrameRate(glide, AnimationConfig.TargetFps);
-            _glideTransform.BeginAnimation(TranslateTransform.YProperty, glide);
+            // Held arrow keys retarget the glide while it moves; the spring carries its speed into the next row.
+            Motion.To(_glideTransform, TranslateTransform.YProperty, position.Y, Motion.Glide);
         }
         else
         {
-            _glideTransform.BeginAnimation(TranslateTransform.YProperty, null);
-            _glideTransform.Y = position.Y;
-            _selectionGlide.BeginAnimation(OpacityProperty, null);
-            if (AnimationConfig.ReduceMotion)
-            {
-                _selectionGlide.Opacity = 1;
-            }
-            else
-            {
-                var fadeIn = CreateAnimation(0, 1, TimeSpan.FromMilliseconds(140),
-                    new QuadraticEase { EasingMode = EasingMode.EaseOut });
-                _selectionGlide.BeginAnimation(OpacityProperty, fadeIn);
-            }
+            Motion.Stop(_glideTransform, TranslateTransform.YProperty, position.Y);
+            // Appearing from dark, or from a fade that was still going out.
+            Motion.To(_selectionGlide, OpacityProperty, 1, Motion.Tile);
         }
         _glideVisible = true;
     }
@@ -1890,26 +1815,16 @@ public partial class SpotlightWindow : Window
     {
         if (_selectionGlide == null || !_glideVisible) return;
         _glideVisible = false;
-        _glideTransform?.BeginAnimation(TranslateTransform.YProperty, null);
-        if (AnimationConfig.ReduceMotion)
-        {
-            _selectionGlide.BeginAnimation(OpacityProperty, null);
-            _selectionGlide.Opacity = 0;
-            return;
-        }
-
-        var fade = CreateAnimation(_selectionGlide.Opacity, 0, TimeSpan.FromMilliseconds(100),
-            new QuadraticEase { EasingMode = EasingMode.EaseOut });
-        _selectionGlide.BeginAnimation(OpacityProperty, fade);
+        if (_glideTransform != null) Motion.Stop(_glideTransform, TranslateTransform.YProperty);
+        Motion.To(_selectionGlide, OpacityProperty, 0, Motion.Exit);
     }
 
     private void ResetSelectionGlide()
     {
         _glideVisible = false;
         if (_selectionGlide == null) return;
-        _selectionGlide.BeginAnimation(OpacityProperty, null);
-        _selectionGlide.Opacity = 0;
-        _glideTransform?.BeginAnimation(TranslateTransform.YProperty, null);
+        Motion.Stop(_selectionGlide, OpacityProperty, 0);
+        if (_glideTransform != null) Motion.Stop(_glideTransform, TranslateTransform.YProperty);
     }
 
     private bool EnsureGlideParts()
@@ -1930,14 +1845,11 @@ public partial class SpotlightWindow : Window
         double target = dimmed ? StaleResultsOpacity : 1.0;
         if (!animate || AnimationConfig.ReduceMotion)
         {
-            ResultsList.BeginAnimation(OpacityProperty, null);
-            ResultsList.Opacity = target;
+            Motion.Stop(ResultsList, OpacityProperty, target);
             return;
         }
 
-        var fade = CreateAnimation(ResultsList.Opacity, target, TimeSpan.FromMilliseconds(120),
-            new QuadraticEase { EasingMode = EasingMode.EaseOut });
-        ResultsList.BeginAnimation(OpacityProperty, fade);
+        Motion.To(ResultsList, OpacityProperty, target, Motion.Glide);
     }
 
     private void UpdateAutocomplete()

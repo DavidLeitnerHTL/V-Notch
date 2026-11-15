@@ -280,6 +280,8 @@
         <Style x:Key="ResultItemStyle" TargetType="ListBoxItem">
             <EventSetter Event="MouseLeftButtonUp" Handler="ResultItem_MouseLeftButtonUp"/>
             <EventSetter Event="MouseRightButtonUp" Handler="ResultItem_MouseRightButtonUp"/>
+            <EventSetter Event="MouseEnter" Handler="ResultItem_MouseEnter"/>
+            <EventSetter Event="MouseLeave" Handler="ResultItem_MouseLeave"/>
             <Setter Property="Focusable" Value="False"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="Padding" Value="0"/>
@@ -298,28 +300,6 @@
                             </Border>
                         </Grid>
                         <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Trigger.EnterActions>
-                                    <BeginStoryboard>
-                                        <Storyboard>
-                                            <DoubleAnimation Storyboard.TargetName="HoverSurface"
-                                                             Storyboard.TargetProperty="Opacity"
-                                                             To="1"
-                                                             Duration="0:0:0.10"/>
-                                        </Storyboard>
-                                    </BeginStoryboard>
-                                </Trigger.EnterActions>
-                                <Trigger.ExitActions>
-                                    <BeginStoryboard>
-                                        <Storyboard>
-                                            <DoubleAnimation Storyboard.TargetName="HoverSurface"
-                                                             Storyboard.TargetProperty="Opacity"
-                                                             To="0"
-                                                             Duration="0:0:0.16"/>
-                                        </Storyboard>
-                                    </BeginStoryboard>
-                                </Trigger.ExitActions>
-                            </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Opacity" Value="0.45"/>
                             </Trigger>
