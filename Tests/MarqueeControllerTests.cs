@@ -91,7 +91,7 @@ public class MarqueeControllerTests
     [Fact]
     public void PreviousTrackSendsBothRowsRightAndBringsTheirReplacementsFromTheLeft()
     {
-        RunOnStaThread(() =>
+        SharedStaTestRunner.RunAsync(async ct =>
         {
             var targets = new MarqueeTestTargets("Current", "Artist");
             using var controller = targets.CreateController();
@@ -110,9 +110,9 @@ public class MarqueeControllerTests
             try
             {
                 controller.TransitionTrackText("Previous", "Previous artist", -1);
-                var clock = System.Diagnostics.Stopwatch.StartNew();
-                while (VNotch.Services.Motion.VelocityOf(targets.TitleMorphA, TranslateTransform.XProperty) <= 0 &&
-                    clock.Elapsed < TimeSpan.FromSeconds(2)) PumpDispatcherFor(TimeSpan.FromMilliseconds(20));
+                await WpfFrameWaiter.UntilAsync(
+                    () => VNotch.Services.Motion.VelocityOf(targets.TitleMorphA, TranslateTransform.XProperty) > 0,
+                    "previous track title starts moving right", ct);
                 Assert.True(VNotch.Services.Motion.VelocityOf(targets.TitleMorphA, TranslateTransform.XProperty) > 0);
                 Assert.True(VNotch.Services.Motion.VelocityOf(targets.TitleMorphB, TranslateTransform.XProperty) > 0);
                 Assert.True(VNotch.Services.Motion.VelocityOf(targets.ArtistMorphA, TranslateTransform.XProperty) > 0);

@@ -1465,5 +1465,12 @@
   "settings.performance.preset.high.desc": "Für dedizierte GPUs und schnelle Monitore. Bis zu 240 FPS, volle Effekte, dGPU-Rendering und hohe Prozesspriorität.",
   "settings.performance.preset.statusBackedUp": "Profil angewendet. Deine vorherige Konfiguration wurde oben in der Liste gesichert.",
   "settings.performance.preset.statusApplied": "Profil angewendet.",
-  "settings.performance.preset.statusRestored": "Deine vorherige Konfiguration wurde wiederhergestellt."
+  "settings.performance.preset.statusRestored": "Deine vorherige Konfiguration wurde wiederhergestellt.",
+  "settings.showScriptJobsInNotch": "Skriptjobs in der Notch anzeigen",
+  "scriptJobs.done": "{0} abgeschlossen",
+  "scriptJobs.warning": "{0} abgeschlossen",
+  "scriptJobs.failed": "{0} fehlgeschlagen",
+  "scriptJobs.stopped": "Gestoppt",
+  "scriptJobs.percent": "{0:0} %",
+  "scriptJobs.elapsed": "{0} Min."
 }

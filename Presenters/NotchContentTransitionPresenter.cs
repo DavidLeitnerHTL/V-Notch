@@ -98,12 +98,16 @@ public sealed class NotchContentTransitionPresenter : IDisposable
 
         int fps = plan.Motion.TargetFps > 0 ? plan.Motion.TargetFps : AnimationConfig.TargetFps;
         bool switchingExpandedView = plan.FromView != NotchView.Compact;
-        bool targetWasVisible = targetElement.Visibility == Visibility.Visible;
+        bool aiDetailTransition = (plan.FromView == NotchView.Media && plan.TargetView == NotchView.AiUsage)
+            || (plan.FromView == NotchView.AiUsage && plan.TargetView == NotchView.Media);
+        double targetOpacity = targetElement.Visibility == Visibility.Visible ? targetElement.Opacity : 0;
+        bool targetWasVisible = targetOpacity > 0.01;
         var targetLayer = GetPageOffset(targetElement,
-            switchingExpandedView ? 8 * plan.NavigationDirection : 0, 1);
+            switchingExpandedView && !targetWasVisible ? 8 * plan.NavigationDirection : 0,
+            aiDetailTransition && !targetWasVisible ? 0.97 : 1);
         targetElement.Visibility = Visibility.Visible;
         targetElement.IsHitTestVisible = false;
-        int arriving = 3;
+        int arriving = 5;
         void Arrived()
         {
             if (--arriving != 0 || !IsCurrent(sessionId, version)) return;
@@ -120,9 +124,11 @@ public sealed class NotchContentTransitionPresenter : IDisposable
         bool shrinking = double.IsFinite(plan.FromHeight) && plan.FromHeight - plan.TargetHeight > 40;
         int beat = !switchingExpandedView || targetWasVisible ? 0 : shrinking ? ShrinkBeatMs : SwitchBeatMs;
         EaseTo(targetElement, UIElement.OpacityProperty, 1, ArriveMs,
-            from: targetWasVisible ? null : 0, fps: fps, done: Arrived, delayMs: beat);
+            from: targetOpacity, fps: fps, done: Arrived, delayMs: beat);
         EaseTo(targetLayer.Offset, TranslateTransform.XProperty, 0, ArriveMs, fps: fps, done: Arrived, delayMs: beat);
         EaseTo(targetLayer.Blur, BlurEffect.RadiusProperty, 0, ArriveMs, fps: fps, done: Arrived, delayMs: beat);
+        EaseTo(targetLayer.Scale, ScaleTransform.ScaleXProperty, 1, ArriveMs, fps: fps, done: Arrived, delayMs: beat);
+        EaseTo(targetLayer.Scale, ScaleTransform.ScaleYProperty, 1, ArriveMs, fps: fps, done: Arrived, delayMs: beat);
 
         foreach (var element in allElements)
         {
@@ -136,6 +142,9 @@ public sealed class NotchContentTransitionPresenter : IDisposable
             element.IsHitTestVisible = false;
             EaseTo(layer.Offset, TranslateTransform.XProperty,
                 switchingExpandedView ? -6 * plan.NavigationDirection : 0, LeaveMs, fps: fps);
+            double exitScale = aiDetailTransition ? 0.97 : 1;
+            EaseTo(layer.Scale, ScaleTransform.ScaleXProperty, exitScale, LeaveMs, fps: fps);
+            EaseTo(layer.Scale, ScaleTransform.ScaleYProperty, exitScale, LeaveMs, fps: fps);
             EaseTo(element, UIElement.OpacityProperty, 0, LeaveMs, fps: fps, done: () =>
             {
                 if (!IsCurrent(sessionId, version)) return;
@@ -151,7 +160,12 @@ public sealed class NotchContentTransitionPresenter : IDisposable
         if (_pageOffsets.TryGetValue(element, out var layer) && ReferenceEquals(element.RenderTransform, layer.Wrapper))
             return layer;
         var original = element.RenderTransform ?? Transform.Identity;
-        var scale = new ScaleTransform(initialScale, initialScale, element.ActualWidth / 2, element.ActualHeight / 2);
+        // Account for the element's existing origin when scaling around its centre.
+        double width = double.IsFinite(element.Width) ? element.Width : element.ActualWidth;
+        double height = double.IsFinite(element.Height) ? element.Height : element.ActualHeight;
+        var scale = new ScaleTransform(initialScale, initialScale,
+            (0.5 - element.RenderTransformOrigin.X) * width,
+            (0.5 - element.RenderTransformOrigin.Y) * height);
         var offset = new TranslateTransform(initialX, 0);
         var wrapper = new TransformGroup();
         wrapper.Children.Add(original);
@@ -164,6 +178,7 @@ public sealed class NotchContentTransitionPresenter : IDisposable
         element.Effect = blur;
         return layer;
     }
+
     private void ReleasePageOffset(FrameworkElement element)
     {
         if (!_pageOffsets.Remove(element, out var layer)) return;
