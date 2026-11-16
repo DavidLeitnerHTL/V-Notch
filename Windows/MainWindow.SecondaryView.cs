@@ -142,6 +142,7 @@ public partial class MainWindow
         else if (_isTimerView) fallbackView = NotchView.Timer;
         else if (_isSecondaryView) fallbackView = NotchView.Secondary;
         var target = _navigationVisualTarget ?? fallbackView;
+        UpdateNavSelection(target, animate);
         double homeTarget = target == NotchView.Media ? 1 : 0.45;
         double clipboardTarget = target == NotchView.Secondary ? 1 : 0.45;
         double timerTarget = target == NotchView.Timer ? 1 : 0.45;

@@ -333,9 +333,10 @@ public sealed class NotchNavigationIntegrationTests
         void Sample(object? _, EventArgs args)
         {
             if (!IsAnimating(window) || !window.ExpandedContent.IsVisible) return;
-            var origin = window.ExpandedContent.TransformToAncestor(window.NotchContainer).Transform(new Point());
-            double expected = (window.NotchContainer.ActualWidth - window.ExpandedContent.ActualWidth) / 2;
-            maxError = Math.Max(maxError, Math.Abs(origin.X - expected));
+            var bounds = window.ExpandedContent.TransformToAncestor(window.NotchContainer)
+                .TransformBounds(new Rect(window.ExpandedContent.RenderSize));
+            double expected = window.NotchContainer.ActualWidth / 2;
+            maxError = Math.Max(maxError, Math.Abs(bounds.Left + bounds.Width / 2 - expected));
             samples++;
         }
         CompositionTarget.Rendering += Sample;

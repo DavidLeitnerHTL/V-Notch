@@ -22,6 +22,7 @@ public partial class MainWindow
 
     private void AnimateNotchHover(bool isHovered)
     {
+        if (_shellDragActive) return;
         if (_isExpanded || _isAnimating || _isGreetingActive || _isVolumeIndicatorActive || _spotlightMorphSessionActive || _spotlightMorphOwnsNotchVisibility) return;
 
         if (!isHovered && _isGestureActive) return;
@@ -642,7 +643,7 @@ public partial class MainWindow
     {
         int version = ++_statusBarRevealVersion;
         _statusBarRevealing = show;
-        bool animate = !VNotch.Services.AnimationConfig.ReduceMotion && VNotch.Services.AnimationConfig.ClientAreaAnimation;
+        bool animate = !_shellAttachment.IsAttached && !VNotch.Services.AnimationConfig.ReduceMotion && VNotch.Services.AnimationConfig.ClientAreaAnimation;
         bool chromeVisible = NavIconsPanel.Visibility == Visibility.Visible && NavIconsPanel.Opacity > 0.01;
         var targetView = _navigationVisualTarget ?? _transitionCoordinator.CurrentView;
         bool showBattery = show && _settings.ShowBatteryIndicator;

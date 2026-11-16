@@ -261,16 +261,19 @@ public partial class MainWindow : Window
         _transitionCoordinator.TransitionRequested += OnTransitionRequested;
         _transitionCoordinator.CountdownCompletionDisplayRequested += OnCountdownCompletionDisplayRequested;
 
+        InitializeShellAttachment();
         _notchShellPresenter = new VNotch.Presenters.NotchShellPresenter(new VNotch.Presenters.NotchShellViewRefs
         {
             NotchBorder = NotchBorder,
             NotchContainer = NotchContainer,
+            Attachment = _shellAttachment,
             AnimateCornerRadius = (radius, dur) => AnimateCornerRadius(radius, dur),
             CornerRadiusBuilder = MakeNotchCornerRadius,
             IsSessionCurrent = sessionId => !_cleanedUp && sessionId == _transitionCoordinator.ActiveTransitionId
         });
         _notchContentPresenter = new VNotch.Presenters.NotchContentTransitionPresenter(new VNotch.Presenters.NotchContentViewRefs
         {
+            ShellAttachment = _shellAttachment,
             ExpandedContent = ExpandedContent,
             TimerContent = TimerContent,
             AudioContent = AudioContent,
@@ -439,6 +442,7 @@ public partial class MainWindow : Window
         _hoverCollapseTimer.Tick += (s, e) =>
         {
             _hoverCollapseTimer.Stop();
+            if (_isGestureActive) return;
             if (IsScreenCaptureActive) return;
             if (IsKeyboardFocusWithin) return;
             _hoverCollapseTimer.Interval = TimeSpan.FromMilliseconds(_settings.HoverCollapseDelay);
@@ -475,6 +479,7 @@ public partial class MainWindow : Window
         _hoverThumbnailDelayTimer.Tick += (s, e) =>
         {
             _hoverThumbnailDelayTimer.Stop();
+            if (_isGestureActive) return;
 
             if (IsScreenCaptureActive) return;
             if (IsCountdownCompletionVisualActive || _isVolumeIndicatorActive) return;
@@ -869,7 +874,7 @@ public partial class MainWindow : Window
         _navigationVisualTarget = args.TargetView == VNotch.Models.NotchView.Compact ? null : args.TargetView;
         UpdateNavIconsActiveState();
         if (args.FromView == VNotch.Models.NotchView.Secondary && args.TargetView != VNotch.Models.NotchView.Secondary)
-            _clipboardTrayView?.BeginExit();
+            _clipboardTrayView?.BeginExit(animate: false);
         if (args.TargetView != VNotch.Models.NotchView.Secondary &&
             _clipboardHistory?.Store.IsPersonalUnlocked == true)
             _ = _clipboardHistory.LockPersonalAsync();
@@ -1894,6 +1899,7 @@ public partial class MainWindow : Window
 
     private void NotchWrapper_MouseLeave(object sender, MouseEventArgs e)
     {
+        if (_isGestureActive) return;
         OnNotchHoverForClaudePeek(entered: false);
         if (IsScreenCaptureActive)
         {
@@ -1938,6 +1944,7 @@ public partial class MainWindow : Window
 
     private void QueueHoverExpand()
     {
+        if (_isGestureActive) return;
         if (IsScreenCaptureActive) return;
         if (IsCountdownCompletionVisualActive || IsAppNotificationBannerActive) return;
 
@@ -1957,6 +1964,7 @@ public partial class MainWindow : Window
     {
         Dispatcher.BeginInvoke(new Action(() =>
         {
+            if (_isGestureActive) return;
             _hoverThumbnailDelayTimer.Stop();
             if (IsScreenCaptureActive)
             {

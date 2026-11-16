@@ -64,6 +64,7 @@ public partial class MainWindow
     /// </summary>
     private void SettleNotchToContent(FrameworkElement content, double target, Func<bool> stillOpen)
     {
+        if (_shellDragActive) return;
         double current = double.IsFinite(NotchBorder.Height) ? NotchBorder.Height :
             NotchBorder.ActualHeight > 0 ? NotchBorder.ActualHeight : target;
         double chrome = content.Margin.Top + content.Margin.Bottom;

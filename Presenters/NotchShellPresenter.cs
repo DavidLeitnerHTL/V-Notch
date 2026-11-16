@@ -14,6 +14,7 @@ public sealed class NotchShellViewRefs
     public Action<double, SpringMotion?>? AnimateCornerRadius { get; init; }
     public Func<double, CornerRadius>? CornerRadiusBuilder { get; init; }
     public Func<long, bool>? IsSessionCurrent { get; init; }
+    internal NotchShellAttachment? Attachment { get; init; }
 }
 
 public sealed class NotchShellPresenter : IDisposable
@@ -26,6 +27,7 @@ public sealed class NotchShellPresenter : IDisposable
     private double? _canceledWidthVelocity, _canceledHeightVelocity;
     private Action? _heightArrived;
     private double _heightTarget;
+    private SpringMotion _heightSpring = Motion.Glide;
 
     public NotchShellPresenter(NotchShellViewRefs refs)
     {
@@ -52,8 +54,13 @@ public sealed class NotchShellPresenter : IDisposable
         var border = _refs.NotchBorder;
         bool opening = plan.FromView == NotchView.Compact && plan.TargetView != NotchView.Compact;
         bool closing = plan.TargetView == NotchView.Compact;
-        var widthSpring = opening ? Motion.ShellOpenWidth : closing ? Motion.ShellCloseWidth : Motion.Glide;
-        var heightSpring = opening ? Motion.ShellOpenHeight : closing ? Motion.ShellCloseHeight : Motion.Glide;
+        var widthSpring = plan.Motion.Spring == Motion.Shift ? Motion.Shift :
+            opening ? Motion.ShellOpenWidth : closing ? Motion.ShellCloseWidth : Motion.Shift;
+        var heightSpring = _heightSpring = plan.Motion.Spring == Motion.Shift ? Motion.Shift :
+            opening ? Motion.ShellOpenHeight : closing ? Motion.ShellCloseHeight : Motion.Shift;
+        if (opening) _refs.Attachment?.Attach(plan.TargetWidth, plan.TargetHeight);
+        else if (closing) _refs.Attachment?.Attach(border.Width, border.Height);
+        else _refs.Attachment?.Detach(true);
         int fps = plan.Motion.TargetFps > 0 ? plan.Motion.TargetFps : AnimationConfig.TargetFps;
         double? widthVelocity = _canceledWidthVelocity, heightVelocity = _canceledHeightVelocity;
         _canceledWidthVelocity = _canceledHeightVelocity = null;
@@ -65,6 +72,7 @@ public sealed class NotchShellPresenter : IDisposable
             Motion.Stop(_corner, CornerValue.ValueProperty, plan.TargetCornerRadius);
             if (_refs.AnimateCornerRadius is { } snapCorner) snapCorner(plan.TargetCornerRadius, null);
             else SetCornerRadius(plan.TargetCornerRadius);
+            _refs.Attachment?.Detach(!closing);
             onCompleted(new TransitionExecutionResult(sessionId, TransitionExecutionStatus.Completed));
             return;
         }
@@ -81,6 +89,7 @@ public sealed class NotchShellPresenter : IDisposable
         {
             if (!widthArrived || !heightArrived || reported || !IsCurrent(sessionId, version)) return;
             reported = true;
+            _refs.Attachment?.Detach(!closing);
             onCompleted(new TransitionExecutionResult(sessionId, TransitionExecutionStatus.Completed));
         }
         if (!double.IsFinite(border.Width)) border.Width = ReadExtent(border.Width, border.ActualWidth, plan.TargetWidth);
@@ -126,7 +135,7 @@ public sealed class NotchShellPresenter : IDisposable
         if (_disposed || _heightArrived == null) return false;
         _heightTarget = height;
         // A content measurement replaces the height spring; the session's kept ending rides along.
-        Motion.To(_refs.NotchBorder, FrameworkElement.HeightProperty, height, Motion.Glide, done: done);
+        Motion.To(_refs.NotchBorder, FrameworkElement.HeightProperty, height, _heightSpring, done: done);
         return true;
     }
 
@@ -142,6 +151,13 @@ public sealed class NotchShellPresenter : IDisposable
         Motion.Stop(_corner, CornerValue.ValueProperty, cornerRadius);
         if (_refs.AnimateCornerRadius is { } snapCorner) snapCorner(cornerRadius, null);
         else SetCornerRadius(cornerRadius);
+        _refs.Attachment?.Detach(false);
+    }
+
+    internal void SetReleaseVelocity(double heightVelocity, double widthPerHeight)
+    {
+        _canceledHeightVelocity = heightVelocity;
+        _canceledWidthVelocity = heightVelocity * widthPerHeight;
     }
 
     public void CancelCurrentAnimation()
@@ -163,6 +179,7 @@ public sealed class NotchShellPresenter : IDisposable
         _disposed = true;
         CancelCurrentAnimation();
         Motion.Stop(_corner, CornerValue.ValueProperty);
+        _refs.Attachment?.Dispose();
     }
 
     private void SetCornerRadius(double radius) =>

@@ -195,12 +195,15 @@ public sealed class NotchTabMotionTests
         var motion = new TransitionMotionConfig(TimeSpan.FromMilliseconds(250), AnimationPrimitives._easeUiOut, 60, false);
         var plan = new TransitionPlan(1, NotchView.Media, NotchView.Timer, NotchShapeState.Expanding, 300, 200, 20, motion, direction);
         presenter.TransitionContent(plan, _ => { });
-        Assert.Equal(22 * direction, timer.RenderTransform.Value.OffsetX, 8);
+        Assert.Equal(8 * direction, timer.RenderTransform.Value.OffsetX, 8);
+        Assert.Equal(1, timer.RenderTransform.Value.M11);
+        Assert.Equal(1, timer.RenderTransform.Value.M22);
+        Assert.Equal(2, Assert.IsType<System.Windows.Media.Effects.BlurEffect>(timer.Effect).Radius);
         Assert.False(timer.IsHitTestVisible);
         var mediaOffset = Assert.IsType<TranslateTransform>(Assert.IsType<TransformGroup>(media.RenderTransform).Children[^1]);
         var timerOffset = Assert.IsType<TranslateTransform>(Assert.IsType<TransformGroup>(timer.RenderTransform).Children[^1]);
-        HoldAt(mediaOffset, TranslateTransform.XProperty, 0, -14 * direction);
-        HoldAt(timerOffset, TranslateTransform.XProperty, 22 * direction, 0);
+        HoldAt(mediaOffset, TranslateTransform.XProperty, 0, -6 * direction);
+        HoldAt(timerOffset, TranslateTransform.XProperty, 8 * direction, 0);
         HoldAt(media, UIElement.OpacityProperty, 1, 0);
         HoldAt(timer, UIElement.OpacityProperty, 0, 1);
         presenter.CancelActiveTransition();

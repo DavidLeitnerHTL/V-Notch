@@ -114,6 +114,13 @@ public partial class MainWindow
 
     private async void NotchWrapper_PreviewMouseDown(object sender, MouseButtonEventArgs e)
     {
+        if (e.ChangedButton == MouseButton.Left &&
+            (_isExpanded || (_isAnimating && _shellAttachment.IsAttached)) &&
+            !IsShellDragControl(e.OriginalSource as DependencyObject) && TryBeginGesture(e))
+        {
+            e.Handled = true;
+            return;
+        }
 
         if (e.ChangedButton != MouseButton.Middle) return;
         if (!_settings.EnableGestureControls) return;
@@ -200,28 +207,15 @@ public partial class MainWindow
             RuntimeLog.Log(GestureLogTag, "blocked: EnableGestureControls=false");
             return false;
         }
-        if (_isAnimating)
-        {
-            RuntimeLog.Log(GestureLogTag, "blocked: _isAnimating=true");
-            return false;
-        }
-
-        if (_isExpanded || _isMusicExpanded)
-        {
-            RuntimeLog.Log(GestureLogTag, $"blocked: expanded={_isExpanded} musicExpanded={_isMusicExpanded}");
-            return false;
-        }
-        if (_currentMediaInfo == null || !_currentMediaInfo.IsAnyMediaPlaying)
-        {
-            RuntimeLog.Log(GestureLogTag, $"blocked: mediaInfo={(_currentMediaInfo != null)} isPlaying={_currentMediaInfo?.IsAnyMediaPlaying}");
-            return false;
-        }
+        if (_isDraggingVolumeIndicator || _isDraggingNotchDebug || _isGreetingActive ||
+            _spotlightMorphSessionActive || _spotlightMorphOwnsNotchVisibility) return false;
+        if (_isDebugDraggable || (_isAnimating && !_shellAttachment.IsAttached)) return false;
 
         var pos = e.GetPosition(NotchBorder);
         _gestureSampleAt = DateTime.UtcNow;
         _gestureSampleX = pos.X;
         _gestureReleaseVelocity = 0;
-        _gestureController.BeginTracking(pos);
+        BeginShellGestureTracking(pos, DateTime.UtcNow);
         _isGestureActive = true;
 
         NotchWrapper.CaptureMouse();
@@ -239,7 +233,9 @@ public partial class MainWindow
         if (seconds > 0) _gestureReleaseVelocity = Math.Clamp((pos.X - _gestureSampleX) * 0.3 / seconds, -1200, 1200);
         _gestureSampleAt = now;
         _gestureSampleX = pos.X;
-        bool triggered = _gestureController.UpdateTracking(pos);
+        bool triggered = UpdateGestureTracking(pos, now);
+
+        if (_gestureController.IsVerticalDrag) { e.Handled = true; return; }
 
         if (!triggered && !_gestureController.GestureTriggered)
         {
@@ -251,8 +247,25 @@ public partial class MainWindow
     {
         if (!_isGestureActive) return;
 
-        NotchWrapper.ReleaseMouseCapture();
+        if (_shellDragActive)
+        {
+            FinishShellDrag(canceled: false);
+            _gestureController.CancelTracking();
+            _isGestureActive = false;
+            NotchWrapper.ReleaseMouseCapture();
+            e.Handled = true;
+            return;
+        }
+
         _isGestureActive = false;
+        NotchWrapper.ReleaseMouseCapture();
+
+        if (_shellGestureWasOpen)
+        {
+            _gestureController.CancelTracking();
+            if (!_gestureController.HasDragAxis && !_isAnimating) ToggleNotchFromClick(e.ClickCount);
+            return;
+        }
 
         var pos = e.GetPosition(NotchBorder);
         bool wasTap = _gestureController.EndTracking(pos);
