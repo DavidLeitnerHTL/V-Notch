@@ -62,6 +62,7 @@ public partial class MainWindow
         ApplyBubbleMusicSpin();
         ApplyClaudeLiveMotion();
         if (!allowed) StopNotificationDrop();
+        RefreshMusicMotionVisibility();
         RefreshCountdownCompleteTextFlash();
         _phoneMirror?.RefreshMotionVisibility();
     }

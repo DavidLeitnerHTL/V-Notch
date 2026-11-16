@@ -16,10 +16,16 @@ public sealed partial class GestureController
     private bool _gestureTriggered;
     private bool _allowShellDrag, _expanded, _allowMediaGestures;
     private readonly Queue<(DateTime At, double Y)> _verticalSamples = new();
+    private readonly Queue<(DateTime At, double X)> _horizontalSamples = new();
     private int _axis;
     public bool IsVerticalDrag => _axis == 2;
     public bool HasDragAxis => _axis != 0;
     public double VerticalVelocity { get; private set; }
+    public double HorizontalVelocity { get; private set; }
+
+    public bool ShouldSkipTrack => _expanded && _axis == 1 && _allowMediaGestures &&
+        (Math.Abs(_accumulatedX) > 55 || Math.Abs(HorizontalVelocity) > 450 &&
+            Math.Sign(HorizontalVelocity) == Math.Sign(_accumulatedX));
 
     public event Action? SwipeLeft;
     public event Action? SwipeRight;
@@ -39,6 +45,9 @@ public sealed partial class GestureController
         _allowMediaGestures = allowMediaGestures;
         _axis = 0;
         VerticalVelocity = 0;
+        HorizontalVelocity = 0;
+        _horizontalSamples.Clear();
+        _horizontalSamples.Enqueue((timestamp ?? DateTime.UtcNow, position.X));
         _verticalSamples.Clear();
         _verticalSamples.Enqueue((timestamp ?? DateTime.UtcNow, position.Y));
     }
@@ -60,6 +69,12 @@ public sealed partial class GestureController
             var first = _verticalSamples.Peek();
             double seconds = (now - first.At).TotalSeconds;
             VerticalVelocity = seconds > 0 ? (currentPosition.Y - first.Y) / seconds : 0;
+            _horizontalSamples.Enqueue((now, currentPosition.X));
+            while (_horizontalSamples.Count > 2 && (now - _horizontalSamples.Peek().At).TotalMilliseconds > 90)
+                _horizontalSamples.Dequeue();
+            var horizontalFirst = _horizontalSamples.Peek();
+            double horizontalSeconds = (now - horizontalFirst.At).TotalSeconds;
+            HorizontalVelocity = horizontalSeconds > 0 ? (currentPosition.X - horizontalFirst.X) / horizontalSeconds : 0;
             if (IsVerticalDrag || _expanded || !_allowMediaGestures) return false;
         }
 

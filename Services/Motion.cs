@@ -32,6 +32,7 @@ internal static partial class Motion
     // Glide: size and layout changes (tab switch, folding sections, sliders settling).
     public static readonly SpringMotion Glide = Ms(420, 0.28);
     public static readonly SpringMotion Shift = Ms(380, 0.05);
+    public static readonly SpringMotion Flick = Ms(480, 0.30);
 
     // Tile: content arriving, staggered by StaggerMs from TileFromScale.
     public static readonly SpringMotion Tile = Ms(450, 0.50);

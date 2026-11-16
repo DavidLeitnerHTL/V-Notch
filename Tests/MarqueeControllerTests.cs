@@ -9,6 +9,7 @@ using Xunit;
 
 namespace VNotch.Tests;
 
+[Collection("Localization")]
 public class MarqueeControllerTests
 {
     [Theory]
@@ -79,6 +80,21 @@ public class MarqueeControllerTests
             Assert.Equal("Final artist", targets.ArtistA.Text);
             Assert.NotEqual("Intermediate title", targets.TitleA.Text);
             Assert.NotEqual("Intermediate artist", targets.ArtistA.Text);
+        });
+    }
+
+    [Fact]
+    public void PreviousTrackSendsBothRowsRightAndBringsTheirReplacementsFromTheLeft()
+    {
+        RunOnStaThread(() =>
+        {
+            var targets = new MarqueeTestTargets("Current", "Artist");
+            using var controller = targets.CreateController();
+            controller.TransitionTrackText("Previous", "Previous artist", -1);
+            PumpDispatcherFor(TimeSpan.FromMilliseconds(80));
+            Assert.True(VNotch.Services.Motion.VelocityOf(targets.TitleMorphA, TranslateTransform.XProperty) > 0);
+            Assert.True(VNotch.Services.Motion.VelocityOf(targets.TitleMorphB, TranslateTransform.XProperty) > 0);
+            Assert.True(VNotch.Services.Motion.VelocityOf(targets.ArtistMorphA, TranslateTransform.XProperty) > 0);
         });
     }
 
@@ -174,10 +190,13 @@ public class MarqueeControllerTests
         private readonly TranslateTransform _titleMarqueeA = new();
         public TranslateTransform TitleMarqueeA => _titleMarqueeA;
         private readonly TranslateTransform _titleMorphA = new();
+        public TranslateTransform TitleMorphA => _titleMorphA;
         private readonly TranslateTransform _titleMarqueeB = new();
         private readonly TranslateTransform _titleMorphB = new();
+        public TranslateTransform TitleMorphB => _titleMorphB;
         private readonly TranslateTransform _artistMarqueeA = new();
         private readonly TranslateTransform _artistMorphA = new();
+        public TranslateTransform ArtistMorphA => _artistMorphA;
         private readonly TranslateTransform _artistMarqueeB = new();
         private readonly TranslateTransform _artistMorphB = new();
 

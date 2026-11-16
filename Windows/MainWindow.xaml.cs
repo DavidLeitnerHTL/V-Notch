@@ -290,6 +290,7 @@ public partial class MainWindow : Window
         DataContext = _viewModel;
         MediaPlayback.Attach(_viewModel.Media, mediaService);
         _viewModel.Media.PlayPauseToggled += OnViewModelPlayPauseToggled;
+        InitializeMusicMotion();
         MediaPlayback.BufferingChanged += value => MusicViz.IsBuffering = value;
         CountdownWidget.Attach(_viewModel.Timer);
         CountdownWidget.Completed += (_, _) =>
@@ -708,6 +709,11 @@ public partial class MainWindow : Window
         _notchManager.HoverService.HoverLeave -= HoverService_HoverLeave;
         _notchManager.HoverService.MousePositionChanged -= HoverService_MousePositionChangedForDesktopReveal;
         _viewModel.Media.PlayPauseToggled -= OnViewModelPlayPauseToggled;
+        _viewModel.Media.NextTrackTriggered -= MusicNextRequested;
+        _viewModel.Media.PreviousTrackTriggered -= MusicPreviousRequested;
+        ResetMusicMotion();
+        _musicMediaKeys?.Dispose();
+        _musicMediaKeys = null;
         _viewModel.MediaInfoUpdated -= ViewModel_MediaInfoUpdated;
         if (_viewModel.IsExpandedCheck == _isExpandedCheck) _viewModel.IsExpandedCheck = null;
         _batteryModule.BatteryUpdated -= BatteryModule_BatteryUpdated;

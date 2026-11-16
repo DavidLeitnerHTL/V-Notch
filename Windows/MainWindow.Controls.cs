@@ -71,6 +71,17 @@ public partial class MainWindow
     private void PrevButton_Click(object sender, MouseButtonEventArgs e) => MediaPlayback.PrevButton_Click(sender, e);
 
     private bool? _presentedInlinePlaying;
+    private static readonly DependencyProperty InlinePlaybackMorphProperty = DependencyProperty.Register(
+        "InlinePlaybackMorph", typeof(double), typeof(MainWindow), new PropertyMetadata(0d,
+            (target, args) => ((MainWindow)target).RenderInlinePlaybackMorph((double)args.NewValue)));
+
+    private void RenderInlinePlaybackMorph(double progress)
+    {
+        InlinePauseIconPath.Stretch = Stretch.None;
+        InlinePauseIconPath.Data = VNotch.Controls.MediaPlaybackView.PlaybackGeometry(progress, 16);
+        InlinePauseIcon.Visibility = Visibility.Visible;
+        InlinePlayIcon.Visibility = Visibility.Collapsed;
+    }
 
     private void OnViewModelPlayPauseToggled(object? sender, bool isPlaying)
     {
@@ -85,16 +96,9 @@ public partial class MainWindow
         MediaPlayback.PresentPlayback(_isPlaying);
         if (_presentedInlinePlaying == _isPlaying) return;
         _presentedInlinePlaying = _isPlaying;
-        var duration = TimeSpan.FromMilliseconds(180);
-
-        if (_isPlaying)
-        {
-            AnimateIconSwitch(InlinePlayIcon, InlinePauseIcon, duration, _easeQuadInOut);
-        }
-        else
-        {
-            AnimateIconSwitch(InlinePauseIcon, InlinePlayIcon, duration, _easeQuadInOut);
-        }
+        RenderInlinePlaybackMorph((double)GetValue(InlinePlaybackMorphProperty));
+        if (InlinePlayPauseButton.IsVisible) Motion.To(this, InlinePlaybackMorphProperty, _isPlaying ? 0 : 1, Motion.Glide);
+        else Motion.Stop(this, InlinePlaybackMorphProperty, _isPlaying ? 0 : 1);
     }
 
     private async void InlinePlayPauseButton_Click(object sender, MouseButtonEventArgs e)

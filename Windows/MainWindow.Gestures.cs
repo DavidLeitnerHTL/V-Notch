@@ -211,7 +211,8 @@ public partial class MainWindow
             _spotlightMorphSessionActive || _spotlightMorphOwnsNotchVisibility) return false;
         if (_isDebugDraggable || (_isAnimating && !_shellAttachment.IsAttached)) return false;
 
-        var pos = e.GetPosition(NotchBorder);
+        var pos = _isExpanded ? e.GetPosition(this) : e.GetPosition(NotchBorder);
+        _musicCoverPressed = IsMusicCoverSource(e.OriginalSource as DependencyObject);
         _gestureSampleAt = DateTime.UtcNow;
         _gestureSampleX = pos.X;
         _gestureReleaseVelocity = 0;
@@ -227,7 +228,7 @@ public partial class MainWindow
     {
         if (!_isGestureActive || !_gestureController.IsTracking) return;
 
-        var pos = e.GetPosition(NotchBorder);
+        var pos = _shellGestureWasOpen ? e.GetPosition(this) : e.GetPosition(NotchBorder);
         var now = DateTime.UtcNow;
         double seconds = (now - _gestureSampleAt).TotalSeconds;
         if (seconds > 0) _gestureReleaseVelocity = Math.Clamp((pos.X - _gestureSampleX) * 0.3 / seconds, -1200, 1200);
@@ -236,6 +237,7 @@ public partial class MainWindow
         bool triggered = UpdateGestureTracking(pos, now);
 
         if (_gestureController.IsVerticalDrag) { e.Handled = true; return; }
+        if (_shellGestureWasOpen) { e.Handled = _gestureController.HasDragAxis; return; }
 
         if (!triggered && !_gestureController.GestureTriggered)
         {
@@ -246,6 +248,16 @@ public partial class MainWindow
     private void NotchBorder_GestureMouseUp(object sender, MouseButtonEventArgs e)
     {
         if (!_isGestureActive) return;
+
+        if (_musicDragging)
+        {
+            FinishMusicSwipe(false, DateTime.UtcNow);
+            _gestureController.CancelTracking();
+            _isGestureActive = false;
+            NotchWrapper.ReleaseMouseCapture();
+            e.Handled = true;
+            return;
+        }
 
         if (_shellDragActive)
         {
@@ -263,7 +275,11 @@ public partial class MainWindow
         if (_shellGestureWasOpen)
         {
             _gestureController.CancelTracking();
-            if (!_gestureController.HasDragAxis && !_isAnimating) ToggleNotchFromClick(e.ClickCount);
+            if (!_gestureController.HasDragAxis && !_isAnimating)
+            {
+                if (_musicCoverPressed) OpenCurrentMediaSourceFromThumbnail();
+                else ToggleNotchFromClick(e.ClickCount);
+            }
             return;
         }
 

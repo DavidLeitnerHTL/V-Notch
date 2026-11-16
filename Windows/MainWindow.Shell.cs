@@ -42,18 +42,20 @@ public partial class MainWindow
         NotchWrapper.LostMouseCapture += (_, _) =>
         {
             if (!_isGestureActive) return;
-            if (_shellDragActive) FinishShellDrag(canceled: true);
+            if (_musicDragging) FinishMusicSwipe(true, DateTime.UtcNow);
+            else if (_shellDragActive) FinishShellDrag(canceled: true);
             else AnimateGestureSnapBack();
             _gestureController.CancelTracking();
             _isGestureActive = false;
         };
     }
 
-    private static bool IsShellDragControl(DependencyObject? element)
+    private bool IsShellDragControl(DependencyObject? element)
     {
         if (IsInteractiveControl(element)) return true;
         while (element != null && element is not Window)
         {
+            if (ReferenceEquals(element, ThumbnailBorder) && CanSwipeMusic) return false;
             if (element is ActionBorder || element is FrameworkElement { Cursor: { } cursor } && cursor == Cursors.Hand)
                 return true;
             element = VisualTreeHelper.GetParent(element);
@@ -79,6 +81,11 @@ public partial class MainWindow
     {
         bool triggered = _gestureController.UpdateTracking(position, timestamp);
         _shellLastSampleAt = timestamp;
+        if (_shellGestureWasOpen && CanSwipeMusic && _gestureController.HasDragAxis && !_gestureController.IsVerticalDrag)
+        {
+            MoveMusicSwipe(_gestureController.AccumulatedX);
+            return false;
+        }
         if (!_gestureController.IsVerticalDrag) return triggered;
         if (!_shellDragActive)
         {
