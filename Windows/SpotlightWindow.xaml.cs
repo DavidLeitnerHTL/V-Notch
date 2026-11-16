@@ -211,6 +211,7 @@ public partial class SpotlightWindow : Window
         SearchBox.IsEnabled = true;
         // The stream owns its live transcript control until it completes.
         if (_aiMode && _aiRequest == null) RenderAiHistory();
+        _aiTranscriptExpiry?.Stop();
         SyncSearchIconState(animate: false);
         _glassResourceExpiry?.Stop();
         PlaySpotlightClickSfx();
@@ -549,6 +550,8 @@ public partial class SpotlightWindow : Window
         CancelSearchingGrace();
         _glassResourceExpiry?.Dispose();
         _glassResourceExpiry = null;
+        _aiTranscriptExpiry?.Dispose();
+        _aiTranscriptExpiry = null;
         CancelPendingFreshEntrance();
         ClearMorphAnimations();
         ReleaseMorphSession();
@@ -2954,6 +2957,7 @@ public partial class SpotlightWindow : Window
             _pendingTodo = null;
             GetMorphHost()?.AddPiTodoAsync(todo).SafeFireAndForget("PI-TODO");
         }
+        ScheduleAiTranscriptRelease();
     }
 
     private void ResetMorphVisuals()
