@@ -1296,18 +1296,6 @@ public partial class MainWindow
     private int _mediaContentRevealGeneration;
     private int _cameraContentRevealGeneration;
 
-    private void PlayThumbnailViewHideAnimation()
-    {
-        if (ThumbnailBorder == null) return;
-        ++_mediaContentRevealGeneration;
-        Motion.To(ThumbnailBorder, OpacityProperty, 0, Motion.Exit);
-        if (ThumbnailScale != null)
-        {
-            Motion.To(ThumbnailScale, ScaleTransform.ScaleXProperty, Motion.ExitToScale, Motion.Exit);
-            Motion.To(ThumbnailScale, ScaleTransform.ScaleYProperty, Motion.ExitToScale, Motion.Exit);
-        }
-    }
-
     private void ResetMediaContentReveal()
     {
         _mediaContentRevealGeneration++;

@@ -309,18 +309,6 @@ public partial class MainWindow
         AnimateUpdateNotificationHover(false);
     }
 
-    private void UpdateNotification_ToolTipOpening(object sender, ToolTipEventArgs e)
-    {
-        _isUpdateTooltipOpen = true;
-        _suspendTopmostUntilUtc = DateTime.UtcNow.AddMilliseconds(1500);
-    }
-
-    private void UpdateNotification_ToolTipClosing(object sender, ToolTipEventArgs e)
-    {
-        _isUpdateTooltipOpen = false;
-        _suspendTopmostUntilUtc = DateTime.UtcNow.AddMilliseconds(220);
-    }
-
     private void AnimateUpdateNotificationHover(bool isEnter)
     {
         UpdateNotificationButton.CacheMode = null;

@@ -201,12 +201,6 @@ public sealed class NotchContentTransitionPresenter : IDisposable
         element.IsHitTestVisible = true;
     }
 
-    public long InvalidateSession()
-    {
-        ++_animationVersion;
-        return ++_activeSessionId;
-    }
-
     public void CancelActiveTransition()
     {
         ++_animationVersion;
