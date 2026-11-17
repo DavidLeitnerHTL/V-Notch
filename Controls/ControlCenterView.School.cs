@@ -351,7 +351,8 @@ public partial class ControlCenterView
             _countdownDigits.Children.Clear();
             foreach (char c in value)
             {
-                var holder = new Grid { Width = char.IsDigit(c) ? 8.5 : c == ' ' ? 4 : 6, Height = 20, ClipToBounds = true };
+                // Each slot is sized to its glyph at 15 px: a narrow "T" slot clipped it into a "1", wide colons left gaps.
+                var holder = new Grid { Width = char.IsDigit(c) ? 8.5 : c == 'T' ? 9.5 : c == ':' ? 4.5 : 4, Height = 20, ClipToBounds = true };
                 SwapCompactLabel(holder, c.ToString(), horizontal: false, size: 15);
                 _countdownDigits.Children.Add(holder);
             }
