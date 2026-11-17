@@ -81,7 +81,7 @@ public sealed class SystemTabTests
             var chip = (Border)HomeSchoolTabTests.Field(view, "_systemOutputChip");
             Assert.InRange(chip.ActualWidth, 50, 90);
             Assert.Equal("Wave Link Stream", chip.ToolTip);
-            Assert.InRange(view.MeasureContentHeight(568), 45, 60);
+            Assert.InRange(view.MeasureContentHeight(568), 80, 105);
             var icons = HomeSchoolTabTests.Descendants<TextBlock>(view).Where(t => t.FontFamily.Source.Contains("Fluent", StringComparison.Ordinal)).ToList();
             Assert.True(icons.Count >= 7);
             Assert.All(icons, i => Assert.Equal(16, i.FontSize));
@@ -108,13 +108,59 @@ public sealed class SystemTabTests
         }
     });
 
-    internal static ControlCenterView CreateView()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void SystemControlsHaveClearGapsAndUsableVolumeAtTheRealNotchWidth(bool legion) => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        BackgroundTestWindows.EnsureApplicationResources();
+        using var view = CreateView(legion);
+        var host = new BackgroundWindow { Width = 600, Height = 200, Left = -20000, Top = -20000,
+            Content = new Border { Padding = new Thickness(16, 30, 16, 0), Child = view } };
+        try
+        {
+            host.Show(); host.UpdateLayout();
+            Rect Bounds(FrameworkElement element) => element.TransformToAncestor(view).TransformBounds(new Rect(element.RenderSize));
+            var page = (StackPanel)HomeSchoolTabTests.Field(view, "_compactPage");
+            var bar = Assert.IsType<Grid>(page.Children[0]);
+            var chip = (Border)HomeSchoolTabTests.Field(view, "_systemOutputChip");
+            var volume = Assert.IsType<Grid>(bar.Children[legion ? 2 : 1]);
+            Assert.True(volume.ActualWidth >= 160);
+            Assert.True(Bounds(volume).Left - Bounds(chip).Right >= 15.5);
+            var toggles = Assert.IsType<StackPanel>(bar.Children[^1]);
+            var buttons = toggles.Children.Cast<FrameworkElement>().ToArray();
+            for (int i = 1; i < buttons.Length; i++)
+                Assert.True(Bounds(buttons[i]).Left - Bounds(buttons[i - 1]).Right >= 11.5);
+            Assert.All(buttons, button => Assert.InRange(Bounds(button).Right, 0, 568));
+            if (legion)
+            {
+                Assert.True(Bounds(volume).Top - Bounds(buttons[0]).Bottom >= 11.5);
+                var icons = (List<TextBlock>)HomeSchoolTabTests.Field(view, "_systemModeIcons");
+                var modes = icons.Select(icon => (FrameworkElement)icon.Parent).ToArray();
+                for (int i = 1; i < modes.Length; i++)
+                    Assert.True(Bounds(modes[i]).Left - Bounds(modes[i - 1]).Right >= 7.5);
+                for (int i = 0; i < 4; i++)
+                {
+                    HomeSchoolTabTests.SetField(view, "_legion", new LegionState((int)new[] { LegionMode.Quiet, LegionMode.Balanced, LegionMode.Performance, LegionMode.Extreme }[i], false, false, 61, 44));
+                    HomeSchoolTabTests.Invoke(view, "ShowCompactMode");
+                    var shift = (TranslateTransform)HomeSchoolTabTests.Field(view, "_systemModeShift");
+                    await WpfFrameWaiter.UntilAsync(() => !Motion.IsRunning(shift, TranslateTransform.XProperty), "mode thumb settles", ct);
+                    var thumb = (Border)HomeSchoolTabTests.Field(view, "_systemModeThumb");
+                    Assert.Equal(Bounds(modes[i]).Left, Bounds(thumb).Left, 1);
+                }
+            }
+            else Assert.True(Bounds(buttons[0]).Left - Bounds(volume).Right >= 19.5);
+        }
+        finally { HomeSchoolTabTests.SetField(view, "_gpuSampling", false); host.Close(); }
+    });
+
+    internal static ControlCenterView CreateView(bool legion = true)
     {
         var view = new ControlCenterView { Page = ControlCenterPage.System };
         HomeSchoolTabTests.SetField(view, "_refreshing", true);
         HomeSchoolTabTests.SetField(view, "_gpuSampling", true);
         HomeSchoolTabTests.SetField(view, "_readingCompactDisplays", true);
-        view.AttachLegion();
+        if (legion) view.AttachLegion();
         HomeSchoolTabTests.SetField(view, "_legionBusy", true);
         HomeSchoolTabTests.SetField(view, "_legion", new LegionState((int)LegionMode.Balanced, false, false, 61, 44));
         var type = typeof(ControlCenterView).GetNestedType("Snapshot", BindingFlags.NonPublic)!;

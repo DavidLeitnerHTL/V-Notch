@@ -395,6 +395,9 @@ public partial class MainWindow
                 PlayChargeArrival(plugged: false);
                 ChargeAfter(TimeSpan.FromMilliseconds(700), PlayChargeUnplug);
                 break;
+            case ChargeMoment.Full:
+                PlayChargeFull();
+                break;
             default:
                 PlayChargeArrival(plugged: false);
                 break;

@@ -10,6 +10,59 @@ namespace VNotch.Tests;
 [Collection("Localization")]
 public sealed class ChargeOrbCalmMotionTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ReversingTheOrbsRetractionRestoresTheSameChargingFace(bool full) => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        await using var fixture = Create();
+        var window = fixture.Window;
+        using var host = new RenderHost(window);
+        await WpfFrameWaiter.UntilAsync(() => window.CollapsedContent.IsVisible, "resting notch", ct);
+        Invoke(window, "UpdateChargeOrb", new BatteryInfo { Percentage = 48 });
+        Invoke(window, "UpdateChargeOrb", new BatteryInfo { Percentage = 48, IsPluggedIn = true, IsCharging = true });
+        await WpfFrameWaiter.UntilAsync(() => window.ChargeCable.IsVisible && window.ChargeBolt.Opacity == 1, "charging face settles", ct);
+        if (full)
+        {
+            Invoke(window, "UpdateChargeOrb", new BatteryInfo { Percentage = 100, IsPluggedIn = true });
+            await WpfFrameWaiter.UntilAsync(() => window.ChargeCheck.Opacity == 1, "full check arrives", ct);
+        }
+        Invoke(window, "RetractBubbleForExpand");
+        await Task.Delay(100, ct);
+        Invoke(window, "UpdateActivityBubble");
+        await WpfFrameWaiter.UntilAsync(() => !Motion.IsRunning(window.BubbleSlide, TranslateTransform.XProperty) &&
+            !Motion.IsRunning(window.ChargeCableGrow, ScaleTransform.ScaleXProperty), "reversed orb and cable settle", ct);
+        if (full)
+        {
+            Assert.False(Get<bool>(window, "_chargeConnected"));
+            Assert.Equal(0, window.ChargeBoltBox.Opacity);
+            Assert.Equal(1, window.ChargeCheck.Opacity);
+        }
+        else
+        {
+            Assert.True(Get<bool>(window, "_chargeConnected"));
+            Assert.Equal(Visibility.Visible, window.ChargeCable.Visibility);
+            Assert.Equal(1, window.ChargeCableGrow.ScaleX, 3);
+        }
+    });
+
+    [Fact]
+    public void FirstChargingFaceFitsTheOrbWithoutKeepingTheXamlInset() => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        await using var fixture = Create();
+        var window = fixture.Window;
+        using var host = new RenderHost(window);
+        await WpfFrameWaiter.UntilAsync(() => window.CollapsedContent.IsVisible, "resting notch", ct);
+        Invoke(window, "UpdateChargeOrb", new BatteryInfo { Percentage = 48 });
+        Invoke(window, "UpdateChargeOrb", new BatteryInfo { Percentage = 48, IsPluggedIn = true, IsCharging = true });
+        await WpfFrameWaiter.UntilAsync(() => window.ChargeCable.IsVisible && window.ChargeBolt.Opacity == 1, "charging face settles", ct);
+        Assert.Equal(new Thickness(0), window.BubbleIcon.Margin);
+        Assert.Equal(window.ActivityBubble.Width, window.BubbleIcon.Width);
+        var bounds = window.BubbleIcon.TransformToAncestor(window.ActivityBubble).TransformBounds(new Rect(window.BubbleIcon.RenderSize));
+        Assert.InRange(bounds.Left, -.1, .1);
+        Assert.True(bounds.Right <= window.ActivityBubble.ActualWidth + .1);
+    });
+
     [Fact]
     public void BatteryEventReplugWhileTheCableWithdrawsRestoresTheExistingFace() => SharedStaTestRunner.RunAsync(async ct =>
     {
@@ -65,7 +118,7 @@ public sealed class ChargeOrbCalmMotionTests
         Assert.Equal(Visibility.Visible, window.ChargeCable.Visibility);
     });
 
-    private sealed class RenderHost : IDisposable
+    internal sealed class RenderHost : IDisposable
     {
         private readonly MainWindow _owner;
         private readonly Window _host;

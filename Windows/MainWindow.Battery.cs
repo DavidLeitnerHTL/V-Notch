@@ -261,6 +261,7 @@ public partial class MainWindow
 
         StopChargingNotificationDismissTimer();
         _isChargingNotificationVisible = false;
+        _compactPillArbiter.Release(_chargingGlanceToken);
         _chargingGlanceToken = 0;
 
         _chargingGlanceAttachment?.Detach(false);

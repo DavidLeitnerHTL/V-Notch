@@ -16,6 +16,32 @@ public sealed class MainWindowCompactFeedbackTests
     private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void OpeningDuringAChargingGlanceReleasesItsAttachmentAndOldCompletion(bool leaving) => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        await using var fixture = CreateFixture();
+        var window = fixture.Window;
+        using var host = new ChargeOrbCalmMotionTests.RenderHost(window);
+        object kind = Enum.Parse(typeof(MainWindow).GetNestedType("ChargingGlanceKind", BindingFlags.NonPublic)!, "PluggedIn");
+        var battery = new BatteryInfo { Percentage = 48, IsPluggedIn = true, IsCharging = true };
+        Invoke(window, "ShowChargingGlance", battery, kind);
+        await Task.Delay(100, ct);
+        if (leaving) { Invoke(window, "DismissChargingNotification"); await Task.Delay(100, ct); }
+        window.NavigateToNotchView(NotchView.Timer);
+        await WpfFrameWaiter.UntilAsync(() => !Field<bool>(window, "_isAnimating"), "system tab opens", ct);
+        var layer = (FrameworkElement)window.ChargingNotification.Parent;
+        Assert.False(Field<bool>(window, "_isChargingNotificationVisible"));
+        Assert.Equal(0, Field<int>(window, "_chargingGlanceToken"));
+        Assert.Null(Field<UiScheduledTimer?>(window, "_chargingNotificationDismissTimer"));
+        Assert.True(double.IsNaN(layer.Width));
+        Assert.Equal(0, layer.Opacity);
+        Assert.Equal(Visibility.Collapsed, window.CollapsedContent.Visibility);
+        Assert.Equal(600, window.NotchBorder.Width, 1);
+        Assert.Equal(VNotch.Controllers.CompactPillSlot.None, Field<VNotch.Controllers.CompactPillArbiter>(window, "_compactPillArbiter").ActiveSlot);
+    });
+
+    [Theory]
     [InlineData(true, 50, 25, "battery.charging", "25 W")]
     [InlineData(true, 100, 5.5, "battery.fullyCharged", "5.5 W")]
     [InlineData(false, 20, -7.5, "battery.onBattery", "7.5 W")]
@@ -193,7 +219,8 @@ public sealed class MainWindowCompactFeedbackTests
         return fixture;
     }
 
-    private static T Field<T>(MainWindow window, string name) => (T)typeof(MainWindow).GetField(name, Private)!.GetValue(window)!;
+    private static T Field<T>(MainWindow window, string name) => (T)(typeof(MainWindow).GetField(name, Private) is { } field
+        ? field.GetValue(window) : typeof(MainWindow).GetProperty(name, Private)!.GetValue(window))!;
     private static void Set(MainWindow window, string name, object value)
     {
         if (typeof(MainWindow).GetField(name, Private) is { } field) field.SetValue(window, value);

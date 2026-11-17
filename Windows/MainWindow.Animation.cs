@@ -414,14 +414,7 @@ public partial class MainWindow
             DismissVolumeIndicatorImmediate(animateExit: true);
         }
 
-        if (_isChargingNotificationVisible)
-        {
-            StopChargingNotificationDismissTimer();
-            ChargingNotification.BeginAnimation(OpacityProperty, null);
-            ChargingNotification.Opacity = 0;
-            ChargingNotification.Visibility = Visibility.Collapsed;
-            _isChargingNotificationVisible = false;
-        }
+        CancelChargingGlanceImmediate();
         if (_isBluetoothNotificationVisible)
         {
             _bluetoothController.MarkDismissed();
@@ -1609,14 +1602,7 @@ public partial class MainWindow
 
     private void DismissCollapseNotificationsAndOverlays()
     {
-        if (_isChargingNotificationVisible)
-        {
-            StopChargingNotificationDismissTimer();
-            ChargingNotification.BeginAnimation(OpacityProperty, null);
-            ChargingNotification.Opacity = 0;
-            ChargingNotification.Visibility = Visibility.Collapsed;
-            _isChargingNotificationVisible = false;
-        }
+        CancelChargingGlanceImmediate();
         if (_isBluetoothNotificationVisible)
         {
             _bluetoothController.MarkDismissed();

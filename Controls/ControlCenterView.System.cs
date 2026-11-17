@@ -33,6 +33,7 @@ public partial class ControlCenterView
     private bool _advancedDisplaysOpen;
     private int _compactDisplayRevision;
     private bool _readingCompactDisplays;
+    private const double SystemModeStep = 34;
 
     private static readonly Color[] SystemModeColors =
     [ Color.FromRgb(0x8F, 0xA9, 0xC4), Color.FromRgb(0xE8, 0xE6, 0xEF), Color.FromRgb(0xC9, 0x8A, 0x84), Color.FromRgb(0xA6, 0xA2, 0xC8) ];
@@ -84,11 +85,13 @@ public partial class ControlCenterView
     private void BuildSystemBar()
     {
         var row = new Grid { MinHeight = 32 };
+        row.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        if (_legionAttached) row.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         foreach (var width in new[] { GridLength.Auto, GridLength.Auto, new GridLength(1, GridUnitType.Star), GridLength.Auto })
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = width });
         if (_legionAttached)
         {
-            var modes = new Grid { Width = 108, Height = 30 };
+            var modes = new Grid { Width = 4 + 3 * SystemModeStep + 26, Height = 30 };
             var thumb = _systemModeThumb = new Border { Width = 26, Height = 26, CornerRadius = new CornerRadius(7),
                 HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(2, 0, 0, 0), RenderTransform = _systemModeShift,
                 Background = new SolidColorBrush(SystemModeColors[1]), IsHitTestVisible = false };
@@ -98,7 +101,7 @@ public partial class ControlCenterView
                 int index = i;
                 var icon = CompactGlyph(SystemModeGlyphs[i]); _systemModeIcons.Add(icon);
                 var button = new Border { Width = 26, Height = 28, HorizontalAlignment = HorizontalAlignment.Left,
-                    Margin = new Thickness(2 + 26 * i, 0, 0, 0), Background = Brushes.Transparent, CornerRadius = new CornerRadius(7),
+                    Margin = new Thickness(2 + SystemModeStep * i, 0, 0, 0), Background = Brushes.Transparent, CornerRadius = new CornerRadius(7),
                     Child = icon, Cursor = Cursors.Hand, ToolTip = Loc.Get(LegionModes[i].Key) };
                 Squish(button);
                 button.MouseLeftButtonUp += async (_, e) =>
@@ -115,25 +118,30 @@ public partial class ControlCenterView
                 modes.Children.Add(button);
             }
             var segment = new Border { Background = CompactTrack, CornerRadius = new CornerRadius(9), Child = modes };
-            _systemModeName = new Grid { Width = 76, Height = 28, Margin = new Thickness(7, 0, 4, 0), ClipToBounds = true };
-            var block = new StackPanel { Orientation = Orientation.Horizontal, Children = { segment, _systemModeName } };
+            _systemModeName = new Grid { Width = 76, Height = 28, Margin = new Thickness(12, 0, 0, 0), ClipToBounds = true };
+            var block = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 20, 12), Children = { segment, _systemModeName } };
+            Grid.SetColumnSpan(block, 3);
             row.Children.Add(block);
         }
         _systemOutputName = new Grid { Width = 46, Height = 22, ClipToBounds = true };
         _systemOutputIcon = CompactGlyph(0xE7F5);
         _systemOutputChip = new Border { Height = 25, CornerRadius = new CornerRadius(8), Background = CompactTrack,
-            Padding = new Thickness(5, 0, 5, 0), Margin = new Thickness(0, 0, 7, 0), Cursor = Cursors.Hand,
+            Padding = new Thickness(5, 0, 5, 0), Margin = new Thickness(0, 0, 16, 0), Cursor = Cursors.Hand,
             Child = new StackPanel { Orientation = Orientation.Horizontal, Children = { _systemOutputIcon, _systemOutputName } } };
         Pressable(_systemOutputChip, () => CompactTrack, CardHover);
         _systemOutputChip.MouseLeftButtonUp += (_, e) => { e.Handled = true; CycleCompactOutput(); };
-        Grid.SetColumn(_systemOutputChip, 1); row.Children.Add(_systemOutputChip);
+        Grid.SetRow(_systemOutputChip, _legionAttached ? 1 : 0);
+        row.Children.Add(_systemOutputChip);
         var volume = CompactVolumeBar(0, v => _volume?.SetVolume((float)v), master: true);
-        Grid.SetColumn(volume, 2); row.Children.Add(volume);
-        var toggles = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(8, 0, 0, 0) };
+        volume.MinWidth = 160;
+        Grid.SetRow(volume, _legionAttached ? 1 : 0);
+        Grid.SetColumn(volume, 1); Grid.SetColumnSpan(volume, _legionAttached ? 3 : 2); row.Children.Add(volume);
+        var toggles = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(20, 0, 0, _legionAttached ? 12 : 0) };
         _systemWifi = SystemRoundToggle(0xE701, "WLAN", () => { if (_wifiRadio != null) SetRadio(_wifiRadio, _snapshot?.WifiOn != true); });
         _systemBluetooth = SystemRoundToggle(0xE702, "Bluetooth", () => { if (_bluetoothRadio != null) SetRadio(_bluetoothRadio, _snapshot?.BluetoothOn != true); });
         _systemMic = SystemRoundToggle(0xE720, "Wave XLR", ToggleWaveXlr);
         foreach (var toggle in new[] { _systemWifi.Value, _systemBluetooth.Value, _systemMic.Value }) toggles.Children.Add(toggle.Button);
+        _systemMic.Value.Button.Margin = new Thickness(0);
         Grid.SetColumn(toggles, 3); row.Children.Add(toggles);
         _compactPage.Children.Add(row);
     }
@@ -142,7 +150,7 @@ public partial class ControlCenterView
     {
         var icon = CompactGlyph(glyph);
         var button = new Border { Width = 28, Height = 28, CornerRadius = new CornerRadius(14), Background = CompactTrack,
-            Margin = new Thickness(0, 0, 6, 0), Child = icon, Cursor = Cursors.Hand, ToolTip = tooltip };
+            Margin = new Thickness(0, 0, 12, 0), Child = icon, Cursor = Cursors.Hand, ToolTip = tooltip };
         Pressable(button, () => button.Tag is true ? Frozen("#263F4D5B") : CompactTrack, CardHover);
         button.MouseLeftButtonUp += (_, e) => { e.Handled = true; action(); };
         return (button, icon);
@@ -186,8 +194,8 @@ public partial class ControlCenterView
         SwapCompactLabel(_systemModeName, name, direction: index >= _systemSelectedMode ? 1 : -1, size: 12);
         if (_systemSelectedMode != index)
         {
-            if (_systemSelectedMode < 0 || !_systemModeThumb.IsVisible) Motion.Stop(_systemModeShift, TranslateTransform.XProperty, visual * 26);
-            else Motion.To(_systemModeShift, TranslateTransform.XProperty, visual * 26, Motion.Shift);
+            if (_systemSelectedMode < 0 || !_systemModeThumb.IsVisible) Motion.Stop(_systemModeShift, TranslateTransform.XProperty, visual * SystemModeStep);
+            else Motion.To(_systemModeShift, TranslateTransform.XProperty, visual * SystemModeStep, Motion.Shift);
             _systemModeThumb.Background = new SolidColorBrush(SystemModeColors[visual]);
             _systemSelectedMode = index;
         }
