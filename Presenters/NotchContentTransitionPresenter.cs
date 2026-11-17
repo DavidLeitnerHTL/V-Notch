@@ -17,7 +17,6 @@ public sealed class NotchContentViewRefs
     public FrameworkElement? ClaudeContent { get; init; }
     public FrameworkElement? PiContent { get; init; }
     public FrameworkElement? SchoolContent { get; init; }
-    public FrameworkElement? WeatherContent { get; init; }
     public FrameworkElement? TimerContent { get; init; }
     public FrameworkElement? AudioContent { get; init; }
     public FrameworkElement? AudioScrollViewer { get; init; }
@@ -482,7 +481,6 @@ public sealed class NotchContentTransitionPresenter : IDisposable
             NotchView.Claude => _refs.ClaudeContent,
             NotchView.Pi => _refs.PiContent,
             NotchView.School => _refs.SchoolContent,
-            NotchView.Weather => _refs.WeatherContent,
             NotchView.Secondary => _refs.SecondaryContent,
             _ => null
         };
@@ -495,7 +493,6 @@ public sealed class NotchContentTransitionPresenter : IDisposable
         if (_refs.ClaudeContent != null) list.Add(_refs.ClaudeContent);
         if (_refs.PiContent != null) list.Add(_refs.PiContent);
         if (_refs.SchoolContent != null) list.Add(_refs.SchoolContent);
-        if (_refs.WeatherContent != null) list.Add(_refs.WeatherContent);
         if (_refs.TimerContent != null) list.Add(_refs.TimerContent);
         if (_refs.AudioContent != null) list.Add(_refs.AudioContent);
         else if (_refs.AudioScrollViewer != null) list.Add(_refs.AudioScrollViewer);

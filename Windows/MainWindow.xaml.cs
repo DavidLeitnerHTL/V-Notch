@@ -283,7 +283,6 @@ public partial class MainWindow : Window
             ClaudeContent = ClaudeContent,
             PiContent = PiContent,
             SchoolContent = SchoolContent,
-            WeatherContent = WeatherContent,
             IsSessionCurrent = sessionId => !_cleanedUp && sessionId == _transitionCoordinator.ActiveTransitionId
         });
         _viewModel = viewModel;
@@ -829,7 +828,6 @@ public partial class MainWindow : Window
         _isClaudeView = snapshot.CurrentView == VNotch.Models.NotchView.Claude;
         _isPiView = snapshot.CurrentView == VNotch.Models.NotchView.Pi;
         _isSchoolView = snapshot.CurrentView == VNotch.Models.NotchView.School;
-        _isWeatherView = snapshot.CurrentView == VNotch.Models.NotchView.Weather;
         _isAudioView = snapshot.CurrentView == VNotch.Models.NotchView.AudioMixer;
         _isSecondaryView = snapshot.CurrentView == VNotch.Models.NotchView.Secondary;
         _isTimerView = snapshot.CurrentView == VNotch.Models.NotchView.Timer;
@@ -903,8 +901,8 @@ public partial class MainWindow : Window
             FinalizePendingCameraPreviewTeardown();
         if (args.TargetView != VNotch.Models.NotchView.Compact && args.Reason != "CountdownCompletion" &&
             ((args.FromView != VNotch.Models.NotchView.Compact && args.FromView != args.TargetView) ||
-             args.TargetView is VNotch.Models.NotchView.Secondary or VNotch.Models.NotchView.Camera or VNotch.Models.NotchView.Claude or VNotch.Models.NotchView.Pi or VNotch.Models.NotchView.School or VNotch.Models.NotchView.Weather ||
-             args.FromView is VNotch.Models.NotchView.Secondary or VNotch.Models.NotchView.Camera or VNotch.Models.NotchView.Claude or VNotch.Models.NotchView.Pi or VNotch.Models.NotchView.School or VNotch.Models.NotchView.Weather))
+             args.TargetView is VNotch.Models.NotchView.Secondary or VNotch.Models.NotchView.Camera or VNotch.Models.NotchView.Claude or VNotch.Models.NotchView.Pi or VNotch.Models.NotchView.School ||
+             args.FromView is VNotch.Models.NotchView.Secondary or VNotch.Models.NotchView.Camera or VNotch.Models.NotchView.Claude or VNotch.Models.NotchView.Pi or VNotch.Models.NotchView.School))
         {
             ExpandNotch(args.TransitionId, targetView: args.TargetView, fromView: args.FromView);
             return;

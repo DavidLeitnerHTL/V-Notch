@@ -15,7 +15,7 @@ public partial class MainWindow
 {
 
     #region Notch Expand/Collapse
-    private enum LastExpandedView { Primary, Secondary, Timer, Audio, Camera, Claude, Pi, School, Weather }
+    private enum LastExpandedView { Primary, Secondary, Timer, Audio, Camera, Claude, Pi, School }
     private LastExpandedView _lastExpandedViewBeforeCollapse = LastExpandedView.Primary;
 
     private const double ExpandedContentHorizontalInset = 16;
@@ -804,7 +804,6 @@ public partial class MainWindow
         _isClaudeView = effectiveTarget == VNotch.Models.NotchView.Claude;
         _isPiView = effectiveTarget == VNotch.Models.NotchView.Pi;
         _isSchoolView = effectiveTarget == VNotch.Models.NotchView.School;
-        _isWeatherView = effectiveTarget == VNotch.Models.NotchView.Weather;
 
         if (effectiveTarget == VNotch.Models.NotchView.Timer)
         {
@@ -873,14 +872,6 @@ public partial class MainWindow
             VNotch.Presenters.NotchContentTransitionPresenter.ClearTransformAndEffects(SchoolContent);
             ResizeHostWindowHeight(_schoolViewHeight);
             Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, SettleSchoolNotchToFit);
-        }
-        else if (effectiveTarget == VNotch.Models.NotchView.Weather)
-        {
-            _isTimerView = false;
-            _isSecondaryView = false;
-            _isAudioView = false;
-            VNotch.Presenters.NotchContentTransitionPresenter.ClearTransformAndEffects(WeatherContent);
-            ResizeHostWindowHeight(WeatherViewHeight);
         }
         else
         {
@@ -1140,18 +1131,6 @@ public partial class MainWindow
             targetHeight = MeasureSchoolViewHeight();
             SchoolContent.Width = targetWidth - SchoolContent.Margin.Left - SchoolContent.Margin.Right;
             SchoolContent.Height = targetHeight - SchoolContent.Margin.Top - SchoolContent.Margin.Bottom;
-            if (targetHeight > currentHeight)
-                ResizeHostWindowHeight(targetHeight);
-            UpdateNavIconsActiveState();
-        }
-        else if (effectiveTarget == VNotch.Models.NotchView.Weather)
-        {
-            VNotch.Presenters.NotchContentTransitionPresenter.ClearTransformAndEffects(WeatherContent);
-            targetWidth = WeatherViewWidth;
-            targetHeight = WeatherViewHeight;
-            // Laid out at its final size; the shell's clip reveals it while expanding.
-            WeatherContent.Width = targetWidth - WeatherContent.Margin.Left - WeatherContent.Margin.Right;
-            WeatherContent.Height = targetHeight - WeatherContent.Margin.Top - WeatherContent.Margin.Bottom;
             if (targetHeight > currentHeight)
                 ResizeHostWindowHeight(targetHeight);
             UpdateNavIconsActiveState();
@@ -1493,7 +1472,6 @@ public partial class MainWindow
         if (_isClaudeView) return LastExpandedView.Claude;
         if (_isPiView) return LastExpandedView.Pi;
         if (_isSchoolView) return LastExpandedView.School;
-        if (_isWeatherView) return LastExpandedView.Weather;
         if (_isAudioView) return LastExpandedView.Audio;
         if (_isTimerView) return LastExpandedView.Timer;
         if (_isSecondaryView) return LastExpandedView.Secondary;
@@ -1517,7 +1495,6 @@ public partial class MainWindow
                 LastExpandedView.Claude => VNotch.Models.NotchView.Claude,
                 LastExpandedView.Pi => VNotch.Models.NotchView.Pi,
                 LastExpandedView.School => VNotch.Models.NotchView.School,
-                LastExpandedView.Weather => VNotch.Models.NotchView.Weather,
                 _ => VNotch.Models.NotchView.Media
             };
         }
@@ -1815,7 +1792,6 @@ public partial class MainWindow
         VNotch.Presenters.NotchContentTransitionPresenter.ResetElementVisualState(ClaudeContent);
         VNotch.Presenters.NotchContentTransitionPresenter.ResetElementVisualState(PiContent);
         VNotch.Presenters.NotchContentTransitionPresenter.ResetElementVisualState(SchoolContent);
-        VNotch.Presenters.NotchContentTransitionPresenter.ResetElementVisualState(WeatherContent);
 
         ResetMediaContentReveal();
         ResetClockViewUnfoldIn();
@@ -1836,7 +1812,6 @@ public partial class MainWindow
         _isClaudeView = false;
         _isPiView = false;
         _isSchoolView = false;
-        _isWeatherView = false;
     }
 
     private void PrepareStateBeforeCollapse()

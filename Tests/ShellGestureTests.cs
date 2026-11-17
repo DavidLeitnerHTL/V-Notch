@@ -21,7 +21,7 @@ public sealed class ShellGestureTests
         await using var fixture = CreateFixture();
         var w = fixture.Window;
         foreach (FrameworkElement surface in new FrameworkElement[] { w.PiCenter, w.SchoolCenter, w.ControlCenter,
-            w.ClaudeCenter, w.TimerContent, w.WeatherContent, w.ExpandedContent, w.CalendarInnerContent,
+            w.ClaudeCenter, w.TimerContent, w.ExpandedContent, w.CalendarInnerContent,
             w.SecondaryContent, w.CameraContent, w.AudioContent, w.NavIconsPanel })
             Assert.False(w.IsShellDragControl(surface));
         Assert.True(w.IsShellDragControl(new Button()));

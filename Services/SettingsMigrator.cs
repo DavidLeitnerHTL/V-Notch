@@ -37,7 +37,7 @@ public static partial class SettingsMigrator
         int consentVersion,
         out byte outRevoke);
 
-    public const int CurrentVersion = 19;
+    public const int CurrentVersion = 20;
 
     private static readonly IReadOnlyDictionary<int, Func<JsonObject, JsonObject>> _migrations =
         new Dictionary<int, Func<JsonObject, JsonObject>>
@@ -61,6 +61,7 @@ public static partial class SettingsMigrator
             [16] = MigrateV16,
             [17] = MigrateV17,
             [18] = MigrateV18,
+            [19] = MigrateV19,
         };
 
     private static void EnsureProperty(JsonObject root, string propertyName, JsonNode? defaultValue)
@@ -223,6 +224,18 @@ public static partial class SettingsMigrator
         // The Pi tab split in two: home stays, school is a tab of its own right after it.
         AddNavTab(root, nameof(NotchSettings.NavTabOrder), "School", after: "Pi");
         AddNavTab(root, nameof(NotchSettings.VisibleNavTabs), "School", after: "Pi");
+        return root;
+    }
+
+    private static JsonObject MigrateV19(JsonObject root)
+    {
+        foreach (string key in new[] { nameof(NotchSettings.NavTabOrder), nameof(NotchSettings.VisibleNavTabs) })
+        {
+            if (root[key] is not JsonValue value || !value.TryGetValue(out string? list) || list == null) continue;
+            var tabs = new List<string>(list.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+            tabs.RemoveAll(tab => string.Equals(tab, "Weather", StringComparison.OrdinalIgnoreCase));
+            root[key] = string.Join(",", tabs);
+        }
         return root;
     }
 

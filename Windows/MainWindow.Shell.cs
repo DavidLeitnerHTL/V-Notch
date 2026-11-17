@@ -49,7 +49,7 @@ public partial class MainWindow
     {
         var open = new GlassClipGrid { Name = "OpenShellContent", Opacity = 0, UseLayoutRounding = false };
         FrameworkElement[] elements = [ExpandedContent, TimerContent, SecondaryContent, CameraContent,
-            ClaudeContent, PiContent, SchoolContent, WeatherContent, AudioContent,
+            ClaudeContent, PiContent, SchoolContent, AudioContent,
             NavIconsPanel, NavIconsBackground, SharedSettingsHost,
             SystemBackdrop, HomeBackdrop, SchoolBackdrop, ClaudeBackdrop];
         foreach (var element in elements)

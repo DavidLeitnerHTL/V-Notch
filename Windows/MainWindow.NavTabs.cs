@@ -439,8 +439,7 @@ public partial class MainWindow
             (_isClaudeView && item == ClaudeIconButton) ||
             (_isPiView && item == PiIconButton) ||
             (_isSchoolView && item == SchoolIconButton) ||
-            (_isWeatherView && item == WeatherIconButton) ||
-            (!_isAudioView && !_isTimerView && !_isSecondaryView && !_isClaudeView && !_isPiView && !_isSchoolView && !_isWeatherView && item == HomeIconButton))
+            (!_isAudioView && !_isTimerView && !_isSecondaryView && !_isClaudeView && !_isPiView && !_isSchoolView && item == HomeIconButton))
         {
             targetOpacity = 1.0;
         }
@@ -610,8 +609,7 @@ public partial class MainWindow
             (_isSecondaryView && !visibleTokens.Contains("Secondary")) || (_isCameraView && !visibleTokens.Contains("Camera")) ||
             (_isClaudeView && !visibleTokens.Contains("Claude")) ||
             (_isPiView && !visibleTokens.Contains("Pi")) ||
-            (_isSchoolView && !visibleTokens.Contains("School")) ||
-            (_isWeatherView && !visibleTokens.Contains("Weather")))
+            (_isSchoolView && !visibleTokens.Contains("School")))
         {
             NavigateToNotchView(NotchView.Media);
         }
