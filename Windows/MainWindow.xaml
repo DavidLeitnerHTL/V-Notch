@@ -994,6 +994,7 @@
                                 SizeChanged="VolumeIndicatorContainer_SizeChanged"
                                 MouseLeftButtonDown="VolumeIndicator_MouseDown"
                                 MouseMove="VolumeIndicator_MouseMove"
+                                LostMouseCapture="VolumeIndicator_LostMouseCapture"
                                 MouseLeftButtonUp="VolumeIndicator_MouseUp">
                             <Border.RenderTransform>
                                 <TransformGroup>

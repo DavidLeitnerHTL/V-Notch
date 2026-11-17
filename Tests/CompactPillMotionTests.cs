@@ -61,6 +61,65 @@ public sealed class CompactPillMotionTests
     });
 
     [Fact]
+    public void LostHudCaptureEndsTheDragAndResumesDismissal() => SharedStaTestRunner.RunAsync(async _ =>
+    {
+        await using var fixture = Create();
+        var window = fixture.Window;
+        window.SetDebugViewState("CompactMusicPill");
+        Invoke(window, "ShowVolumeIndicator", .5f);
+        typeof(MainWindow).GetField("_isDraggingVolumeIndicator", Private)!.SetValue(window, true);
+        window.VolumeIndicatorContainer.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0)
+            { RoutedEvent = System.Windows.Input.Mouse.LostMouseCaptureEvent, Source = window.VolumeIndicatorContainer });
+        Assert.False((bool)typeof(MainWindow).GetField("_isDraggingVolumeIndicator", Private)!.GetValue(window)!);
+        Assert.True(((UiScheduledTimer)typeof(MainWindow).GetField("_volumeIndicatorHideTimer", Private)!.GetValue(window)!).IsEnabled);
+    });
+
+    [Fact]
+    public void DepartureKeepsTheAttachedFacesScaleAndOpacity() => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        await using var fixture = Create();
+        var window = fixture.Window;
+        using var host = new RenderHost(window);
+        var face = window.AppNotificationPill;
+        face.Visibility = Visibility.Visible;
+        face.Opacity = 1;
+        var attachment = new VNotch.Presenters.CompactSurfaceAttachment(window.NotchBorder, face, () => new Size(300, 40));
+        Motion.Stop(window.NotchBorder, FrameworkElement.WidthProperty, 340);
+        Motion.Stop(window.NotchBorder, FrameworkElement.HeightProperty, 48);
+        attachment.Attach(380, 56);
+        host.Window.UpdateLayout();
+        var bounds = face.TransformToAncestor(window.NotchLiveContent).TransformBounds(new Rect(face.RenderSize));
+        double opacity = ((FrameworkElement)face.Parent).Opacity;
+        Invoke(window, "KeepCompactDeparture", face);
+        var snapshot = Assert.IsType<System.Windows.Controls.Image>(window.NotchLiveContent.Children[^1]);
+        Assert.Equal(bounds.Width, snapshot.Width, 3);
+        Assert.Equal(bounds.Height, snapshot.Height, 3);
+        Assert.Equal(opacity, snapshot.Opacity, 3);
+        attachment.Detach(false);
+        await WpfFrameWaiter.UntilAsync(() => !window.NotchLiveContent.Children.Contains(snapshot), "snapshot leaves", ct);
+    });
+
+    [Fact]
+    public void HudRubberFollowsTheDragAndReleasesWithItsVelocity() => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        await using var fixture = Create();
+        var window = fixture.Window;
+        using var host = new RenderHost(window);
+        var start = DateTime.UtcNow;
+        Invoke(window, "SetVolumeIndicatorRubber", 2d, start);
+        Invoke(window, "SetVolumeIndicatorRubber", 8d, start.AddMilliseconds(40));
+        Assert.Equal(8, window.VolumeIndicatorContentTranslate.X);
+        double width = window.NotchBorder.Width;
+        Invoke(window, "ReleaseVolumeIndicatorRubber");
+        Assert.Equal(8, window.VolumeIndicatorContentTranslate.X, 3);
+        Assert.InRange(Motion.VelocityOf(window.VolumeIndicatorContentTranslate, TranslateTransform.XProperty), 145, 155);
+        Assert.Equal(width, window.NotchBorder.Width);
+        await WpfFrameWaiter.UntilAsync(() => !Motion.IsRunning(window.VolumeIndicatorContentTranslate, TranslateTransform.XProperty),
+            "HUD rubber returns to the bar", ct);
+        Assert.Equal(0, window.VolumeIndicatorContentTranslate.X, 3);
+    });
+
+    [Fact]
     public void ReducedMotionLeavesNoDepartureOrRunningWidthSpring() => SharedStaTestRunner.RunAsync(async ct =>
     {
         await using var fixture = Create();
