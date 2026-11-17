@@ -856,9 +856,8 @@ public partial class MainWindow : Window
             if (_transitionRequestQueued) return;
             _transitionRequestQueued = true;
         }
-        // Several requests can arrive before the next UI turn. Animate only the
-        // newest target, at input priority, so render/layout can finish first.
-        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input, (Action)(() =>
+        // Coalesce this UI turn, then retarget before rendering; a busy render loop must not delay a reversal.
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, (Action)(() =>
         {
             VNotch.Controllers.TransitionRequestEventArgs? latest;
             lock (_transitionRequestGate)

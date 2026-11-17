@@ -44,7 +44,7 @@ public partial class MainWindow
 
     private void OnSystemContentHeightChanged() => Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
     {
-        if (_transitionCoordinator.TargetView != VNotch.Models.NotchView.Timer || _cleanedUp) return;
+        if (_transitionCoordinator.TargetView != VNotch.Models.NotchView.Timer || _cleanedUp || IsCountdownCompletionVisualActive) return;
         SettleNotchToContent(TimerContent, MeasureSystemViewHeight(), () => _transitionCoordinator.TargetView == VNotch.Models.NotchView.Timer);
     }));
 

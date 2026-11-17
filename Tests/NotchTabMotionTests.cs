@@ -19,6 +19,33 @@ public sealed class NotchTabMotionTests
     private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
 
     [Fact]
+    public void NavigationRetargetIsAppliedBeforeTheNextRender() => SharedStaTestRunner.RunAsync(async _ =>
+    {
+        await using var fixture = MusicMotionTests.Create();
+        var window = fixture.Window;
+        window.NavigateToNotchView(NotchView.Media);
+        await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Render);
+        Assert.Null(typeof(MainWindow).GetField("_pendingTransitionRequest", Private)!.GetValue(window));
+        Assert.Equal(NotchView.Media, (NotchView?)typeof(MainWindow).GetField("_navigationVisualTarget", Private)!.GetValue(window));
+    });
+
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public void LocalizingNavigationPreservesTheIconVisuals(string language) => SharedStaTestRunner.RunAsync(async _ =>
+    {
+        await using var fixture = new GreetingAcceptanceTests.MainWindowFixture(language, false,
+            settings => settings.EnableLocalOnlyMode = true,
+            services => services.AddSingleton<IMediaDetectionService>(new FakeMediaDetectionService()));
+        var window = fixture.Window;
+        foreach (var button in window.NavTabsStackPanel.Children.OfType<Border>())
+        {
+            Assert.NotEmpty(HomeSchoolTabTests.Descendants<System.Windows.Shapes.Path>(button));
+            Assert.DoesNotContain(HomeSchoolTabTests.Descendants<TextBlock>(button), text => !string.IsNullOrEmpty(text.Text));
+        }
+    });
+
+    [Fact]
     public void TabClickDuringOpeningRetargetsImmediately() => SharedStaTestRunner.RunAsync(async ct =>
     {
         bool previous = AnimationConfig.ReduceMotion;

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Media.Animation;
@@ -57,8 +56,7 @@ internal static partial class Motion
     private sealed class Running
     {
         public required SpringDoubleAnimation Spring;
-        public long StartedAt;
-        public double DelaySeconds;
+        public required AnimationClock Clock;
         /// <summary>Endings that outlive this spring: whichever spring replaces it carries them on.</summary>
         public Action? Kept;
     }
@@ -98,7 +96,7 @@ internal static partial class Motion
 
         double speed = velocity ?? 0;
         if (velocity is null && from is null && live.TryGetValue(property, out var old))
-            speed = old.Spring.VelocityAt(Stopwatch.GetElapsedTime(old.StartedAt).TotalSeconds - old.DelaySeconds);
+            speed = old.Spring.VelocityAt(old.Clock.CurrentTime?.TotalSeconds ?? 0);
         double start = from ?? (double)target.GetValue(property);
         if (!double.IsFinite(start)) start = to;
 
@@ -120,9 +118,11 @@ internal static partial class Motion
         if (delay is { } wait && wait > TimeSpan.Zero) animation.BeginTime = wait;
         Timeline.SetDesiredFrameRate(animation, fps ?? AnimationConfig.TargetFps);
 
-        var running = new Running { Spring = animation, StartedAt = Stopwatch.GetTimestamp(), DelaySeconds = delay?.TotalSeconds ?? 0, Kept = kept };
+        // Read speed and arrival from the rendered clock; dispatcher stalls must not age them ahead of the picture.
+        var clock = animation.CreateClock();
+        var running = new Running { Spring = animation, Clock = clock, Kept = kept };
         live[property] = running;
-        animation.Completed += (_, _) =>
+        clock.Completed += (_, _) =>
         {
             if (live.TryGetValue(property, out var current) && ReferenceEquals(current, running)) live.Remove(property);
             else return; // replaced on the way: the newer spring owns the ending
@@ -131,13 +131,13 @@ internal static partial class Motion
         };
         // An entrance that waits must already sit at its start, or it shows its resting look until its turn.
         if (from is { } placed && delay is { } d && d > TimeSpan.Zero) target.SetValue(property, placed);
-        animatable.BeginAnimation(property, animation, HandoffBehavior.SnapshotAndReplace);
+        animatable.ApplyAnimationClock(property, clock, HandoffBehavior.SnapshotAndReplace);
     }
 
     /// <summary>Speed of the spring running on the property right now, in units per second; zero when at rest.</summary>
     public static double VelocityOf(DependencyObject target, DependencyProperty property) =>
         Live.TryGetValue(target, out var live) && live.TryGetValue(property, out var running)
-            ? running.Spring.VelocityAt(Stopwatch.GetElapsedTime(running.StartedAt).TotalSeconds - running.DelaySeconds)
+            ? running.Spring.VelocityAt(running.Clock.CurrentTime?.TotalSeconds ?? 0)
             : 0;
 
     /// <summary>
@@ -146,8 +146,7 @@ internal static partial class Motion
     /// </summary>
     public static bool IsRunning(DependencyObject target, DependencyProperty property) =>
         Live.TryGetValue(target, out var live) && live.TryGetValue(property, out var running) &&
-        Stopwatch.GetElapsedTime(running.StartedAt).TotalSeconds <
-            running.DelaySeconds + running.Spring.Duration.TimeSpan.TotalSeconds + 0.05;
+        running.Clock.CurrentState != ClockState.Filling;
 
     /// <summary>
     /// Forgets the spring on the property without touching its value or clock, for code that retires the clock

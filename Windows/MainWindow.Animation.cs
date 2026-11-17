@@ -409,7 +409,7 @@ public partial class MainWindow
             DismissCountdownCompletion();
         }
 
-        if (_isVolumeIndicatorActive)
+        if (_isVolumeIndicatorActive || _isVolumeIndicatorExiting)
         {
             DismissVolumeIndicatorImmediate(animateExit: true);
         }

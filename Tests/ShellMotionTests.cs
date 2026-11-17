@@ -12,6 +12,53 @@ namespace VNotch.Tests;
 public sealed class ShellMotionTests
 {
     [Fact]
+    public void ADelayedDispatcherDoesNotFinishTheShellBeforeItsWpfClock() => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        bool previous = AnimationConfig.ReduceMotion;
+        AnimationConfig.SetReduceMotion(false);
+        try
+        {
+            var border = new Border { Width = 300, Height = 40 };
+            using var host = new RenderHost(border);
+            using var presenter = new NotchShellPresenter(new() { NotchBorder = border });
+            int completions = 0;
+            presenter.AnimateShell(new TransitionPlan(1, NotchView.Compact, NotchView.Media, NotchShapeState.Expanding,
+                600, 180, 24, new(TimeSpan.FromMilliseconds(400), AnimationPrimitives._easeUiOut, 60, false)), _ => completions++);
+            await WpfFrameWaiter.UntilAsync(() => border.Width > 310, "shell starts moving", ct);
+            double velocity = Motion.VelocityOf(border, FrameworkElement.WidthProperty);
+            // A busy dispatcher must not age the handoff speed or report arrival ahead of the rendered frame.
+            System.Threading.Thread.Sleep(750);
+            Assert.True(Motion.IsRunning(border, FrameworkElement.WidthProperty));
+            Assert.Equal(velocity, Motion.VelocityOf(border, FrameworkElement.WidthProperty), 6);
+            Assert.Equal(0, completions);
+            await WpfFrameWaiter.UntilAsync(() => completions == 1, "WPF clock reaches the target", ct);
+            Assert.Equal(600, border.Width);
+            Assert.Equal(180, border.Height);
+        }
+        finally { AnimationConfig.SetReduceMotion(previous); }
+    });
+
+    [Fact]
+    public void SessionWatchStopsWhileHiddenAndIsReleasedOnCancellation() => SharedStaTestRunner.Run(() =>
+    {
+        var border = new Border { Width = 300, Height = 40 };
+        using var host = new RenderHost(border);
+        using var presenter = new NotchShellPresenter(new() { NotchBorder = border });
+        presenter.AnimateShell(new TransitionPlan(1, NotchView.Compact, NotchView.Pi, NotchShapeState.Expanding,
+            680, 300, 24, new(TimeSpan.FromMilliseconds(400), AnimationPrimitives._easeUiOut, 60, false)), _ => { });
+        var field = typeof(NotchShellPresenter).GetField("_watch", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        var timer = Assert.IsType<System.Windows.Threading.DispatcherTimer>(field.GetValue(presenter));
+        Assert.True(timer.IsEnabled);
+        border.Visibility = Visibility.Collapsed;
+        Assert.False(timer.IsEnabled);
+        border.Visibility = Visibility.Visible;
+        Assert.True(timer.IsEnabled);
+        presenter.CancelCurrentAnimation();
+        Assert.False(timer.IsEnabled);
+        Assert.Null(field.GetValue(presenter));
+    });
+
+    [Fact]
     public void TheExtraOpenOvershootIsOnlyAboutAQuarterMore()
     {
         static double Peak(SpringMotion spring)
@@ -85,6 +132,7 @@ public sealed class ShellMotionTests
         {
             AnimationConfig.SetReduceMotion(false);
             var border = new Border { Width = 300, Height = 40 };
+            using var host = new RenderHost(border);
             using var presenter = new NotchShellPresenter(new() { NotchBorder = border });
             int completions = 0;
             presenter.AnimateShell(new TransitionPlan(1, NotchView.Compact, NotchView.Pi, NotchShapeState.Expanding,
@@ -160,4 +208,15 @@ public sealed class ShellMotionTests
         Assert.Equal(new CornerRadius(36), border.CornerRadius);
         Assert.False(border.HasAnimatedProperties);
     });
+
+    private sealed class RenderHost : IDisposable
+    {
+        private readonly BackgroundWindow _window;
+        internal RenderHost(FrameworkElement content)
+        {
+            _window = new BackgroundWindow { Content = content, Left = -20000, Top = -20000, Width = 700, Height = 350 };
+            _window.Show();
+        }
+        public void Dispose() => _window.Close();
+    }
 }

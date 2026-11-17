@@ -17,6 +17,37 @@ public sealed class CompactPillMotionTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void OpeningTheNotchRetiresBothAnEnteringAndALeavingHud(bool leaving) => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        bool previous = AnimationConfig.ReduceMotion;
+        AnimationConfig.SetReduceMotion(false);
+        try
+        {
+            await using var fixture = Create();
+            var window = fixture.Window;
+            using var host = new RenderHost(window);
+            window.SetDebugViewState("CompactMusicPill");
+            Invoke(window, "ShowVolumeIndicator", .62f);
+            Assert.True(MusicMotionTests.Field<bool>(window, "_isVolumeIndicatorActive"));
+            await Task.Delay(100, ct);
+            if (leaving)
+            {
+                Invoke(window, "HideVolumeIndicator");
+                await Task.Delay(40, ct);
+                Assert.True(MusicMotionTests.Field<bool>(window, "_isVolumeIndicatorExiting"));
+            }
+            window.NavigateToNotchView(VNotch.Models.NotchView.Media);
+            await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Render);
+            Assert.Equal(Visibility.Collapsed, window.VolumeIndicatorContainer.Visibility);
+            Assert.Equal(0, ((FrameworkElement)window.VolumeIndicatorContainer.Parent).Opacity);
+            Assert.False(MusicMotionTests.Field<bool>(window, "_isVolumeIndicatorExiting"));
+        }
+        finally { AnimationConfig.SetReduceMotion(previous); }
+    });
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void NotificationFacesReverseWithTheirShellAndRetireTheStaleExit(bool bluetooth) => SharedStaTestRunner.RunAsync(async ct =>
     {
         bool previous = AnimationConfig.ReduceMotion;
@@ -213,6 +244,11 @@ public sealed class CompactPillMotionTests
         internal RenderHost(MainWindow owner)
         {
             _owner = owner;
+            // Hosting the content bypasses MainWindow.Show's initial shell sizing.
+            if (!double.IsFinite(owner.NotchBorder.Width))
+                Motion.Stop(owner.NotchBorder, FrameworkElement.WidthProperty, MusicMotionTests.Field<double>(owner, "_collapsedWidth"));
+            if (!double.IsFinite(owner.NotchBorder.Height))
+                Motion.Stop(owner.NotchBorder, FrameworkElement.HeightProperty, MusicMotionTests.Field<double>(owner, "_collapsedHeight"));
             var root = (FrameworkElement)owner.Content;
             owner.Content = null;
             Window = new BackgroundWindow { Left = -20000, Top = 0, Width = 720, Height = 240,

@@ -102,6 +102,33 @@ public sealed class HomeSchoolTabTests
         Assert.Equal(expected, ControlCenterView.ExamSubject(new PiExam(DateTime.Today, "08:00", "Test", title, subject)));
 
     [Fact]
+    public void GermanLightStatesUseTheLocaleResources() => SharedStaTestRunner.Run(() =>
+    {
+        string previous = Loc.CurrentLanguage;
+        Loc.SetLanguage("de");
+        try
+        {
+            using var view = new ControlCenterView { Page = ControlCenterPage.Pi };
+            using var client = new PiDashboardClient(() => "http://127.0.0.1:1");
+            SetField(view, "_piRefreshing", true);
+            view.AttachPi(client, () => false, () => false, () => "", () => "");
+            var home = PiDashboardClient.ParseHome((JsonObject)JsonNode.Parse(HomeJson)!);
+            home = home with { Lights = home.Lights.Select(light => light with { Brightness = null }).ToArray() };
+            SetField(view, "_home", home);
+            Invoke(view, "BuildHome");
+            view.Measure(new Size(520, double.PositiveInfinity));
+            view.Arrange(new Rect(0, 0, 520, 120));
+            view.UpdateLayout();
+            var labels = Descendants<TextBlock>(view).Select(text => text.Text).ToArray();
+            Assert.Contains(Loc.Get("control.on"), labels);
+            Assert.Contains(Loc.Get("control.off"), labels);
+            Assert.DoesNotContain("On", labels);
+            Assert.DoesNotContain("Off", labels);
+        }
+        finally { Loc.SetLanguage(previous); }
+    });
+
+    [Fact]
     public void HomeIsCompactAndProtectedSocketsAskInlineBeforeSending() => SharedStaTestRunner.Run(() =>
     {
         bool before = AnimationConfig.ReduceMotion;

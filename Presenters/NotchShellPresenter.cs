@@ -28,6 +28,7 @@ public sealed class NotchShellPresenter : IDisposable
     private Action? _heightArrived;
     private double _heightTarget;
     private SpringMotion _heightSpring = Motion.Glide;
+    private System.Windows.Threading.DispatcherTimer? _watch;
 
     public NotchShellPresenter(NotchShellViewRefs refs)
     {
@@ -36,6 +37,7 @@ public sealed class NotchShellPresenter : IDisposable
         _corner.SetValue(CornerValue.ValueProperty, refs.NotchBorder.CornerRadius.BottomLeft);
         // MainWindow's settings are loaded after its presenters are constructed.
         _corner.Apply = SetCornerRadius;
+        _refs.NotchBorder.IsVisibleChanged += OnVisibilityChanged;
     }
 
     public void AnimateShell(TransitionPlan plan, Action<TransitionExecutionResult> onCompleted)
@@ -47,6 +49,7 @@ public sealed class NotchShellPresenter : IDisposable
         }
 
         long sessionId = _activeSessionId = plan.SessionId;
+        StopWatch();
         long version = ++_animationVersion;
         _heightArrived = null;
         _heightTarget = plan.TargetHeight;
@@ -89,6 +92,7 @@ public sealed class NotchShellPresenter : IDisposable
         {
             if (!widthArrived || !heightArrived || reported || !IsCurrent(sessionId, version)) return;
             reported = true;
+            StopWatch();
             _refs.Attachment?.Detach(!closing);
             onCompleted(new TransitionExecutionResult(sessionId, TransitionExecutionStatus.Completed));
         }
@@ -127,7 +131,23 @@ public sealed class NotchShellPresenter : IDisposable
             _heightArrived = null;
             Arrived();
         };
-        watch.Start();
+        if (!reported)
+        {
+            _watch = watch;
+            if (border.IsVisible) watch.Start();
+        }
+    }
+
+    private void OnVisibilityChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (_refs.NotchBorder.IsVisible) _watch?.Start();
+        else _watch?.Stop();
+    }
+
+    private void StopWatch()
+    {
+        _watch?.Stop();
+        _watch = null;
     }
 
     internal bool RetargetHeight(double height, Action done)
@@ -142,6 +162,7 @@ public sealed class NotchShellPresenter : IDisposable
     public void SnapTo(double width, double height, double cornerRadius)
     {
         if (_disposed) return;
+        StopWatch();
         ++_animationVersion;
         ++_activeSessionId;
         _heightArrived = null;
@@ -162,6 +183,8 @@ public sealed class NotchShellPresenter : IDisposable
 
     public void CancelCurrentAnimation()
     {
+        bool ownsSize = _heightArrived != null || _watch != null;
+        StopWatch();
         ++_animationVersion;
         ++_activeSessionId;
         _heightArrived = null;
@@ -169,14 +192,19 @@ public sealed class NotchShellPresenter : IDisposable
         // Coordinators cancel before retargeting. Hold the rendered frame without losing its release speed.
         _canceledWidthVelocity = Motion.VelocityOf(border, FrameworkElement.WidthProperty);
         _canceledHeightVelocity = Motion.VelocityOf(border, FrameworkElement.HeightProperty);
-        Motion.Stop(border, FrameworkElement.WidthProperty);
-        Motion.Stop(border, FrameworkElement.HeightProperty);
+        // A compact face can own these springs now; leave its velocity intact for its next retarget.
+        if (ownsSize)
+        {
+            Motion.Stop(border, FrameworkElement.WidthProperty);
+            Motion.Stop(border, FrameworkElement.HeightProperty);
+        }
     }
 
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
+        _refs.NotchBorder.IsVisibleChanged -= OnVisibilityChanged;
         CancelCurrentAnimation();
         Motion.Stop(_corner, CornerValue.ValueProperty);
         _refs.Attachment?.Dispose();
