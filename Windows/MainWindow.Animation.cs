@@ -1102,7 +1102,7 @@ public partial class MainWindow
         }
         else if (effectiveTarget == VNotch.Models.NotchView.Claude)
         {
-            VNotch.Presenters.NotchContentTransitionPresenter.ClearTransformAndEffects(ClaudeContent);
+            if (!switchingExpandedViews) VNotch.Presenters.NotchContentTransitionPresenter.ClearTransformAndEffects(ClaudeContent);
             targetWidth = ClaudeViewWidth;
             targetHeight = _claudeViewHeight = MeasureClaudeViewHeight();
             // Laid out at its final size; the shell's clip reveals it while expanding.
@@ -1114,7 +1114,7 @@ public partial class MainWindow
         }
         else if (effectiveTarget == VNotch.Models.NotchView.Pi)
         {
-            VNotch.Presenters.NotchContentTransitionPresenter.ClearTransformAndEffects(PiContent);
+            if (!switchingExpandedViews) VNotch.Presenters.NotchContentTransitionPresenter.ClearTransformAndEffects(PiContent);
             targetWidth = HomeViewWidth;
             targetHeight = MeasureHomeViewHeight();
             // Laid out at its final size; the shell's clip reveals it while expanding.
@@ -1126,7 +1126,7 @@ public partial class MainWindow
         }
         else if (effectiveTarget == VNotch.Models.NotchView.School)
         {
-            VNotch.Presenters.NotchContentTransitionPresenter.ClearTransformAndEffects(SchoolContent);
+            if (!switchingExpandedViews) VNotch.Presenters.NotchContentTransitionPresenter.ClearTransformAndEffects(SchoolContent);
             targetWidth = SchoolViewWidth;
             targetHeight = MeasureSchoolViewHeight();
             SchoolContent.Width = targetWidth - SchoolContent.Margin.Left - SchoolContent.Margin.Right;

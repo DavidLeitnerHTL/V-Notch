@@ -256,6 +256,14 @@ public sealed class HomeSchoolTabTests
             Assert.InRange(holders.Count(digit => digit.Children.Count > 1), 1, 2);
             Assert.All(holders.Where(digit => digit.Children.Count > 1), digit =>
                 Assert.True(((TranslateTransform)((TextBlock)digit.Children[^1]).RenderTransform).Y > 0));
+            SetField(view, "_countdownDue", DateTimeOffset.Now.AddSeconds(-1));
+            Invoke(view, "OnSchoolCountdownTick", null!, EventArgs.Empty);
+            Assert.False(timer.IsEnabled);
+            Invoke(view, "UpdateCountdownVisibility");
+            Assert.False(timer.IsEnabled);
+            SetField(view, "_countdownDue", DateTimeOffset.Now.AddHours(1));
+            Invoke(view, "UpdateCountdownVisibility");
+            Assert.True(timer.IsEnabled);
             view.Visibility = Visibility.Collapsed;
             Assert.False(timer.IsEnabled);
             Assert.All(holders, digit => Assert.Single(digit.Children.Cast<UIElement>()));
@@ -331,6 +339,28 @@ public sealed class HomeSchoolTabTests
             Assert.Equal(height, view.DrawerHeight, 6);
         }
         finally { window.Close(); AnimationConfig.ClientAreaAnimationOverride = animations; AnimationConfig.SetReduceMotion(before); }
+    });
+
+    [Fact]
+    public void HiddenDrawerChangesCommitWithoutStartingAClock() => SharedStaTestRunner.Run(() =>
+    {
+        bool before = AnimationConfig.ReduceMotion;
+        AnimationConfig.SetReduceMotion(false);
+        using var view = new ControlCenterView { Page = ControlCenterPage.School };
+        try
+        {
+            Invoke(view, "MountCompactPage");
+            Invoke(view, "AddDrawer", new Border { Height = 100 });
+            view.SetDrawerOpen(true);
+            var height = (WeatherTween)Field(view, "_drawerHeight");
+            Assert.True(view.DrawerHeight >= 100);
+            Assert.False(Motion.IsRunning(height, WeatherTween.ValueProperty));
+            Assert.False(view.IsLayoutFollowing);
+            view.SetDrawerOpen(false);
+            Assert.Equal(0, view.DrawerHeight);
+            Assert.False(height.HasAnimatedProperties);
+        }
+        finally { AnimationConfig.SetReduceMotion(before); }
     });
 
     internal static IEnumerable<T> Descendants<T>(DependencyObject root) where T : DependencyObject

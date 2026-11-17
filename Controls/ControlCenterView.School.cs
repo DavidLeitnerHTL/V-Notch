@@ -359,6 +359,7 @@ public partial class ControlCenterView
         else for (int i = 0; i < value.Length; i++)
             if (value[i] != _countdownShown[i]) SwapCompactLabel((Grid)_countdownDigits.Children[i], value[i].ToString(), horizontal: false, size: 15);
         _countdownShown = value;
+        if (due <= DateTimeOffset.Now) _schoolCountdownTimer?.Stop();
     }
 
     private void UpdateCountdownVisibility()
@@ -368,7 +369,8 @@ public partial class ControlCenterView
         _schoolCountdownTimer ??= new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(1) };
         _schoolCountdownTimer.Tick -= OnSchoolCountdownTick;
         _schoolCountdownTimer.Tick += OnSchoolCountdownTick;
-        TickSchoolCountdown(); _schoolCountdownTimer.Start();
+        TickSchoolCountdown();
+        if (_countdownDue > DateTimeOffset.Now) _schoolCountdownTimer.Start();
     }
 
     private void OnSchoolCountdownTick(object? sender, EventArgs e)

@@ -134,6 +134,28 @@ public sealed class MusicMotionTests
         finally { AnimationConfig.SetReduceMotion(previous); }
     });
 
+    [Theory]
+    [InlineData("_isNotchVisible", false)]
+    [InlineData("_isHiddenByFullscreen", true)]
+    public void HiddenNotchAndFullscreenRetireMusicTimersAndCoverClocks(string field, bool value) => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        await using var fixture = Create();
+        var window = fixture.Window;
+        await Open(window, ct);
+        Invoke(window, "MusicTransportRequested", 1);
+        Assert.True((bool)Invoke(window, "MusicWheelInput", 140)!);
+        var timeout = Field<System.Windows.Threading.DispatcherTimer>(window, "_musicRequestTimeout");
+        var wheel = Field<System.Windows.Threading.DispatcherTimer>(window, "_musicWheelEnd");
+        Assert.True(timeout.IsEnabled);
+        Assert.True(wheel.IsEnabled);
+        typeof(MainWindow).GetProperty(field, Private)!.SetValue(window, value);
+        Invoke(window, "RefreshAmbientAnimations");
+        Assert.False(timeout.IsEnabled);
+        Assert.False(wheel.IsEnabled);
+        Assert.False(Field<bool>(window, "_musicCoverActive"));
+        Assert.False(Field<bool>(window, "_musicDragging"));
+    });
+
     internal static GreetingAcceptanceTests.MainWindowFixture Create(FakeMediaDetectionService? media = null) => new("en", false,
         settings => { settings.EnableLocalOnlyMode = true; settings.DisableMouseLeaveAutoClose = true; },
         services => services.AddSingleton<IMediaDetectionService>(media ?? new FakeMediaDetectionService()));

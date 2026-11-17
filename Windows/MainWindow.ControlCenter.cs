@@ -327,6 +327,7 @@ public partial class MainWindow
     }
 
     private const double PillMaxWidth = 460;
+    private VNotch.Presenters.CompactSurfaceAttachment? _claudePillAttachment;
 
     /// <summary>Widens the closed notch until name and status read in full; it narrows again with the pill.</summary>
     private void FitNotchToPill()
@@ -334,10 +335,10 @@ public partial class MainWindow
         NotchPillRow.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
         var margin = ClaudeNotification.Margin;
         double wanted = Math.Ceiling(NotchPillRow.DesiredSize.Width + margin.Left + margin.Right + 28);
-        double target = Math.Clamp(wanted, _collapsedWidth, PillMaxWidth);
-        double current = NotchBorder.ActualWidth > 0 ? NotchBorder.ActualWidth : _collapsedWidth;
-        if (Math.Abs(target - current) < 1) return;
-        AnimateCompactWidth(target, TimeSpan.FromMilliseconds(450), _easeSoftSpring, _claudeNotificationToken);
+        double target = Math.Clamp(wanted, _collapsedWidth + 28, Math.Max(PillMaxWidth, _collapsedWidth + 28));
+        _notchShellPresenter?.CancelCurrentAnimation();
+        _claudePillAttachment ??= new(NotchBorder, ClaudeNotification, () => new Size(_collapsedWidth, _collapsedHeight));
+        _claudePillAttachment.MoveTo(target, _collapsedHeight, Motion.Pop, shown: true);
     }
 
     private DispatcherTimer CreateClaudeNotificationTimer()
@@ -354,15 +355,14 @@ public partial class MainWindow
     private void AnimateClaudeNotificationIn()
     {
         SuppressPrivacyDot();
-        PlayBluetoothBounce();
 
         HideCompactSurface(CollapsedContent);
         if (MusicCompactContent.Visibility == Visibility.Visible)
             HideCompactSurface(MusicCompactContent);
 
         ClaudeNotification.Visibility = Visibility.Visible;
-        Motion.To(ClaudeNotification, OpacityProperty, 1, Motion.Tile, from: 0);
-        Motion.To(ClaudeNotificationTranslate, TranslateTransform.YProperty, 0, Motion.Tile, from: 6);
+        Motion.Stop(ClaudeNotification, OpacityProperty, 1);
+        Motion.Stop(ClaudeNotificationTranslate, TranslateTransform.YProperty, 0);
 
         Motion.To(ClaudeNotificationIconScale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale, from: Motion.TileFromScale);
         Motion.To(ClaudeNotificationIconScale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale, from: Motion.TileFromScale);
@@ -376,10 +376,10 @@ public partial class MainWindow
         _isCopiedPillShown = false;
         _askRequest = null;
         _claudeDoneShownId = null;
-        if (NotchBorder.ActualWidth > _collapsedWidth + 0.5)
-            AnimateCompactWidth(_collapsedWidth, TimeSpan.FromMilliseconds(400), _easeExpOut6, token);
-
-        Motion.To(ClaudeNotification, OpacityProperty, 0, Motion.Exit, done: () =>
+        _claudeNotificationTimer?.Stop();
+        _notchShellPresenter?.CancelCurrentAnimation();
+        _claudePillAttachment ??= new(NotchBorder, ClaudeNotification, () => new Size(_collapsedWidth, _collapsedHeight));
+        _claudePillAttachment.MoveTo(_collapsedWidth, _collapsedHeight, Motion.PopBack, shown: false, done: () =>
         {
             if (token != _claudeNotificationToken || IsCompactSlotStale(token)) return;
 
@@ -394,9 +394,6 @@ public partial class MainWindow
             content.Visibility = Visibility.Visible;
             Motion.To(content, OpacityProperty, 1, Motion.Tile);
         });
-        Motion.To(ClaudeNotificationTranslate, TranslateTransform.YProperty, -4, Motion.Exit);
-        Motion.To(ClaudeNotificationIconScale, ScaleTransform.ScaleXProperty, Motion.ExitToScale, Motion.Exit);
-        Motion.To(ClaudeNotificationIconScale, ScaleTransform.ScaleYProperty, Motion.ExitToScale, Motion.Exit);
     }
 
     /// <summary>The notch opens or another alert takes the pill: drop it without an exit animation.</summary>
@@ -409,6 +406,7 @@ public partial class MainWindow
         if (!_isClaudeNotificationVisible) return;
         _isClaudeNotificationVisible = false;
         _claudeNotificationToken = 0;
+        _claudePillAttachment?.Detach(false);
         Motion.Stop(ClaudeNotification, OpacityProperty, 0);
         Motion.Stop(ClaudeNotificationTranslate, TranslateTransform.YProperty, 0);
         Motion.Stop(ClaudeNotificationIconScale, ScaleTransform.ScaleXProperty, 1);

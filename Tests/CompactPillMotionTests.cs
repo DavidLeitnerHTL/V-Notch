@@ -14,6 +14,60 @@ public sealed class CompactPillMotionTests
 {
     private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void NotificationFacesReverseWithTheirShellAndRetireTheStaleExit(bool bluetooth) => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        bool previous = AnimationConfig.ReduceMotion;
+        AnimationConfig.SetReduceMotion(false);
+        try
+        {
+            await using var fixture = Create();
+            var window = fixture.Window;
+            using var host = new RenderHost(window);
+            var arbiter = (CompactPillArbiter)typeof(MainWindow).GetField("_compactPillArbiter", Private)!.GetValue(window)!;
+            void Open()
+            {
+                if (bluetooth) Invoke(window, "AnimateBluetoothNotificationIn", true);
+                else
+                {
+                    int token = arbiter.TryAcquire(CompactPillSlot.Claude).Token;
+                    typeof(MainWindow).GetField("_claudeNotificationToken", Private)!.SetValue(window, token);
+                    typeof(MainWindow).GetField("_isClaudeNotificationVisible", Private)!.SetValue(window, true);
+                    window.ClaudeNotificationTitle.Text = "Build complete";
+                    Invoke(window, "AnimateClaudeNotificationIn");
+                    Invoke(window, "FitNotchToPill");
+                }
+            }
+            var face = bluetooth ? window.BluetoothNotification : window.ClaudeNotification;
+            double closedWidth = window.NotchBorder.Width;
+            Open();
+            await WpfFrameWaiter.UntilAsync(() => window.NotchBorder.Width > closedWidth + 6, "notification shell grows", ct);
+            var layer = (FrameworkElement)face.Parent;
+            Assert.Equal(new Point(.5, 0), layer.RenderTransformOrigin);
+            var scale = Assert.IsType<ScaleTransform>(layer.RenderTransform);
+            Assert.Equal(window.NotchBorder.Width / layer.Width, scale.ScaleX, 5);
+            Assert.False(window.NotchScale.HasAnimatedProperties);
+            Invoke(window, bluetooth ? "AnimateBluetoothNotificationOut" : "AnimateClaudeNotificationOut");
+            await Task.Delay(100, ct);
+            double width = window.NotchBorder.Width;
+            double velocity = Motion.VelocityOf(window.NotchBorder, FrameworkElement.WidthProperty);
+            Open();
+            Assert.Equal(width, window.NotchBorder.Width, 3);
+            Assert.InRange(Math.Abs(Motion.VelocityOf(window.NotchBorder, FrameworkElement.WidthProperty) - velocity), 0, 35);
+            await WpfFrameWaiter.UntilAsync(() => double.IsNaN(layer.Width), "latest notification settles", ct);
+            Assert.Equal(Visibility.Visible, face.Visibility);
+            Assert.Equal(1, layer.Opacity);
+            Assert.True(arbiter.IsActive(bluetooth ? CompactPillSlot.Bluetooth : CompactPillSlot.Claude));
+            AnimationConfig.SetReduceMotion(true);
+            Invoke(window, bluetooth ? "AnimateBluetoothNotificationOut" : "AnimateClaudeNotificationOut");
+            Assert.Equal(Visibility.Collapsed, face.Visibility);
+            Assert.Equal(CompactPillSlot.None, arbiter.ActiveSlot);
+        }
+        finally { AnimationConfig.SetReduceMotion(previous); }
+    });
+
     [Fact]
     public void WidthReversalPreservesPositionAndVelocity() => SharedStaTestRunner.RunAsync(async ct =>
     {

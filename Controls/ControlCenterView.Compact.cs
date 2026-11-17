@@ -147,46 +147,19 @@ public partial class ControlCenterView
     internal void SetDrawerOpen(bool open, double? velocity = null)
     {
         if (_drawerHeight == null) return;
-        bool arriving = open && !_drawerOpen && velocity == null;
         _drawerOpen = open;
+        double target = open ? MeasureDrawer() : 0;
+        if (!IsVisible || AnimationConfig.ReduceMotion)
+        {
+            Motion.Stop(_drawerHeight, WeatherTween.ValueProperty, target);
+            IsLayoutFollowing = false;
+            ContentHeightChanged?.Invoke();
+            return;
+        }
         IsLayoutFollowing = true;
-        Motion.To(_drawerHeight, WeatherTween.ValueProperty, open ? MeasureDrawer() : 0, Motion.Shift,
+        // The drawer's clip reveals its contents as one object, including on reversal.
+        Motion.To(_drawerHeight, WeatherTween.ValueProperty, target, Motion.Shift,
             velocity: velocity, done: () => { IsLayoutFollowing = false; ContentHeightChanged?.Invoke(); });
-        if (arriving && IsVisible && !AnimationConfig.ReduceMotion)
-        {
-            int index = 0;
-            foreach (var row in DrawerRows(_drawerBody))
-            {
-                var shift = DetailArrivals.GetValue(row, part =>
-                {
-                    var transform = new TranslateTransform(); AddDetailTransform(part, transform);
-                    part.IsVisibleChanged += (_, _) =>
-                    {
-                        if (part.IsVisible) return;
-                        Motion.Stop(transform, TranslateTransform.YProperty, 0); Motion.Stop(part, OpacityProperty, 1);
-                    };
-                    return transform;
-                });
-                var delay = TimeSpan.FromMilliseconds(Math.Min(index++ * 29, 232));
-                if (!Motion.IsRunning(shift, TranslateTransform.YProperty))
-                {
-                    Motion.Stop(shift, TranslateTransform.YProperty, 6);
-                    Motion.Stop(row, OpacityProperty, 0);
-                }
-                Motion.To(shift, TranslateTransform.YProperty, 0, Motion.Shift, delay: delay);
-                Motion.To(row, OpacityProperty, 1, Motion.Shift, delay: delay);
-            }
-        }
-    }
-
-    private static IEnumerable<FrameworkElement> DrawerRows(DependencyObject node)
-    {
-        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(node); i++)
-        {
-            var child = VisualTreeHelper.GetChild(node, i);
-            if (child is FrameworkElement { Tag: "drawer-row" } row) yield return row;
-            else foreach (var descendant in DrawerRows(child)) yield return descendant;
-        }
     }
 
     internal bool MoveDrawer(double dy, bool force = false)

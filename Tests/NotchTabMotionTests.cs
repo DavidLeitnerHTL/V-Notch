@@ -231,6 +231,47 @@ public sealed class NotchTabMotionTests
         Assert.Equal(Visibility.Collapsed, timer.Visibility);
     });
 
+    [Theory]
+    [InlineData(NotchView.Claude)]
+    [InlineData(NotchView.Pi)]
+    [InlineData(NotchView.School)]
+    public void ReturningToADepartingDashboardKeepsItsPageTransform(NotchView view) => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        bool previous = AnimationConfig.ReduceMotion;
+        bool? animations = AnimationConfig.ClientAreaAnimationOverride;
+        await using var fixture = MusicMotionTests.Create();
+        var window = fixture.Window;
+        try
+        {
+            AnimationConfig.ClientAreaAnimationOverride = true;
+            AnimationConfig.SetReduceMotion(true);
+            window.Left = window.Top = -20000;
+            typeof(MainWindow).GetField("_cleanedUp", Private)!.SetValue(window, true);
+            window.Show();
+            typeof(MainWindow).GetField("_cleanedUp", Private)!.SetValue(window, false);
+            window.NavigateToNotchView(view);
+            var coordinator = (NotchTransitionCoordinator)typeof(MainWindow).GetField("_transitionCoordinator", Private)!.GetValue(window)!;
+            await WpfFrameWaiter.UntilAsync(() => !coordinator.IsTransitionActive, "initial dashboard", ct);
+            AnimationConfig.SetReduceMotion(false);
+            window.NavigateToNotchView(NotchView.Media);
+            FrameworkElement page = view == NotchView.Claude ? window.ClaudeContent : view == NotchView.Pi ? window.PiContent : window.SchoolContent;
+            await WpfFrameWaiter.UntilAsync(() => page.RenderTransform is TransformGroup, "departing dashboard", ct);
+            var transform = Assert.IsType<TransformGroup>(page.RenderTransform);
+            HoldAt(Assert.IsType<TranslateTransform>(transform.Children[^1]), TranslateTransform.XProperty, 0, -6);
+            Matrix frame = transform.Value;
+            window.NavigateToNotchView(view);
+            var pending = typeof(MainWindow).GetField("_pendingTransitionRequest", Private)!;
+            var request = pending.GetValue(window);
+            Assert.NotNull(request);
+            pending.SetValue(window, null);
+            Invoke(window, "ExecuteTransitionRequest", request!);
+            Assert.Same(transform, page.RenderTransform);
+            Assert.Equal(frame, page.RenderTransform.Value);
+            await WpfFrameWaiter.UntilAsync(() => !coordinator.IsTransitionActive, "returning dashboard settles", ct);
+        }
+        finally { AnimationConfig.SetReduceMotion(previous); AnimationConfig.ClientAreaAnimationOverride = animations; }
+    });
+
     private static void HoldAt(IAnimatable target, DependencyProperty property, double from, double to)
     {
         var clock = (AnimationClock)new DoubleAnimation(from, to, TimeSpan.FromSeconds(1)).CreateClock(true);
