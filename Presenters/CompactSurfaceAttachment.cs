@@ -21,6 +21,9 @@ internal sealed class CompactSurfaceAttachment
     private int _generation;
     private double _opacityFloor;
     private Size _open;
+    // A leaving face whose shell another owner grows again (the notch opening) never arrives; it ends hidden then.
+    private double _leaveFromHeight = double.NaN;
+    private Action? _finish;
 
     internal CompactSurfaceAttachment(FrameworkElement shell, FrameworkElement face, Func<Size> rest)
     {
@@ -55,6 +58,8 @@ internal sealed class CompactSurfaceAttachment
     internal void Detach(bool shown)
     {
         ++_generation;
+        _leaveFromHeight = double.NaN;
+        _finish = null;
         _attached = false;
         Watch();
         _layer.Width = _layer.Height = double.NaN;
@@ -72,11 +77,17 @@ internal sealed class CompactSurfaceAttachment
         else if (!_attached) Attach(_shell.Width, _shell.Height);
         int generation = ++_generation;
         int remaining = 2;
+        _leaveFromHeight = shown ? double.NaN : _shell.Height;
+        _finish = () =>
+        {
+            if (generation != _generation) return;
+            Detach(shown);
+            done?.Invoke();
+        };
         void Arrived()
         {
             if (generation != _generation || --remaining != 0) return;
-            Detach(shown);
-            done?.Invoke();
+            _finish?.Invoke();
         }
         Motion.To(_shell, FrameworkElement.WidthProperty, width, spring, done: Arrived);
         Motion.To(_shell, FrameworkElement.HeightProperty, height, spring, done: Arrived);
@@ -102,6 +113,11 @@ internal sealed class CompactSurfaceAttachment
 
     private void Render(object? sender, EventArgs args)
     {
+        if (_shell.Height > _leaveFromHeight + 8)
+        {
+            _finish?.Invoke();
+            return;
+        }
         Size rest = _rest();
         // Some compact alerts only widen the notch, so width carries their reveal progress.
         double progress = Math.Abs(_open.Height - rest.Height) > .5

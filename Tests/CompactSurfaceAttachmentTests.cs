@@ -62,6 +62,29 @@ public sealed class CompactSurfaceAttachmentTests
     });
 
     [Fact]
+    public void OpeningTheNotchDuringALeaveEndsItHidden() => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        var shell = new Grid { Width = 380, Height = 56 };
+        var face = new Border();
+        shell.Children.Add(face);
+        var attachment = new CompactSurfaceAttachment(shell, face, () => new Size(300, 40));
+        using var host = new RenderHost(shell);
+        int closed = 0;
+        attachment.MoveTo(300, 40, Motion.PopBack, false, () => closed++);
+        await Task.Delay(60, ct);
+        // The opening shell takes the size over, so the leave's own springs never arrive.
+        Motion.To(shell, FrameworkElement.WidthProperty, 640, Motion.Shift);
+        Motion.To(shell, FrameworkElement.HeightProperty, 220, Motion.Shift);
+        await WpfFrameWaiter.UntilAsync(() => closed == 1, "leave ends when the shell grows again", ct);
+        var layer = (FrameworkElement)face.Parent;
+        Assert.Equal(0, layer.Opacity);
+        Assert.True(double.IsNaN(layer.Width));
+        await WpfFrameWaiter.UntilAsync(() => shell.Height > 200, "shell opens", ct);
+        Assert.Equal(0, layer.Opacity);
+        Assert.Equal(1, closed);
+    });
+
+    [Fact]
     public void ExpandingAReadableFaceKeepsItsOpacity() => SharedStaTestRunner.RunAsync(async ct =>
     {
         var shell = new Grid { Width = 300, Height = 40 };
