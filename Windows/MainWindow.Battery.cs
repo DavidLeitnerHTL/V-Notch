@@ -62,6 +62,7 @@ public partial class MainWindow
         RefreshMusicMotionVisibility();
         RefreshCountdownCompleteTextFlash();
         _phoneMirror?.RefreshMotionVisibility();
+        RefreshAppNotificationMotionVisibility();
     }
 
     private void OnReduceMotionChanged()
