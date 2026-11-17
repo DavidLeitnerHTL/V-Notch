@@ -43,6 +43,7 @@ public partial class ControlCenterView
 
     internal void RefreshDisplaysOnDisplayChange()
     {
+        if (_compactSystemReady) RefreshCompactDisplays();
         if (!_disposed && Page == ControlCenterPage.System && IsVisible && IsExpanded("displays")) BuildDisplaysSection();
     }
 

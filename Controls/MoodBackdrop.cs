@@ -63,6 +63,8 @@ public sealed class MoodBackdrop : Grid
         }
     }
 
+    internal double Intensity { get => _canvas.Opacity; set => _canvas.Opacity = Math.Clamp(value, 0, 1); }
+
     private Field AddField(double x, double y, double w, double h, double strength, double dx, double dy, double ds, double seconds)
     {
         var core = new GradientStop(Colors.Transparent, 0);

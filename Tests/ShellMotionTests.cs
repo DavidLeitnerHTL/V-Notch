@@ -12,6 +12,21 @@ namespace VNotch.Tests;
 public sealed class ShellMotionTests
 {
     [Fact]
+    public void TheExtraOpenOvershootIsOnlyAboutAQuarterMore()
+    {
+        static double Peak(SpringMotion spring)
+        {
+            var animation = spring.Animate(0, 1);
+            return Enumerable.Range(0, 1000).Max(i => animation.ValueAt(i / 1000d)) - 1;
+        }
+        Assert.InRange(Peak(Motion.ShellOpenWidth) / Peak(new(TimeSpan.FromMilliseconds(400), .44)), 1.2, 1.3);
+        Assert.InRange(Peak(Motion.ShellOpenHeight) / Peak(new(TimeSpan.FromMilliseconds(520), .36)), 1.2, 1.3);
+        var close = Motion.ShellCloseHeight.Animate(180, 40, -120, acceleration: .25);
+        Assert.Equal(180, close.ValueAt(0), 6);
+        Assert.Equal(-120, close.VelocityAt(0), 6);
+    }
+
+    [Fact]
     public void ContentHeightRetargetStillCompletesTheShellSession() => SharedStaTestRunner.RunAsync(async ct =>
     {
         bool previous = AnimationConfig.ReduceMotion;

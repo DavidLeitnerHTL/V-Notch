@@ -114,6 +114,16 @@ public partial class MainWindow
 
     private async void NotchWrapper_PreviewMouseDown(object sender, MouseButtonEventArgs e)
     {
+        if (e.ChangedButton == MouseButton.Left && _isExpanded &&
+            !IsShellDragControl(e.OriginalSource as DependencyObject) && FindShellScrollCandidate(e.OriginalSource as DependencyObject) is { } scroll)
+        {
+            if (TryBeginGesture(e, capture: false))
+            {
+                _shellPendingScroll = scroll;
+                _shellPendingScrollOrigin = e.GetPosition(this);
+            }
+            return;
+        }
         if (e.ChangedButton == MouseButton.Left &&
             (_isExpanded || (_isAnimating && _shellAttachment.IsAttached)) &&
             !IsShellDragControl(e.OriginalSource as DependencyObject) && TryBeginGesture(e))
@@ -133,6 +143,7 @@ public partial class MainWindow
 
     private void NotchWrapper_PreviewMouseUp(object sender, MouseButtonEventArgs e)
     {
+        if (e.ChangedButton == MouseButton.Left) CancelScrollShellCandidate();
 
         if (e.ChangedButton == MouseButton.Middle)
         {
@@ -200,7 +211,7 @@ public partial class MainWindow
         NotchBorder_GestureMouseUp(sender, e);
     }
 
-    private bool TryBeginGesture(MouseButtonEventArgs e)
+    private bool TryBeginGesture(MouseButtonEventArgs e, bool capture = true)
     {
         if (!_settings.EnableGestureControls)
         {
@@ -219,13 +230,14 @@ public partial class MainWindow
         BeginShellGestureTracking(pos, DateTime.UtcNow);
         _isGestureActive = true;
 
-        NotchWrapper.CaptureMouse();
+        if (capture) NotchWrapper.CaptureMouse();
 
         return true;
     }
 
     private void NotchBorder_GestureMouseMove(object sender, MouseEventArgs e)
     {
+        if (_shellPendingScroll != null) return;
         if (!_isGestureActive || !_gestureController.IsTracking) return;
 
         var pos = _shellGestureWasOpen ? e.GetPosition(this) : e.GetPosition(NotchBorder);

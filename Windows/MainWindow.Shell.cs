@@ -2,6 +2,8 @@ using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Data;
+using System.Windows.Documents;
 using System.Windows.Media;
 using VNotch.Controls;
 using VNotch.Controllers;
@@ -23,6 +25,25 @@ public partial class MainWindow
     private double _shellReleaseWidthRatio;
     private NotchView _shellDragView;
     private DateTime _shellLastSampleAt;
+    private double _shellDrawerStartHeight;
+    private ScrollViewer? _shellPendingScroll;
+    private readonly TextBlock _compactTabStatus = new()
+    {
+        FontSize = 11.5, Foreground = new SolidColorBrush(Color.FromRgb(245, 245, 247)),
+        VerticalAlignment = VerticalAlignment.Center, IsHitTestVisible = false
+    };
+    private readonly StackPanel _compactStatusHost = new()
+    {
+        Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right,
+        VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 6, 44, 0), IsHitTestVisible = false
+    };
+    private readonly TextBlock _compactWarningText = new() { FontSize = 10.5, Foreground = new SolidColorBrush(Color.FromRgb(231, 191, 185)) };
+    private readonly Border _compactLoadWarning = new()
+    {
+        CornerRadius = new CornerRadius(9), Background = new SolidColorBrush(Color.FromArgb(48, 201, 138, 132)),
+        Padding = new Thickness(7, 3, 7, 3), Margin = new Thickness(0, 0, 7, 0), Visibility = Visibility.Collapsed
+    };
+    private readonly StackPanel _compactSystemBattery = new() { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
 
     private void InitializeShellAttachment()
     {
@@ -37,10 +58,30 @@ public partial class MainWindow
             open.Children.Add(element);
         }
         NotchContent.Children.Add(open);
+        Panel.SetZIndex(_compactStatusHost, 190);
+        _compactLoadWarning.Child = _compactWarningText;
+        _compactStatusHost.Children.Add(_compactLoadWarning);
+        _compactStatusHost.Children.Add(_compactTabStatus);
+        var batteryText = new TextBlock { FontSize = 11.5, Foreground = Brushes.White, VerticalAlignment = VerticalAlignment.Center };
+        batteryText.SetBinding(TextBlock.TextProperty, new Binding("Text") { Source = BatteryPercent });
+        _compactSystemBattery.Children.Add(batteryText);
+        var batteryFill = new ScaleTransform(1, 1);
+        BindingOperations.SetBinding(batteryFill, ScaleTransform.ScaleXProperty, new Binding("ScaleX") { Source = BatteryFillScale });
+        _compactSystemBattery.Children.Add(new Border { Width = 22, Height = 10, CornerRadius = new CornerRadius(2),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(148, 255, 255, 255)), BorderThickness = new Thickness(1),
+            Margin = new Thickness(6, 0, 0, 0), Padding = new Thickness(1), VerticalAlignment = VerticalAlignment.Center,
+            Child = new Border { Background = Brushes.White, CornerRadius = new CornerRadius(1), RenderTransformOrigin = new Point(0, .5), RenderTransform = batteryFill } });
+        _compactStatusHost.Children.Add(_compactSystemBattery);
+        open.Children.Add(_compactStatusHost);
+        PiCenter.StatusChanged += UpdateCompactTabStatus;
+        SchoolCenter.StatusChanged += UpdateCompactTabStatus;
+        ControlCenter.StatusChanged += UpdateCompactTabStatus;
         _shellAttachment = new NotchShellAttachment(NotchBorder, open, () => _collapsedHeight,
             CollapsedContent, MusicCompactContent);
-        NotchWrapper.LostMouseCapture += (_, _) =>
+        NotchWrapper.PreviewMouseMove += ContinueScrollShellGesture;
+        NotchWrapper.LostMouseCapture += (_, e) =>
         {
+            if (!ReferenceEquals(e.OriginalSource, NotchWrapper)) return;
             if (!_isGestureActive) return;
             if (_musicDragging) FinishMusicSwipe(true, DateTime.UtcNow);
             else if (_shellDragActive) FinishShellDrag(canceled: true);
@@ -50,17 +91,74 @@ public partial class MainWindow
         };
     }
 
-    private bool IsShellDragControl(DependencyObject? element)
+    internal bool IsShellDragControl(DependencyObject? element)
     {
-        if (IsInteractiveControl(element)) return true;
         while (element != null && element is not Window)
         {
+            if (ReferenceEquals(element, NotchBorder) || ReferenceEquals(element, NotchWrapper)) break;
             if (ReferenceEquals(element, ThumbnailBorder) && CanSwipeMusic) return false;
-            if (element is ActionBorder || element is FrameworkElement { Cursor: { } cursor } && cursor == Cursors.Hand)
+            if (element is ActionBorder or Hyperlink) return true;
+            if (element is System.Windows.Controls.Primitives.ButtonBase or
+                System.Windows.Controls.Primitives.RangeBase or System.Windows.Controls.Primitives.Thumb or
+                System.Windows.Controls.Primitives.TextBoxBase or PasswordBox or ComboBox or MenuItem)
                 return true;
-            element = VisualTreeHelper.GetParent(element);
+            // An upward push at the top of a list belongs to the shell, including lists too short to scroll.
+            if (element is ScrollViewer scroll && scroll.ScrollableHeight > 0 && scroll.VerticalOffset > .5)
+                return true;
+            if (element is FrameworkElement control && element is not ScrollViewer and not ListBox and not ListBoxItem &&
+                control.ReadLocalValue(CursorProperty) is Cursor cursor &&
+                (cursor == Cursors.Hand || cursor == Cursors.SizeWE || cursor == Cursors.SizeNS)) return true;
+            element = ShellInputParent(element);
         }
         return false;
+    }
+
+    private static DependencyObject? ShellInputParent(DependencyObject element) =>
+        element is Visual or System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(element) : LogicalTreeHelper.GetParent(element);
+
+    internal ScrollViewer? FindShellScrollCandidate(DependencyObject? source)
+    {
+        ScrollViewer? scroll = null;
+        bool list = false;
+        for (var node = source; node != null && node != NotchWrapper; node = ShellInputParent(node))
+        {
+            if (node is ListBox) list = true;
+            if (node is not ScrollViewer viewer) continue;
+            if (viewer.VerticalOffset > .5) return null;
+            scroll ??= viewer;
+        }
+        return scroll != null && (scroll.ScrollableHeight > 0 || list) ? scroll : null;
+    }
+
+    internal static bool ShouldClaimScrollDrag(ScrollViewer scroll, Point delta) =>
+        Math.Abs(delta.Y) >= 6 && Math.Abs(delta.Y) > Math.Abs(delta.X) && scroll.VerticalOffset <= .5 &&
+        (delta.Y < 0 || scroll.ScrollableHeight <= 0);
+
+    private void ContinueScrollShellGesture(object sender, MouseEventArgs e)
+    {
+        if (_shellPendingScroll is not { } scroll || !_gestureController.IsTracking) return;
+        if (e.LeftButton != MouseButtonState.Pressed) { CancelScrollShellCandidate(); return; }
+        var position = e.GetPosition(this);
+        var delta = position - _shellPendingScrollOrigin;
+        if (ShouldClaimScrollDrag(scroll, new Point(delta.X, delta.Y)))
+        {
+            _shellPendingScroll = null;
+            // Selection and ordinary list clicks keep their input until an upward push claims the shell.
+            NotchWrapper.CaptureMouse();
+            UpdateGestureTracking(position, DateTime.UtcNow);
+            e.Handled = true;
+        }
+        else if (Math.Abs(delta.X) >= 6 || delta.Y >= 6 && scroll.ScrollableHeight > 0)
+            CancelScrollShellCandidate();
+    }
+
+    private Point _shellPendingScrollOrigin;
+    private void CancelScrollShellCandidate()
+    {
+        if (_shellPendingScroll == null) return;
+        _shellPendingScroll = null;
+        _gestureController.CancelTracking();
+        _isGestureActive = false;
     }
 
     internal void BeginShellGestureTracking(Point position, DateTime timestamp)
@@ -72,6 +170,7 @@ public partial class MainWindow
         _shellDragOriginY = 0;
         _shellGestureInMotion = Motion.IsRunning(NotchBorder, WidthProperty) || Motion.IsRunning(NotchBorder, HeightProperty);
         _shellDragActive = false;
+        _shellDrawerStartHeight = ActiveDrawer?.DrawerHeight ?? 0;
         _shellLastSampleAt = timestamp;
         _gestureController.BeginTracking(position, allowShellDrag: true, expanded: _shellGestureWasOpen, timestamp: timestamp,
             allowMediaGestures: _currentMediaInfo?.IsAnyMediaPlaying == true);
@@ -225,4 +324,69 @@ public partial class MainWindow
 
     partial void MoveShellDrawer(double deltaY, ref bool handled);
     partial void FinishShellDrawer(double velocity, bool canceled, ref bool handled);
+
+    private ControlCenterView? ActiveDrawer => _transitionCoordinator?.TargetView switch
+    {
+        NotchView.Pi => PiCenter,
+        NotchView.School => SchoolCenter,
+        NotchView.Timer => ControlCenter,
+        _ => null
+    };
+
+    private void UpdateCompactTabStatus()
+    {
+        var center = ActiveDrawer;
+        bool system = ReferenceEquals(center, ControlCenter);
+        _compactStatusHost.Visibility = center == null ? Visibility.Collapsed : Visibility.Visible;
+        _compactSystemBattery.Visibility = system && _settings?.ShowBatteryIndicator == true ? Visibility.Visible : Visibility.Collapsed;
+        string status = center?.CompactStatus ?? "";
+        _compactTabStatus.Inlines.Clear();
+        if (!system)
+        {
+            if (status.StartsWith("♨ ", StringComparison.Ordinal))
+            {
+                _compactTabStatus.Inlines.Add(new Run("\uECAD ") { FontFamily = new FontFamily("Segoe Fluent Icons"), Foreground = new SolidColorBrush(Color.FromRgb(201, 176, 142)) });
+                status = status[2..];
+            }
+            int arrow = status.IndexOf('→');
+            _compactTabStatus.Inlines.Add(new Run(arrow < 0 ? status : status[..arrow]));
+            if (arrow >= 0) _compactTabStatus.Inlines.Add(new Run(status[arrow..]) { Foreground = new SolidColorBrush(Color.FromArgb(148, 255, 255, 255)) });
+        }
+        bool warning = system && status.Length > 0;
+        if (warning)
+        {
+            bool entering = _compactLoadWarning.Visibility != Visibility.Visible;
+            _compactWarningText.Text = status;
+            _compactLoadWarning.Visibility = Visibility.Visible;
+            if (entering) Motion.To(_compactLoadWarning, OpacityProperty, 1, Motion.Exit, from: 0);
+        }
+        else if (!system)
+        {
+            Motion.Stop(_compactLoadWarning, OpacityProperty, 0);
+            _compactLoadWarning.Visibility = Visibility.Collapsed;
+        }
+        else if (_compactLoadWarning.Visibility == Visibility.Visible)
+            Motion.To(_compactLoadWarning, OpacityProperty, 0, Motion.Exit, done: () =>
+            {
+                if (ControlCenter.CompactStatus.Length == 0) _compactLoadWarning.Visibility = Visibility.Collapsed;
+            });
+    }
+
+    partial void MoveShellDrawer(double deltaY, ref bool handled)
+    {
+        if (ActiveDrawer is not { } center || !center.MoveDrawer(deltaY)) return;
+        handled = true;
+        _shellAttachment.Detach(true);
+        double height = _shellDragStartHeight + center.DrawerHeight - _shellDrawerStartHeight;
+        Motion.Stop(NotchBorder, HeightProperty, height);
+        FrameworkElement host = ReferenceEquals(center, PiCenter) ? PiContent : ReferenceEquals(center, SchoolCenter) ? SchoolContent : TimerContent;
+        Motion.Stop(host, HeightProperty, Math.Max(0, height - host.Margin.Top - host.Margin.Bottom));
+    }
+
+    partial void FinishShellDrawer(double velocity, bool canceled, ref bool handled)
+    {
+        if (ActiveDrawer?.ReleaseDrawer(velocity, canceled) != true) return;
+        handled = true;
+        _isAnimating = false;
+    }
 }

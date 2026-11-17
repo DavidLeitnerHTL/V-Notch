@@ -335,6 +335,7 @@ public partial class MainWindow
 
     private void UpdateTimerNavIconsState()
     {
+        UpdateCompactTabStatus();
         // Expansion can call this before the local view flags are committed.
         // Set the timer state explicitly and release any previous opacity clocks.
         if (_navDragItem != HomeIconButton) AnimateNavIconOpacity(HomeIconButton, 0.45, animate: false);

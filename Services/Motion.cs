@@ -15,8 +15,8 @@ namespace VNotch.Services;
 internal static partial class Motion
 {
     // Shell: the notch itself opening and closing. Width leads, height swings a little longer.
-    public static readonly SpringMotion ShellOpenWidth = Ms(400, 0.44);
-    public static readonly SpringMotion ShellOpenHeight = Ms(520, 0.36);
+    public static readonly SpringMotion ShellOpenWidth = Ms(400, 0.48);
+    public static readonly SpringMotion ShellOpenHeight = Ms(520, 0.39);
     public static readonly SpringMotion ShellCloseWidth = Ms(340, 0.24);
     public static readonly SpringMotion ShellCloseHeight = Ms(300, 0.10);
 
@@ -79,7 +79,7 @@ internal static partial class Motion
     /// </summary>
     public static void To(DependencyObject target, DependencyProperty property, double to, SpringMotion spring,
         double? from = null, TimeSpan? delay = null, int? fps = null, Action? done = null, double? velocity = null,
-        bool keep = false)
+        bool keep = false, double acceleration = 0)
     {
         if (target is not IAnimatable animatable) throw new ArgumentException("Target cannot be animated.", nameof(target));
         var live = Live.GetOrCreateValue(target);
@@ -107,7 +107,7 @@ internal static partial class Motion
         double settle = Math.Clamp(Math.Abs(to - start) * 0.005, 0.0005, SpringDoubleAnimation.PixelSettle);
         // A width or height that swings below zero throws, so sizes stop at zero.
         bool isSize = property == FrameworkElement.WidthProperty || property == FrameworkElement.HeightProperty;
-        var animation = spring.Animate(start, to, speed, settle, isSize ? 0 : double.NegativeInfinity);
+        var animation = spring.Animate(start, to, speed, settle, isSize ? 0 : double.NegativeInfinity, acceleration);
         if (animation.Duration.TimeSpan <= TimeSpan.Zero)
         {
             live.Remove(property);

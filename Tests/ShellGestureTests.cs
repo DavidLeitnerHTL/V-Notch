@@ -16,6 +16,40 @@ namespace VNotch.Tests;
 public sealed class ShellGestureTests
 {
     [Fact]
+    public void EmptySurfacesIncludingTheHeaderIgnoreTheShellsInheritedHandCursor() => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        await using var fixture = CreateFixture();
+        var w = fixture.Window;
+        foreach (FrameworkElement surface in new FrameworkElement[] { w.PiCenter, w.SchoolCenter, w.ControlCenter,
+            w.ClaudeCenter, w.TimerContent, w.WeatherContent, w.ExpandedContent, w.CalendarInnerContent,
+            w.SecondaryContent, w.CameraContent, w.AudioContent, w.NavIconsPanel })
+            Assert.False(w.IsShellDragControl(surface));
+        Assert.True(w.IsShellDragControl(new Button()));
+        Assert.True(w.IsShellDragControl(new Slider()));
+        Assert.True(w.IsShellDragControl(new TextBox()));
+        var scroll = new ScrollViewer { Height = 60, Width = 100, Content = new Border { Height = 200 } };
+        scroll.Measure(new Size(100, 60)); scroll.Arrange(new Rect(0, 0, 100, 60)); scroll.UpdateLayout();
+        Assert.False(w.IsShellDragControl(scroll));
+        Assert.Same(scroll, w.FindShellScrollCandidate(scroll));
+        Assert.True(MainWindow.ShouldClaimScrollDrag(scroll, new Point(0, -8)));
+        Assert.False(MainWindow.ShouldClaimScrollDrag(scroll, new Point(0, 8)));
+        Assert.False(MainWindow.ShouldClaimScrollDrag(scroll, new Point(12, -8)));
+        scroll.ScrollToVerticalOffset(40); scroll.UpdateLayout();
+        Assert.True(w.IsShellDragControl(scroll));
+        Assert.Null(w.FindShellScrollCandidate(scroll));
+        var shortList = new ListBox { Width = 100, Height = 100,
+            Template = new ControlTemplate(typeof(ListBox)) { VisualTree = new FrameworkElementFactory(typeof(ScrollViewer)) } };
+        shortList.ApplyTemplate(); shortList.Measure(new Size(100, 100));
+        shortList.Arrange(new Rect(0, 0, 100, 100)); shortList.UpdateLayout();
+        var listScroll = HomeSchoolTabTests.Descendants<ScrollViewer>(shortList).First();
+        Assert.Equal(0, listScroll.ScrollableHeight);
+        Assert.False(w.IsShellDragControl(listScroll));
+        Assert.Same(listScroll, w.FindShellScrollCandidate(listScroll));
+        Assert.True(MainWindow.ShouldClaimScrollDrag(listScroll, new Point(0, -8)));
+        await Task.CompletedTask;
+    });
+
+    [Fact]
     public void AttachmentUsesShellProgressAndRetainsItsFrameWhenReattached() => SharedStaTestRunner.Run(() =>
     {
         var shell = new Border { Width = 300, Height = 40 };
@@ -64,7 +98,7 @@ public sealed class ShellGestureTests
             var start = DateTime.UtcNow;
             window.BeginShellGestureTracking(new Point(), start);
             window.UpdateGestureTracking(new Point(0, distance), start.AddMilliseconds(milliseconds));
-            Assert.Equal(height + distance, window.NotchBorder.Height, 6);
+            Assert.Equal(Math.Max(40, height + distance), window.NotchBorder.Height, 6);
             Assert.Equal(Visibility.Visible, window.SecondaryContent.Visibility);
             double releasedWidth = window.NotchBorder.Width, releasedHeight = window.NotchBorder.Height;
             window.FinishShellDrag(false, start.AddMilliseconds(milliseconds));
@@ -103,11 +137,12 @@ public sealed class ShellGestureTests
             var start = DateTime.UtcNow;
             window.BeginShellGestureTracking(new Point(), start);
             window.UpdateGestureTracking(new Point(0, distance), start.AddMilliseconds(250));
-            Assert.Equal(height + (distance > 0 ? MainWindow.ShellRubber(distance, 26) : distance), window.NotchBorder.Height, 6);
+            Assert.Equal(Math.Max(40, height + distance), window.NotchBorder.Height, 6);
             window.FinishShellDrag(false, start.AddMilliseconds(250));
             Assert.Equal(closes ? NotchView.Compact : NotchView.Timer, coordinator.TargetView);
             await WpfFrameWaiter.UntilAsync(() => !coordinator.IsTransitionActive, "push settles", ct);
-            if (!closes) Assert.Equal(height, window.NotchBorder.Height, 6);
+            if (distance > 0) Assert.True(window.ControlCenter.DrawerOpen);
+            else if (!closes) Assert.Equal(height, window.NotchBorder.Height, 6);
         }
         finally { AnimationConfig.SetReduceMotion(previous); }
     });

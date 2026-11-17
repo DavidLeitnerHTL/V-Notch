@@ -128,6 +128,7 @@ public partial class MainWindow
 
     private void UpdateNavIconsActiveState(bool animate = true)
     {
+        UpdateCompactTabStatus();
         if (HomeIconButton == null || ClipboardIconButton == null || TimerIconButton == null || AudioIconButton == null)
             return;
 

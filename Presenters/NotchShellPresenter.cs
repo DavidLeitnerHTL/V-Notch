@@ -101,7 +101,7 @@ public sealed class NotchShellPresenter : IDisposable
             if (Math.Abs(border.Width - plan.TargetWidth) < 1) Motion.Stop(border, FrameworkElement.WidthProperty, plan.TargetWidth);
             widthArrived = true;
             Arrived();
-        }, velocity: widthVelocity, keep: true);
+        }, velocity: widthVelocity, keep: true, acceleration: closing ? .25 : 0);
         _heightArrived = () =>
         {
             if (!IsCurrent(sessionId, version)) return;
@@ -110,7 +110,7 @@ public sealed class NotchShellPresenter : IDisposable
             heightArrived = true;
             Arrived();
         };
-        Motion.To(border, FrameworkElement.HeightProperty, plan.TargetHeight, heightSpring, fps: fps, done: _heightArrived, velocity: heightVelocity, keep: true);
+        Motion.To(border, FrameworkElement.HeightProperty, plan.TargetHeight, heightSpring, fps: fps, done: _heightArrived, velocity: heightVelocity, keep: true, acceleration: closing ? .25 : 0);
 
         // Pills, banners and the timer still move the notch with plain animations. One of those cuts a spring off
         // without telling it, and the session would wait for an ending that never comes.

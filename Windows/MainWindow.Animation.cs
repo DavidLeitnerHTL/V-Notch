@@ -1078,7 +1078,7 @@ public partial class MainWindow
         {
             if (!switchingExpandedViews) VNotch.Presenters.NotchContentTransitionPresenter.ClearTransformAndEffects(TimerContent);
             targetWidth = _clockViewWidth;
-            targetHeight = _clockViewHeight;
+            targetHeight = MeasureSystemViewHeight();
             if (targetHeight > currentHeight)
                 ApplyClockViewWindowSize();
             PrepareClockViewContentSize();

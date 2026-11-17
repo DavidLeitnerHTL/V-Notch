@@ -45,6 +45,7 @@ public partial class MainWindow
         // Settings load after this runs, and anything that pumps messages meanwhile can let the views build:
         // until then they are plain-skinned and offline.
         ControlCenter.Attach(() => _settings != null && IsLiquidGlassEnabled);
+        ControlCenter.ContentHeightChanged += OnSystemContentHeightChanged;
         ControlCenter.AttachBackdrop(SystemBackdrop);
         ClaudeCenter.AttachClaude(_claudeTracker, _claudeHookServer, _claudeUsage, _codexUsage,
             () => _settings?.EnableLocalOnlyMode ?? true, () => _settings != null && IsLiquidGlassEnabled);
@@ -103,6 +104,7 @@ public partial class MainWindow
             _claudeTracker.PermissionRequested -= OnClaudePermissionRequestedSound;
         }
         ControlCenter.Dispose();
+        ControlCenter.ContentHeightChanged -= OnSystemContentHeightChanged;
         ClaudeCenter.Dispose();
         // Hands every held request back to Claude Code's own dialog.
         _claudeHookServer?.Dispose();
