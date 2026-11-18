@@ -1900,6 +1900,8 @@ public partial class SpotlightWindow : Window
     private void RefreshStatus()
     {
         if (_aiMode) { RefreshAiPanel(); return; }
+        // Keep the current content intact until the closing morph has faded it out.
+        if (_isClosing) return;
         // Instant and deferred providers publish separately. Keep the current
         // height until the query completes instead of shrinking to partial rows.
         if (_viewModel.IsSearching && _contentShown && !_entranceActive && !_searchHeightHeld)
@@ -2228,7 +2230,7 @@ public partial class SpotlightWindow : Window
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () =>
         {
             _contentResizeQueued = false;
-            if (generation != _contentSizeGeneration || !_contentShown || _entranceActive) return;
+            if (generation != _contentSizeGeneration || !_contentShown || _entranceActive || _isClosing) return;
             bool searchPending = _viewModel.IsSearching || _searchInputPending;
             // Measure the child without releasing the visible border to Auto:
             // UpdateLayout on the border would snap it before animating back.
@@ -2925,6 +2927,7 @@ public partial class SpotlightWindow : Window
         ClearLaunchFailure();
         SetResultsDimmed(false, animate: false);
         UpdateSearchingGrace(false);
+        SetSearchActivity(false);
         ResetSelectionGlide();
         SearchBox.Text = string.Empty;
         _viewModel.Reset();
