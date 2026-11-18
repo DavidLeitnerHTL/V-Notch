@@ -13,6 +13,9 @@ public interface ISpotlightController : IDisposable
     bool IsHotkeyRegistered { get; }
     void Initialize(Window host, NotchSettings settings);
     void ApplySettings(NotchSettings settings);
+
+    /// <summary>A fullscreen app has hidden the notch, or no longer does.</summary>
+    void SetFullscreenAppInFront(bool inFront) { }
 }
 
 internal sealed partial class SpotlightController : ISpotlightController, IAsyncDisposable
@@ -221,9 +224,18 @@ internal sealed partial class SpotlightController : ISpotlightController, IAsync
     private void Window_OpenStateChanged(object? sender, EventArgs e) => UpdateKeyboardHook();
     private void Window_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e) => UpdateKeyboardHook();
 
+    private bool _fullscreenAppInFront;
+
+    public void SetFullscreenAppInFront(bool inFront)
+    {
+        _fullscreenAppInFront = inFront;
+        _window?.SetFullscreenAppInFront(inFront);
+    }
+
     private SpotlightWindow CreateWindow()
     {
         var window = _windowFactory();
+        window.SetFullscreenAppInFront(_fullscreenAppInFront);
         window.OpenStateChanged += Window_OpenStateChanged;
         window.IsVisibleChanged += Window_IsVisibleChanged;
         window.IntroDismissed += Window_IntroDismissed;

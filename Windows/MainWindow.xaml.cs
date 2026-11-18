@@ -1051,6 +1051,7 @@ public partial class MainWindow : Window
         // A muted mic in a call stays visible as a tab while a fullscreen app hides the notch.
         ApplyMicMutedPresentation();
         _isFullscreenSlideAnimating = true;
+        UpdateFullscreenParking();
 
         double slideDistance = NotchVisibilitySlideDistance;
 
@@ -1092,6 +1093,7 @@ public partial class MainWindow : Window
                     NotchContainer.BeginAnimation(UIElement.OpacityProperty, null);
                     NotchContainer.Opacity = 0;
                 }
+                UpdateFullscreenParking();
             });
         }
     }
@@ -1161,6 +1163,7 @@ public partial class MainWindow : Window
         }
 
         ApplyNotchVisibilityState();
+        UpdateFullscreenParking();
 
         RefreshAmbientAnimations();
 
