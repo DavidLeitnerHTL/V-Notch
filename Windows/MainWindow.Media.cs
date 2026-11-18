@@ -20,7 +20,6 @@ public partial class MainWindow
     private ImageSource? _pendingFlipThumbnail;
     private int _thumbnailSwitchGeneration = 0;
     private int _compactThumbnailAnimationGeneration = 0;
-    private bool _thumbnailShownForCurrentTrack = false;
     private bool _isThumbnailSwitchActive = false;
     private bool _showingEmptyThumbnail;
     private int _emptyThumbnailGeneration;
@@ -155,8 +154,7 @@ public partial class MainWindow
                 HideMediaBackground();
             }
         }
-        var result = _mediaDisplayController.ProcessMediaUpdate(
-            displayInfo, _isExpanded, _isMusicExpanded, _isMusicCompactMode, _isAnimating);
+        var result = _mediaDisplayController.ProcessMediaUpdate(displayInfo);
 
         UpdateSpotifyCanvasPlaybackState(info);
 
@@ -176,8 +174,6 @@ public partial class MainWindow
             ++_emptyThumbnailGeneration;
             ResetEmptyThumbnailAnimation();
         }
-
-        _thumbnailShownForCurrentTrack = _mediaDisplayController.ThumbnailShownForCurrentTrack;
 
         string renderedSource = result.RenderedSource;
 
@@ -382,7 +378,6 @@ public partial class MainWindow
                 HideMediaBackground();
                 ClearLyrics();
                 UpdatePictureInPictureBadge(false, animate: false);
-                Task.Run(async () => { await Task.Delay(450).ConfigureAwait(false); _mediaService.ArtworkService.TrimMemory(compactWorkingSet: true); }).SafeFireAndForget("MEDIA-STOP-TRIM");
             }
         }
 
@@ -892,7 +887,6 @@ public partial class MainWindow
                     {
                         AnimateThumbnailSwitchOnly(info.Thumbnail);
                     }
-                    _thumbnailShownForCurrentTrack = true;
                 }
                 else
                 {

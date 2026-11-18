@@ -203,6 +203,9 @@ public partial class MainWindow
         _spotifyCanvasController?.Dispose();
         _spotifyCanvasController = null;
         _spotifyCanvasPresenter = null;
+        for (int i = LyricsCanvasViewport.Children.Count - 1; i >= 0; i--)
+            if (LyricsCanvasViewport.Children[i] is MediaElement)
+                LyricsCanvasViewport.Children.RemoveAt(i);
     }
 
     internal void UpdateSpotifyCanvasPresentationContext()

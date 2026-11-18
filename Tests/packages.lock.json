@@ -369,16 +369,16 @@
           "Microsoft.ML.OnnxRuntime.DirectML": "[1.24.4, )",
           "Microsoft.Web.WebView2": "[1.0.4078.44, )",
           "System.Management": "[8.0.0, )",
-          "VNotch.Application": "[1.0.0, )",
-          "VNotch.Core": "[1.0.0, )",
-          "VNotch.Infrastructure.Windows": "[1.0.0, )",
+          "VNotch.Application": "[2.4.1, )",
+          "VNotch.Core": "[2.4.1, )",
+          "VNotch.Infrastructure.Windows": "[2.4.1, )",
           "Vortice.Direct3D9": "[3.8.3, )"
         }
       },
       "vnotch.application": {
         "type": "Project",
         "dependencies": {
-          "VNotch.Core": "[1.0.0, )"
+          "VNotch.Core": "[2.4.1, )"
         }
       },
       "vnotch.core": {
@@ -387,7 +387,7 @@
       "vnotch.infrastructure.windows": {
         "type": "Project",
         "dependencies": {
-          "VNotch.Core": "[1.0.0, )"
+          "VNotch.Core": "[2.4.1, )"
         }
       }
     },

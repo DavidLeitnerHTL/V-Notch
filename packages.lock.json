@@ -242,7 +242,7 @@
       "vnotch.application": {
         "type": "Project",
         "dependencies": {
-          "VNotch.Core": "[1.0.0, )"
+          "VNotch.Core": "[2.4.1, )"
         }
       },
       "vnotch.core": {
@@ -251,7 +251,7 @@
       "vnotch.infrastructure.windows": {
         "type": "Project",
         "dependencies": {
-          "VNotch.Core": "[1.0.0, )"
+          "VNotch.Core": "[2.4.1, )"
         }
       }
     },

@@ -44,8 +44,7 @@ public partial class MainWindow
         if (_cleanedUp || _activeSettingsWindow != null) return;
         if (_settingsPreparationExpiry != null)
         {
-            _settingsPreparationExpiry.Stop();
-            _settingsPreparationExpiry.Start();
+            RestartSettingsPreparationExpiry();
             return;
         }
         if (_settingsPreparationScheduled) return;
@@ -65,18 +64,33 @@ public partial class MainWindow
             _preparedSettingsSnapshot = _settings.Clone();
             var prepared = CreateSettingsWindow(prepareForFirstShow: true);
             _preparedSettingsWindow = prepared;
-            _settingsPreparationExpiry = new UiScheduledTimer(TimeSpan.FromSeconds(30),
-                System.Windows.Threading.DispatcherPriority.Background, (_, _) => DetachPreparedSettingsWindow()?.Close(), Dispatcher);
             await Dispatcher.InvokeAsync(static () => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
             if (!await WaitForSettingsPreparationIdleAsync(generation) || !ReferenceEquals(prepared, _preparedSettingsWindow)) return;
             await prepared.PrepareForFirstShowAsync();
+            if (generation == _settingsPreparationGeneration && ReferenceEquals(prepared, _preparedSettingsWindow))
+                RestartSettingsPreparationExpiry();
         }
         catch (Exception ex)
         {
-            if (generation == _settingsPreparationGeneration) DetachPreparedSettingsWindow()?.Close();
+            if (generation == _settingsPreparationGeneration) ReleasePreparedSettingsWindow();
             RuntimeLog.Warn("FIRST-OPEN", $"Settings preparation skipped: {ex.GetType().Name}");
         }
     }
+
+    private void RestartSettingsPreparationExpiry()
+    {
+        if (_settingsPreparationExpiry == null)
+        {
+            _settingsPreparationExpiry = new UiScheduledTimer(TimeSpan.FromSeconds(30),
+                System.Windows.Threading.DispatcherPriority.Background, (_, _) => ReleasePreparedSettingsWindow(), Dispatcher);
+            return;
+        }
+
+        _settingsPreparationExpiry.Stop();
+        _settingsPreparationExpiry.Start();
+    }
+
+    private void ReleasePreparedSettingsWindow() => DetachPreparedSettingsWindow()?.Close();
 
     private async Task<bool> WaitForSettingsPreparationIdleAsync(int generation)
     {
@@ -168,7 +182,7 @@ public partial class MainWindow
 
     private void DiscardPreparedSettingsWindow()
     {
-        DetachPreparedSettingsWindow()?.Close();
+        ReleasePreparedSettingsWindow();
         var active = _activeSettingsWindow;
         _activeSettingsWindow = null;
         active?.Close();

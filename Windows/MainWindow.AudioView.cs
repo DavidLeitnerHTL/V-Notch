@@ -107,7 +107,6 @@ public partial class MainWindow
         }
         if (fromPrimary)
         {
-            ClearGlassMediaTint();
             HideMediaBackgroundOverlay();
             if (LyricsBlurBackground != null && LyricsBlurBackground.Visibility == Visibility.Visible)
             {

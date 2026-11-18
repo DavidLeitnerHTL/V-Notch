@@ -2653,6 +2653,8 @@
                             <Grid x:Name="LyricsCanvasViewport"
                                   Background="Transparent"
                                   ClipToBounds="True">
+                                <!-- Players are added on first Canvas use. Even an empty
+                                     MediaElement initializes the native video subsystem. -->
                                 <Rectangle x:Name="LyricsCanvasBrightnessOverlay"
                                            Fill="Black"
                                            Opacity="0.3"
