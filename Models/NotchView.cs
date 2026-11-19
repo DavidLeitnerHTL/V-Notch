@@ -13,3 +13,15 @@ public enum NotchView
     School,
     AiUsage,
 }
+
+public enum NotchShapeState
+{
+    Collapsed,
+    Expanding,
+    Expanded,
+    Collapsing,
+    MusicExpanding,
+    MusicExpanded,
+    MusicCollapsing,
+    Hidden
+}

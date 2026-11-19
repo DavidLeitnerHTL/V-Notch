@@ -280,7 +280,7 @@ public partial class SpotlightWindow
         StatusPanel.Visibility = Visibility.Collapsed;
         HomePanel.Visibility = Visibility.Collapsed;
         AiPanel.Visibility = Visibility.Visible;
-        SetSearchActivity(false);
+        _searchMotion.SetActive(false);
         UpdateAiActivity();
         UpdateAiActionState();
         UpdateAiUsage();

@@ -106,6 +106,7 @@ public partial class SpotlightWindow : Window
         _chatStore = chatStore ?? new SpotlightChatStore();
         _chatSession = new VNotch.ApplicationServices.ChatSession(_chatStore);
         InitializeComponent();
+        _searchMotion = new(SearchActivity, StatusPanel, SearchActivityRotation);
         LocalizedPresentation.Apply(this);
         // See-through by DWM instead of a layered window: the morph out of the notch moves and resizes this big
         // window every frame, and the layered path copied each of those frames back from the GPU.
@@ -120,7 +121,7 @@ public partial class SpotlightWindow : Window
         RefreshLocalization();
         ApplyLiquidGlassSkin();
         SyncSearchIconState(animate: false);
-        SearchActivity.IsVisibleChanged += (_, _) => RefreshSearchActivityMotion();
+        SearchActivity.IsVisibleChanged += (_, _) => _searchMotion.Refresh();
         AnimationConfig.ReduceMotionChanged += OnSearchMotionPreferenceChanged;
 
         // Activation from the global hotkey can land after ShowSpotlight has
@@ -594,7 +595,7 @@ public partial class SpotlightWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         AnimationConfig.ReduceMotionChanged -= OnSearchMotionPreferenceChanged;
-        SetSearchActivity(false);
+        _searchMotion.SetActive(false);
         ClearLaunchFailure();
         CancelSearchingGrace();
         _glassResourceExpiry?.Dispose();
@@ -1245,11 +1246,29 @@ public partial class SpotlightWindow : Window
         _quickActionIconScales.Clear();
         QuickActionsItems.Children.Clear();
 
-        var menu = new ContextMenu
-        {
-            Style = (Style)FindResource("SpotlightContextMenuStyle")
-        };
+        var menu = BuildResultContextMenu(item);
+        BindQuickActionsHeader(item);
 
+        VnQuickActionsSlideMotionOut motion;
+        NativeComputeSpotlightQuickActionsMotion(1, Shell.ActualWidth, AnimationConfig.ReduceMotion ? (byte)1 : (byte)0, &motion);
+
+        var sfPro = (FontFamily)FindResource("SFProDisplay");
+        var primaryBrush = (Brush)FindResource("TitleTextBrush");
+        var hoverBrush = (Brush)FindResource("HoverItemBrush");
+
+        for (int i = 0; i < menu.Items.Count; i++)
+        {
+            if (menu.Items[i] is not MenuItem mi) continue;
+            AddQuickActionRow(mi, motion, sfPro, primaryBrush, hoverBrush);
+        }
+
+        ShowQuickActionsPanel(menu, motion);
+        return menu;
+    }
+
+    private ContextMenu BuildResultContextMenu(SpotlightSearchItem item)
+    {
+        var menu = new ContextMenu { Style = (Style)FindResource("SpotlightContextMenuStyle") };
         if (item.Kind == SpotlightResultKind.Calculation)
         {
             AddMenuItem(menu, Loc.Get("spotlight.copy"), () =>
@@ -1269,141 +1288,143 @@ public partial class SpotlightWindow : Window
         }
 
         AddPersonalizationActions(menu, item);
+        return menu;
+    }
 
+    private void BindQuickActionsHeader(SpotlightSearchItem item)
+    {
+        var presentation = new SpotlightResultPresentation(item);
         QuickActionsTargetIcon.Source = item.Icon;
         QuickActionsTargetIcon.Visibility = item.Icon != null ? Visibility.Visible : Visibility.Collapsed;
-        QuickActionsTargetSolidIcon.Data = item.SolidIcon;
-        QuickActionsTargetSolidBox.Visibility = item.Icon == null && item.SolidIcon != null ? Visibility.Visible : Visibility.Collapsed;
-        QuickActionsTargetTitle.Text = item.DisplayTitle;
-        QuickActionsTargetSubtitle.Text = item.DisplaySubtitle;
-        QuickActionsTargetSubtitle.Visibility = string.IsNullOrWhiteSpace(item.DisplaySubtitle) ? Visibility.Collapsed : Visibility.Visible;
+        QuickActionsTargetSolidIcon.Data = presentation.SolidIcon;
+        QuickActionsTargetSolidBox.Visibility = item.Icon == null && QuickActionsTargetSolidIcon.Data != null ? Visibility.Visible : Visibility.Collapsed;
+        QuickActionsTargetTitle.Text = presentation.DisplayTitle;
+        QuickActionsTargetSubtitle.Text = presentation.DisplaySubtitle;
+        QuickActionsTargetSubtitle.Visibility = string.IsNullOrWhiteSpace(QuickActionsTargetSubtitle.Text) ? Visibility.Collapsed : Visibility.Visible;
+    }
 
-        VnQuickActionsSlideMotionOut motion;
-        NativeComputeSpotlightQuickActionsMotion(1, Shell.ActualWidth, AnimationConfig.ReduceMotion ? (byte)1 : (byte)0, &motion);
+    private void AddQuickActionRow(
+        MenuItem mi,
+        VnQuickActionsSlideMotionOut motion,
+        FontFamily sfPro,
+        Brush primaryBrush,
+        Brush hoverBrush)
+    {
+        int actionIndex = _quickActionCallbacks.Count;
+        Action callback = () => mi.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+        _quickActionCallbacks.Add(callback);
 
-        var sfPro = (FontFamily)FindResource("SFProDisplay");
-        var primaryBrush = (Brush)FindResource("TitleTextBrush");
-        var hoverBrush = (Brush)FindResource("HoverItemBrush");
-
-        for (int i = 0; i < menu.Items.Count; i++)
+        var rowTranslate = new TranslateTransform(motion.ItemSlideX, 0);
+        var hoverSurface = new Border
         {
-            if (menu.Items[i] is not MenuItem mi) continue;
-            int actionIndex = _quickActionCallbacks.Count;
-            Action callback = () => mi.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
-            _quickActionCallbacks.Add(callback);
+            Background = hoverBrush,
+            CornerRadius = new CornerRadius(8),
+            Opacity = 0,
+            IsHitTestVisible = false
+        };
 
-            var rowTranslate = new TranslateTransform(motion.ItemSlideX, 0);
-            var hoverSurface = new Border
-            {
-                Background = hoverBrush,
-                CornerRadius = new CornerRadius(8),
-                Opacity = 0,
-                IsHitTestVisible = false
-            };
+        var rowGrid = new Grid();
+        rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        rowGrid.Children.Add(new TextBlock
+        {
+            Text = mi.Header?.ToString() ?? string.Empty,
+            FontFamily = sfPro,
+            FontSize = 13.5,
+            FontWeight = FontWeights.Bold,
+            Foreground = primaryBrush,
+            VerticalAlignment = VerticalAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        });
 
-            var rowGrid = new Grid();
-            rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        double initialOpacity = actionIndex == 0 ? 0.96 : 0.56;
+        double initialScale = actionIndex == 0 ? 1.1 : 1.0;
+        var iconScale = new ScaleTransform(initialScale, initialScale);
+        var rightIcon = new System.Windows.Shapes.Path
+        {
+            Data = mi.DataContext as Geometry ?? QuickActionOpenGeometry,
+            Fill = Brushes.White,
+            Stretch = Stretch.None,
+            Opacity = initialOpacity,
+            IsHitTestVisible = false
+        };
+        var iconCanvas = new Canvas { Width = 24, Height = 24 };
+        iconCanvas.Children.Add(rightIcon);
+        var iconViewbox = new Viewbox
+        {
+            Width = 16,
+            Height = 16,
+            Stretch = Stretch.Uniform,
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin = new Thickness(14, 0, 2, 0),
+            RenderTransformOrigin = new Point(0.5, 0.5),
+            RenderTransform = iconScale,
+            IsHitTestVisible = false,
+            Child = iconCanvas
+        };
+        Grid.SetColumn(iconViewbox, 1);
+        rowGrid.Children.Add(iconViewbox);
+        _quickActionRightIcons.Add(rightIcon);
+        _quickActionIconScales.Add(iconScale);
 
-            var labelText = new TextBlock
-            {
-                Text = mi.Header?.ToString() ?? string.Empty,
-                FontFamily = sfPro,
-                FontSize = 13.5,
-                FontWeight = FontWeights.Bold,
-                Foreground = primaryBrush,
-                VerticalAlignment = VerticalAlignment.Center,
-                TextTrimming = TextTrimming.CharacterEllipsis
-            };
-            rowGrid.Children.Add(labelText);
+        var rowContainer = new Grid
+        {
+            Margin = new Thickness(9, 1, 9, 1),
+            Background = Brushes.Transparent,
+            Cursor = Cursors.Hand,
+            RenderTransform = rowTranslate
+        };
+        rowContainer.Children.Add(hoverSurface);
+        rowContainer.Children.Add(new Border { Padding = new Thickness(15, 7, 15, 7), Child = rowGrid });
 
-            var iconGeom = mi.DataContext as Geometry ?? QuickActionOpenGeometry;
-            double initialOpacity = actionIndex == 0 ? 0.96 : 0.56;
-            double initialScale = actionIndex == 0 ? 1.1 : 1.0;
-            var iconScale = new ScaleTransform(initialScale, initialScale);
-            var rightIcon = new System.Windows.Shapes.Path
-            {
-                Data = iconGeom,
-                Fill = Brushes.White,
-                Stretch = Stretch.None,
-                Opacity = initialOpacity,
-                IsHitTestVisible = false
-            };
-            var iconCanvas = new Canvas
-            {
-                Width = 24,
-                Height = 24
-            };
-            iconCanvas.Children.Add(rightIcon);
-            var iconViewbox = new Viewbox
-            {
-                Width = 16,
-                Height = 16,
-                Stretch = Stretch.Uniform,
-                VerticalAlignment = VerticalAlignment.Center,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(14, 0, 2, 0),
-                RenderTransformOrigin = new Point(0.5, 0.5),
-                RenderTransform = iconScale,
-                IsHitTestVisible = false,
-                Child = iconCanvas
-            };
-            Grid.SetColumn(iconViewbox, 1);
-            rowGrid.Children.Add(iconViewbox);
-            _quickActionRightIcons.Add(rightIcon);
-            _quickActionIconScales.Add(iconScale);
+        rowContainer.MouseEnter += (_, _) =>
+        {
+            SelectQuickActionIndex(actionIndex, animateGlide: true);
+            Motion.To(hoverSurface, OpacityProperty, 1, Motion.Press);
+        };
+        rowContainer.MouseLeave += (_, _) => Motion.To(hoverSurface, OpacityProperty, 0, Motion.Exit);
+        rowContainer.MouseLeftButtonUp += (_, me) =>
+        {
+            CloseResultContextMenu(animate: false);
+            callback();
+            me.Handled = true;
+        };
 
-            var contentBorder = new Border
-            {
-                Padding = new Thickness(15, 7, 15, 7),
-                Child = rowGrid
-            };
+        QuickActionsItems.Children.Add(rowContainer);
+        AnimateQuickActionRowEntrance(rowContainer, rowTranslate, rightIcon, iconScale, actionIndex, initialOpacity, initialScale, motion);
+    }
 
-            var rowContainer = new Grid
-            {
-                Margin = new Thickness(9, 1, 9, 1),
-                Background = Brushes.Transparent,
-                Cursor = Cursors.Hand,
-                RenderTransform = rowTranslate
-            };
-            rowContainer.Children.Add(hoverSurface);
-            rowContainer.Children.Add(contentBorder);
-
-            rowContainer.MouseEnter += (_, _) =>
-            {
-                SelectQuickActionIndex(actionIndex, animateGlide: true);
-                Motion.To(hoverSurface, OpacityProperty, 1, Motion.Press);
-            };
-            rowContainer.MouseLeave += (_, _) => Motion.To(hoverSurface, OpacityProperty, 0, Motion.Exit);
-            rowContainer.MouseLeftButtonUp += (_, me) =>
-            {
-                CloseResultContextMenu(animate: false);
-                callback();
-                me.Handled = true;
-            };
-
-            QuickActionsItems.Children.Add(rowContainer);
-
-            if (!AnimationConfig.ReduceMotion && motion.EnterDurationMs > 0)
-            {
-                // Rows arrive on Tile one after another; each icon pops in a step behind its row.
-                var delay = Motion.Stagger(actionIndex);
-                var iconDelay = Motion.Stagger(actionIndex + 1);
-                Motion.To(rowTranslate, TranslateTransform.XProperty, 0, Motion.Tile, from: motion.ItemSlideX, delay: delay);
-                Motion.To(rowTranslate, TranslateTransform.YProperty, 0, Motion.Tile, from: -5, delay: delay);
-                Motion.To(rowContainer, OpacityProperty, 1, Motion.Tile, from: 0, delay: delay);
-
-                Motion.To(rightIcon, OpacityProperty, initialOpacity, Motion.Tile, from: 0, delay: iconDelay);
-                Motion.To(iconScale, ScaleTransform.ScaleXProperty, initialScale, Motion.Tile, from: 0.68, delay: iconDelay);
-                Motion.To(iconScale, ScaleTransform.ScaleYProperty, initialScale, Motion.Tile, from: 0.68, delay: iconDelay);
-            }
-            else
-            {
-                rowTranslate.X = 0;
-                rowTranslate.Y = 0;
-            }
+    private static void AnimateQuickActionRowEntrance(
+        Grid rowContainer,
+        TranslateTransform rowTranslate,
+        System.Windows.Shapes.Path rightIcon,
+        ScaleTransform iconScale,
+        int actionIndex,
+        double initialOpacity,
+        double initialScale,
+        VnQuickActionsSlideMotionOut motion)
+    {
+        if (AnimationConfig.ReduceMotion || motion.EnterDurationMs <= 0)
+        {
+            rowTranslate.X = 0;
+            rowTranslate.Y = 0;
+            return;
         }
 
+        // The icon enters one stagger step behind its row.
+        var delay = Motion.Stagger(actionIndex);
+        var iconDelay = Motion.Stagger(actionIndex + 1);
+        Motion.To(rowTranslate, TranslateTransform.XProperty, 0, Motion.Tile, from: motion.ItemSlideX, delay: delay);
+        Motion.To(rowTranslate, TranslateTransform.YProperty, 0, Motion.Tile, from: -5, delay: delay);
+        Motion.To(rowContainer, OpacityProperty, 1, Motion.Tile, from: 0, delay: delay);
+        Motion.To(rightIcon, OpacityProperty, initialOpacity, Motion.Tile, from: 0, delay: iconDelay);
+        Motion.To(iconScale, ScaleTransform.ScaleXProperty, initialScale, Motion.Tile, from: 0.68, delay: iconDelay);
+        Motion.To(iconScale, ScaleTransform.ScaleYProperty, initialScale, Motion.Tile, from: 0.68, delay: iconDelay);
+    }
+
+    private void ShowQuickActionsPanel(ContextMenu menu, VnQuickActionsSlideMotionOut motion)
+    {
         double lockedHeight = ContentRegion.ActualHeight;
         if (lockedHeight > 0 && !AnimationConfig.ReduceMotion)
         {
@@ -1430,7 +1451,7 @@ public partial class SpotlightWindow : Window
             ResetResultsListImmediate(visibility: Visibility.Collapsed);
             ResetQuickActionsPanelImmediate(1);
             ScheduleContentResize();
-            return menu;
+            return;
         }
 
         ResultsList.IsHitTestVisible = false;
@@ -1449,7 +1470,6 @@ public partial class SpotlightWindow : Window
         Motion.To(QuickActionsPanel, OpacityProperty, 1, Motion.Tile, from: 0);
 
         AnimateQuickActionsViewportHeight(lockedHeight);
-        return menu;
     }
 
     private void AddMenuItem(ContextMenu menu, string header, Action action, Geometry? iconGeometry = null)
@@ -1690,7 +1710,7 @@ public partial class SpotlightWindow : Window
         ClearLaunchFailure();
         // The target is stale (moved or uninstalled); keep Enter useful by
         _viewModel.RemoveResult(item);
-        ShowSpotlightMessage(Loc.Get("spotlight.launchFailed", item.DisplayTitle));
+        ShowSpotlightMessage(Loc.Get("spotlight.launchFailed", new SpotlightResultPresentation(item).DisplayTitle));
     }
 
     private void ShowSpotlightMessage(string message)
@@ -1893,7 +1913,7 @@ public partial class SpotlightWindow : Window
     {
         if (_aiMode) { AutocompleteText.Visibility = Visibility.Collapsed; return; }
         string query = SearchBox.Text;
-        string? title = _viewModel.Results.Count > 0 ? _viewModel.Results[0].DisplayTitle : null;
+        string? title = _viewModel.Results.Count > 0 ? new SpotlightResultPresentation(_viewModel.Results[0]).DisplayTitle : null;
         if (string.IsNullOrEmpty(query)
             || title == null
             || title.Length <= query.Length
@@ -1986,7 +2006,7 @@ public partial class SpotlightWindow : Window
             StatusTitle.Text = Loc.Get($"spotlight.{status}");
             StatusHint.Text = Loc.Get($"spotlight.{status}.hint");
         }
-        SetSearchActivity(showSearching || (retainStatus && _searchActivityActive));
+        _searchMotion.SetActive(showSearching || (retainStatus && _searchMotion.Active));
 
         bool contentWasShown = _contentShown;
         SetContentShown(showContent);
@@ -2953,7 +2973,7 @@ public partial class SpotlightWindow : Window
         ClearLaunchFailure();
         SetResultsDimmed(false, animate: false);
         UpdateSearchingGrace(false);
-        SetSearchActivity(false);
+        _searchMotion.SetActive(false);
         ResetSelectionGlide();
         SearchBox.Text = string.Empty;
         _viewModel.Reset();

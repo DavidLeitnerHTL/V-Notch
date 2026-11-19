@@ -696,7 +696,7 @@ public partial class SettingsWindow
         {
             _hasCapturedLyricsProviderMouse = false;
             try { LyricsProviderList.ReleaseMouseCapture(); }
-            catch (Exception) { }
+            catch (Exception ex) { RuntimeLog.Debug("SETTINGS", $"ReleaseMouseCapture ignored: {ex.Message}"); }
         }
 
         System.Windows.Input.Mouse.OverrideCursor = null;
@@ -1042,7 +1042,7 @@ public partial class SettingsWindow
         };
     }
 
-    private void RepopulateWidgetComboPreservingSelection()
+    internal void RepopulateWidgetComboPreservingSelection()
     {
         if (WidgetCombo == null) return;
 
@@ -1082,7 +1082,7 @@ public partial class SettingsWindow
         };
     }
 
-    private void RepopulateClockPageStyleComboPreservingSelection()
+    internal void RepopulateClockPageStyleComboPreservingSelection()
     {
         if (ClockPageStyleCombo == null) return;
         bool wasLoading = _isLoadingSettings;
@@ -1506,7 +1506,7 @@ public partial class SettingsWindow
 
     private bool _isKeyVisible = false;
 
-    private void ToggleKeyVisibility_Click(object sender, RoutedEventArgs e)
+    internal void ToggleKeyVisibility_Click(object sender, RoutedEventArgs e)
     {
         _isKeyVisible = !_isKeyVisible;
 

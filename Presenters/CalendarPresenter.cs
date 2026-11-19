@@ -22,7 +22,7 @@ public sealed class CalendarPresenter : IDisposable
     private readonly Border[] _calendarDayBorders = new Border[CalendarScrollMath.TotalDays];
     private readonly TextBlock[] _calendarDayNumbers = new TextBlock[CalendarScrollMath.TotalDays];
     private double _calendarScrollX = 0.0;
-    private int _currentCalendarCenterIdx = 5;
+    private int _currentCalendarCenterIdx = CalendarScrollMath.TodayIndex;
     private double _calendarScrollAccumulator = 0;
     private DateTime _lastCalendarScrollTimeUtc = DateTime.MinValue;
     private DateTime _lastCalendarUpdate = DateTime.MinValue;
@@ -60,6 +60,7 @@ public sealed class CalendarPresenter : IDisposable
         _refs.WeekDaysPanel.Children.Clear();
         _refs.WeekNumbers.Children.Clear();
 
+        double cellInset = (CalendarScrollMath.CellWidth - CalendarScrollMath.HighlightDiameter) / 2;
         for (int i = 0; i < CalendarScrollMath.TotalDays; i++)
         {
             _calendarDayNames[i] = new TextBlock
@@ -88,16 +89,16 @@ public sealed class CalendarPresenter : IDisposable
 
             _calendarDayBorders[i] = new Border
             {
-                Width = 24,
-                Height = 24,
-                CornerRadius = new CornerRadius(12),
-                Margin = new Thickness((CalendarScrollMath.CellWidth - 24) / 2, 0, (CalendarScrollMath.CellWidth - 24) / 2, 0),
+                Width = CalendarScrollMath.HighlightDiameter,
+                Height = CalendarScrollMath.HighlightDiameter,
+                CornerRadius = new CornerRadius(CalendarScrollMath.HighlightDiameter / 2),
+                Margin = new Thickness(cellInset, 0, cellInset, 0),
                 Child = _calendarDayNumbers[i]
             };
             _refs.WeekNumbers.Children.Add(_calendarDayBorders[i]);
         }
 
-        _currentCalendarCenterIdx = 5;
+        _currentCalendarCenterIdx = CalendarScrollMath.TodayIndex;
         _calendarScrollX = CalendarScrollMath.GetStripXForIndex(_currentCalendarCenterIdx);
         _refs.CalendarStripTranslate.X = _calendarScrollX;
         _refs.CalendarHighlightTranslate.X = CalendarScrollMath.GetHighlightXForIndex(_currentCalendarCenterIdx);
@@ -121,7 +122,7 @@ public sealed class CalendarPresenter : IDisposable
     {
         if (!_calendarInitialized) InitializeCalendar();
 
-        int scrollOffset = _currentCalendarCenterIdx - 5;
+        int scrollOffset = _currentCalendarCenterIdx - CalendarScrollMath.TodayIndex;
         if (now.Date == _lastCalendarUpdate.Date && scrollOffset == 0)
         {
             _lastCalendarUpdate = now;
@@ -138,10 +139,9 @@ public sealed class CalendarPresenter : IDisposable
     {
         var culture = Loc.GetCulture();
 
-        for (int i = -5; i <= 5; i++)
+        for (int idx = 0; idx < CalendarScrollMath.TotalDays; idx++)
         {
-            int idx = i + 5;
-            var date = now.AddDays(i);
+            var date = now.AddDays(idx - CalendarScrollMath.TodayIndex);
 
             _calendarDayNames[idx].Text = date.ToString("ddd", culture);
             _calendarDayNumbers[idx].Text = date.Day.ToString(culture);
@@ -159,7 +159,7 @@ public sealed class CalendarPresenter : IDisposable
     private void ApplyCalendarCenterVisualState(int centerIdx)
     {
         var culture = Loc.GetCulture();
-        var highlightedDate = _lastCalendarUpdate.AddDays(centerIdx - 5);
+        var highlightedDate = _lastCalendarUpdate.AddDays(centerIdx - CalendarScrollMath.TodayIndex);
         string newMonth = highlightedDate.ToString("MMM", culture);
 
         string currentTargetMonth = _isMonthAnimating ? _targetMonthText : _refs.MonthText.Text;
@@ -508,7 +508,7 @@ public sealed class CalendarPresenter : IDisposable
     {
         if (!_calendarInitialized) return;
 
-        _currentCalendarCenterIdx = 5;
+        _currentCalendarCenterIdx = CalendarScrollMath.TodayIndex;
         double targetX = CalendarScrollMath.GetStripXForIndex(_currentCalendarCenterIdx);
 
         if (Math.Abs(_calendarScrollX - targetX) < 0.1) return;

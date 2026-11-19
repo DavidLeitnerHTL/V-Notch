@@ -70,7 +70,7 @@ public sealed class FirstOpenLatencyTests(ITestOutputHelper output)
                 await timerReady.Task.WaitAsync(ct);
                 watch.Restart();
                 measuring = true;
-                typeof(MainWindow).GetMethod("OpenAppSettings", Private)!.Invoke(window, [false]);
+                window.OpenAppSettings(false);
                 output.WriteLine($"click returned at {watch.Elapsed.TotalMilliseconds:F0}");
                 await WpfFrameWaiter.UntilAsync(() => closed, "settings close completes", ct);
             }
@@ -92,9 +92,9 @@ public sealed class FirstOpenLatencyTests(ITestOutputHelper output)
         window.Show();
         // Compact startup prepares the notch, without constructing Settings.
         await WpfFrameWaiter.UntilAsync(() => !Animating(window) &&
-            (bool)typeof(MainWindow).GetField("_coreModulesStarted", Private)!.GetValue(window)!,
+            window.CoreModulesStarted,
             "notch startup and services finish", ct);
-        var coordinator = (NotchTransitionCoordinator)typeof(MainWindow).GetField("_transitionCoordinator", Private)!.GetValue(window)!;
+        var coordinator = window.TransitionCoordinator;
         var pauses = new List<double>();
         for (int attempt = 0; attempt < 2; attempt++)
         {
@@ -137,44 +137,41 @@ public sealed class FirstOpenLatencyTests(ITestOutputHelper output)
     {
         await using var fixture = Create();
         var window = fixture.Window;
-        var animating = typeof(MainWindow).GetProperty("_isAnimating", Private)!;
-        var preparedField = typeof(MainWindow).GetField("_preparedSettingsWindow", Private)!;
-        // Keep the production startup scheduler from launching a second preparation.
-        typeof(MainWindow).GetField("_settingsPreparationScheduled", Private)!.SetValue(window, true);
         window.Show();
-        await WpfFrameWaiter.UntilAsync(() => !Animating(window), "notch startup settles", ct);
+        await WpfFrameWaiter.UntilAsync(() => !Animating(window) && window.PostAppearInitializationStarted,
+            "notch startup settles", ct);
         void Capture(string message)
         {
             if (pauseAfterConstruction && message.Contains("Settings snapshot", StringComparison.Ordinal))
-                animating.SetValue(window, true);
+                window.IsAnimating = true;
         }
         SettingsWindow.FirstOpenProbe += Capture;
-        animating.SetValue(window, !pauseAfterConstruction);
+        window.IsAnimating = !pauseAfterConstruction;
         Task? preparation = null;
         try
         {
-            preparation = (Task)typeof(MainWindow).GetMethod("PrepareSettingsFirstOpenAsync", Private)!.Invoke(window, [0])!;
+            preparation = window.SettingsPreparation.PrepareAsync(0);
             await window.Dispatcher.InvokeAsync(static () => { }, DispatcherPriority.ContextIdle);
             Assert.False(preparation.IsCompleted);
             if (pauseAfterConstruction)
-                Assert.False(Assert.IsType<SettingsWindow>(preparedField.GetValue(window)).IsLoaded);
+                Assert.False(Assert.IsType<SettingsWindow>(window.SettingsPreparation.Prepared).IsLoaded);
             else
-                Assert.Null(preparedField.GetValue(window));
+                Assert.Null(window.SettingsPreparation.Prepared);
 
             if (cancel)
-                typeof(MainWindow).GetMethod("DiscardPreparedSettingsWindow", Private)!.Invoke(window, null);
-            animating.SetValue(window, false);
+                window.SettingsPreparation.Close();
+            window.IsAnimating = false;
             await preparation.WaitAsync(ct);
 
             if (cancel)
-                Assert.Null(preparedField.GetValue(window));
+                Assert.Null(window.SettingsPreparation.Prepared);
             else
-                Assert.True(preparedField.GetValue(window) is SettingsWindow { IsLoaded: true, IsVisible: false });
+                Assert.True(window.SettingsPreparation.Prepared is SettingsWindow { IsLoaded: true, IsVisible: false });
         }
         finally
         {
             SettingsWindow.FirstOpenProbe -= Capture;
-            animating.SetValue(window, false);
+            window.IsAnimating = false;
             if (preparation != null) await preparation.WaitAsync(ct);
         }
     });
@@ -190,21 +187,21 @@ public sealed class FirstOpenLatencyTests(ITestOutputHelper output)
         void Capture(string message)
         {
             if (message.Contains("Settings XAML", StringComparison.Ordinal))
-                afterEntrance = (bool)typeof(MainWindow).GetField("_postAppearInitializationStarted", Private)!.GetValue(window)!;
+                afterEntrance = window.PostAppearInitializationStarted;
         }
         SettingsWindow.FirstOpenProbe += Capture;
         try
         {
             window.Show();
-            await WpfFrameWaiter.UntilAsync(() =>
-                (bool)typeof(MainWindow).GetField("_postAppearInitializationStarted", Private)!.GetValue(window)!,
-                "startup entrance finishes", ct);
+            await WpfFrameWaiter.UntilAsync(() => !Animating(window) &&
+                window.CoreModulesStarted,
+                "compact services start", ct);
             await window.Dispatcher.InvokeAsync(static () => { }, DispatcherPriority.ApplicationIdle);
-            Assert.Null(typeof(MainWindow).GetField("_preparedSettingsWindow", Private)!.GetValue(window));
+            Assert.Null(window.SettingsPreparation.Prepared);
             Assert.Null(afterEntrance);
             if (openMenu)
             {
-                typeof(MainWindow).GetMethod("TrayContextMenu_Opened", Private)!.Invoke(window, [window, new RoutedEventArgs()]);
+                window.TrayIcon.ContextMenu.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.ContextMenu.OpenedEvent));
                 await window.Dispatcher.InvokeAsync(static () => { }, DispatcherPriority.ApplicationIdle);
                 Assert.Null(afterEntrance);
                 window.MenuSettings.RaiseEvent(new System.Windows.Input.MouseEventArgs(
@@ -226,8 +223,8 @@ public sealed class FirstOpenLatencyTests(ITestOutputHelper output)
         window.Show();
         HoverTray(window);
         var first = await WaitForPreparedSettingsAsync(window, ct);
-        var expiryField = typeof(MainWindow).GetField("_settingsPreparationExpiry", Private)!;
-        var expiry = Assert.IsType<UiScheduledTimer>(expiryField.GetValue(window));
+        var expiryField = typeof(SettingsPreparationCoordinator).GetField("_settingsPreparationExpiry", Private)!;
+        var expiry = Assert.IsType<UiScheduledTimer>(expiryField.GetValue(window.SettingsPreparation));
         Assert.Equal(TimeSpan.FromSeconds(30), expiry.Interval);
         long firstDeadline = expiry.DueTimestamp;
         HoverTray(window);
@@ -244,18 +241,18 @@ public sealed class FirstOpenLatencyTests(ITestOutputHelper output)
             Assert.Equal("vi", Loc.CurrentLanguage);
         }
         finally { Loc.SetLanguage(originalLanguage); }
-        Assert.Null(expiryField.GetValue(window));
-        Assert.Null(typeof(MainWindow).GetField("_preparedSettingsWindow", Private)!.GetValue(window));
+        Assert.False(window.SettingsPreparation.HasExpiry);
+        Assert.Null(window.SettingsPreparation.Prepared);
 
         HoverTray(window);
         var next = await WaitForPreparedSettingsAsync(window, ct);
         Assert.NotSame(first, next);
-        typeof(MainWindow).GetMethod("OpenAppSettings", Private)!.Invoke(window, [false]);
+        window.OpenAppSettings(false);
         Assert.True(next.IsVisible);
-        Assert.Null(expiryField.GetValue(window));
+        Assert.False(window.SettingsPreparation.HasExpiry);
         HoverTray(window);
         await window.Dispatcher.InvokeAsync(static () => { }, DispatcherPriority.ApplicationIdle);
-        Assert.Null(typeof(MainWindow).GetField("_preparedSettingsWindow", Private)!.GetValue(window));
+        Assert.Null(window.SettingsPreparation.Prepared);
     });
 
     private static void HoverTray(MainWindow window) =>
@@ -263,12 +260,11 @@ public sealed class FirstOpenLatencyTests(ITestOutputHelper output)
 
     private static async Task<SettingsWindow> WaitForPreparedSettingsAsync(MainWindow window, CancellationToken ct)
     {
-        var preparedField = typeof(MainWindow).GetField("_preparedSettingsWindow", Private)!;
         await WpfFrameWaiter.UntilAsync(() =>
-            preparedField.GetValue(window) is SettingsWindow { IsLoaded: true, IsVisible: false } &&
-            typeof(MainWindow).GetField("_settingsPreparationExpiry", Private)!.GetValue(window) != null,
+            window.SettingsPreparation.Prepared is { IsLoaded: true, IsVisible: false } &&
+            window.SettingsPreparation.HasExpiry,
             "Settings preparation finishes", ct);
-        return (SettingsWindow)preparedField.GetValue(window)!;
+        return window.SettingsPreparation.Prepared!;
     }
 
     [Fact]
@@ -277,16 +273,16 @@ public sealed class FirstOpenLatencyTests(ITestOutputHelper output)
         await using var fixture = Create();
         var window = fixture.Window;
         window.Show();
-        var prepared = typeof(MainWindow).GetField("_preparedSettingsWindow", Private)!;
-        var schedule = typeof(MainWindow).GetMethod("ScheduleSettingsFirstOpenPreparation", Private)!;
         for (int attempt = 0; attempt < 2; attempt++)
         {
-            schedule.Invoke(window, null);
-            var standby = await WaitForPreparedSettingsAsync(window, ct);
-            typeof(MainWindow).GetMethod("ReleasePreparedSettingsWindow", Private)!.Invoke(window, null);
-            Assert.Null(prepared.GetValue(window));
-            Assert.Null(typeof(MainWindow).GetField("_preparedSettingsSnapshot", Private)!.GetValue(window));
-            Assert.Null(typeof(MainWindow).GetField("_settingsPreparationExpiry", Private)!.GetValue(window));
+            window.SettingsPreparation.Schedule();
+            await WpfFrameWaiter.UntilAsync(() => window.SettingsPreparation.Prepared is SettingsWindow { IsLoaded: true, IsVisible: false },
+                "intent prepares settings", ct);
+            var standby = (SettingsWindow)window.SettingsPreparation.Prepared!;
+            window.SettingsPreparation.Release();
+            Assert.Null(window.SettingsPreparation.Prepared);
+            Assert.False(window.SettingsPreparation.HasSnapshot);
+            Assert.False(window.SettingsPreparation.HasExpiry);
             await WpfFrameWaiter.UntilAsync(() => !Application.Current.Windows.Cast<Window>().Contains(standby),
                 "standby settings closes", ct);
         }
@@ -298,13 +294,14 @@ public sealed class FirstOpenLatencyTests(ITestOutputHelper output)
         await using var fixture = Create();
         var window = fixture.Window;
         window.Show();
-        typeof(MainWindow).GetMethod("ScheduleSettingsFirstOpenPreparation", Private)!.Invoke(window, null);
-        await WaitForPreparedSettingsAsync(window, ct);
+        window.SettingsPreparation.Schedule();
+        await WpfFrameWaiter.UntilAsync(() => window.SettingsPreparation.Prepared is SettingsWindow { IsLoaded: true, IsVisible: false },
+            "standby settings is ready", ct);
         var reference = ReferenceAndReleasePreparedSettings(window);
         // WPF releases composition/native-window callbacks over subsequent frames.
         for (int attempt = 0; attempt < 20 && reference.IsAlive; attempt++)
         {
-            await Task.Delay(100, ct);
+            await WpfFrameWaiter.NextAsync(ct);
             await window.Dispatcher.InvokeAsync(static () => { }, DispatcherPriority.ApplicationIdle);
             GC.Collect();
             GC.WaitForPendingFinalizers();
@@ -316,8 +313,8 @@ public sealed class FirstOpenLatencyTests(ITestOutputHelper output)
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
     private static WeakReference ReferenceAndReleasePreparedSettings(MainWindow window)
     {
-        var reference = new WeakReference(typeof(MainWindow).GetField("_preparedSettingsWindow", Private)!.GetValue(window)!);
-        typeof(MainWindow).GetMethod("ReleasePreparedSettingsWindow", Private)!.Invoke(window, null);
+        var reference = new WeakReference(window.SettingsPreparation.Prepared!);
+        window.SettingsPreparation.Release();
         return reference;
     }
 
@@ -327,17 +324,19 @@ public sealed class FirstOpenLatencyTests(ITestOutputHelper output)
         await using var fixture = Create();
         var window = fixture.Window;
         window.Show();
-        typeof(MainWindow).GetMethod("ScheduleSettingsFirstOpenPreparation", Private)!.Invoke(window, null);
-        var standby = await WaitForPreparedSettingsAsync(window, ct);
-        typeof(MainWindow).GetMethod("OpenAppSettings", Private)!.Invoke(window, [false]);
-        Assert.Same(standby, typeof(MainWindow).GetField("_activeSettingsWindow", Private)!.GetValue(window));
-        Assert.Null(typeof(MainWindow).GetField("_settingsPreparationExpiry", Private)!.GetValue(window));
-        typeof(MainWindow).GetMethod("ReleasePreparedSettingsWindow", Private)!.Invoke(window, null);
+        window.SettingsPreparation.Schedule();
+        await WpfFrameWaiter.UntilAsync(() => window.SettingsPreparation.Prepared is SettingsWindow { IsLoaded: true, IsVisible: false },
+            "settings preparation finishes", ct);
+        var standby = (SettingsWindow)window.SettingsPreparation.Prepared!;
+        window.OpenAppSettings(false);
+        Assert.Same(standby, window.SettingsPreparation.Active);
+        Assert.False(window.SettingsPreparation.HasExpiry);
+        window.SettingsPreparation.Release();
         Assert.True(standby.IsVisible);
     });
 
     private static bool Animating(MainWindow window) =>
-        (bool)typeof(MainWindow).GetProperty("_isAnimating", Private)!.GetValue(window)!;
+        window.IsAnimating;
 
     private static GreetingAcceptanceTests.MainWindowFixture Create() => new("en", false,
         settings => { settings.EnableLocalOnlyMode = true; settings.EnableDiagnosticLogging = false; },

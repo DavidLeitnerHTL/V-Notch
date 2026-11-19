@@ -36,7 +36,7 @@ public partial class MainWindow
                 DismissVolumeIndicatorImmediate(restoreMedia: true);
             }
 
-            _isPlaying = !_viewModel.IsPlaying;
+            _isPlaying = !_viewModel.Media.IsPlaying;
             UpdatePlayPauseIcon();
 
             if (!_isExpanded && !_isAnimating &&
@@ -56,7 +56,7 @@ public partial class MainWindow
             }
 
             _progressEngine.NotifyUserPlayPause(_isPlaying);
-            await _viewModel.PlayPauseCommand.ExecuteAsync(null);
+            await _viewModel.Media.PlayPauseCommand.ExecuteAsync(null);
         }
         catch (Exception ex)
         {
@@ -107,13 +107,13 @@ public partial class MainWindow
         try
         {
             _lastMediaActionTime = DateTime.UtcNow;
-            _isPlaying = !_viewModel.IsPlaying;
+            _isPlaying = !_viewModel.Media.IsPlaying;
             UpdatePlayPauseIcon();
             PlayButtonPressAnimation(InlinePlayPauseButton);
 
             _progressEngine.NotifyUserPlayPause(_isPlaying);
 
-            await _viewModel.PlayPauseCommand.ExecuteAsync(null);
+            await _viewModel.Media.PlayPauseCommand.ExecuteAsync(null);
         }
         catch (Exception ex)
         {
@@ -130,7 +130,7 @@ public partial class MainWindow
             PlayNextSkipAnimation(InlineNextArrow0, InlineNextArrow1);
 
             OptimisticPrepareForNextTrack();
-            await _viewModel.NextTrackCommand.ExecuteAsync(null);
+            await _viewModel.Media.NextTrackCommand.ExecuteAsync(null);
         }
         catch (Exception ex)
         {
@@ -147,7 +147,7 @@ public partial class MainWindow
             PlayPrevSkipAnimation(InlinePrevArrow0, InlinePrevArrow2);
 
             PrepareForPreviousTrackRequest();
-            await _viewModel.PreviousTrackCommand.ExecuteAsync(null);
+            await _viewModel.Media.PreviousTrackCommand.ExecuteAsync(null);
         }
         catch (Exception ex)
         {
@@ -1428,7 +1428,7 @@ public partial class MainWindow
 
     private void UpdateVolumeIcon(float volume, bool isMuted)
     {
-        _viewModel.UpdateVolumeState(volume, isMuted);
+        _viewModel.AudioMixer.UpdateState(volume, isMuted);
     }
 
     #endregion
