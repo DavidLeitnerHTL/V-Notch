@@ -203,7 +203,13 @@ public sealed class FirstOpenLatencyTests(ITestOutputHelper output)
             Assert.Null(typeof(MainWindow).GetField("_preparedSettingsWindow", Private)!.GetValue(window));
             Assert.Null(afterEntrance);
             if (openMenu)
+            {
                 typeof(MainWindow).GetMethod("TrayContextMenu_Opened", Private)!.Invoke(window, [window, new RoutedEventArgs()]);
+                await window.Dispatcher.InvokeAsync(static () => { }, DispatcherPriority.ApplicationIdle);
+                Assert.Null(afterEntrance);
+                window.MenuSettings.RaiseEvent(new System.Windows.Input.MouseEventArgs(
+                    System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount) { RoutedEvent = UIElement.MouseEnterEvent });
+            }
             else
                 HoverTray(window);
             await WaitForPreparedSettingsAsync(window, ct);

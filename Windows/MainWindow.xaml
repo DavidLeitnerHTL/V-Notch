@@ -396,7 +396,7 @@
                         </MenuItem.Header>
                     </MenuItem>
                     <Separator Style="{StaticResource TraySeparatorStyle}"/>
-                    <MenuItem Style="{StaticResource TrayMenuItemStyle}"
+                    <MenuItem x:Name="MenuSettings" Style="{StaticResource TrayMenuItemStyle}"
                               Icon="{StaticResource TraySettingsIconGeometry}"
                               MouseEnter="TraySettingsTargeted"
                               GotKeyboardFocus="TraySettingsTargeted"
@@ -3562,9 +3562,6 @@
                                         HorizontalAlignment="Right" VerticalAlignment="Top"
                                         Margin="0,0,5,0" Panel.ZIndex="100"
                                         HorizontalContentAlignment="Right" VerticalContentAlignment="Top"/>
-                        <ctrl:AiUsageNotchView x:Name="AiUsageViewControl"
-                                               HorizontalAlignment="Stretch"
-                                               VerticalAlignment="Stretch"/>
                     </ctrl:GlassClipGrid>
                     <Grid x:Name="CameraContent" Opacity="0" Visibility="Collapsed" Margin="16,36,16,16" HorizontalAlignment="Center" VerticalAlignment="Stretch" Width="488">
                         <ctrl:ActionBorder x:Name="CameraSection"
@@ -3748,7 +3745,11 @@
                         <Grid Grid.Row="1" VerticalAlignment="Center" Visibility="Collapsed">
                             <StackPanel>
                                 <ctrl:CountdownView x:Name="CountdownWidget"/>
-                                <ctrl:WhiteNoiseStrip x:Name="WhiteNoiseWidget" Margin="0,8,0,0"/>
+                                <ContentPresenter x:Name="WhiteNoiseWidget" Margin="0,8,0,0">
+                                    <ContentPresenter.ContentTemplate>
+                                        <DataTemplate><ctrl:WhiteNoiseStrip/></DataTemplate>
+                                    </ContentPresenter.ContentTemplate>
+                                </ContentPresenter>
                             </StackPanel>
                         </Grid>
 

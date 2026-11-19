@@ -91,6 +91,15 @@
         "resolved": "1.0.4078.44",
         "contentHash": "TQkHa/aOHUqFHnJIJ/2ZmJ4nLcQJi0Pc0rj9BAs7SP5sT/KtVtb8jFp9uqQL6cKzCRSrwjS/wEPA43NWUOzU+A=="
       },
+      "ReverseMarkdown": {
+        "type": "Direct",
+        "requested": "[6.3.0, )",
+        "resolved": "6.3.0",
+        "contentHash": "h2GwfOpLAkONJa3ARH4VnhrJro7XcqTmI1z0d6LzXVto8Qm/8cmUO3cBm7nkN48rQfSPi2NpEPBKuPzSZr1LMg==",
+        "dependencies": {
+          "AngleSharp": "1.5.2"
+        }
+      },
       "SharpGen.Runtime.COM": {
         "type": "Direct",
         "requested": "[2.4.2-beta, )",
@@ -126,15 +135,6 @@
         "resolved": "10.0.2",
         "contentHash": "W0iDxrcnNJAbm0WSSZ8Z6PtN27+ETwfj3HUtERP/sfLMjPFGAS79lZ0uPS/6OxsIy0MEjprPH2nERRhNMuddDw=="
       },
-      "System.Management": {
-        "type": "Direct",
-        "requested": "[8.0.0, )",
-        "resolved": "8.0.0",
-        "contentHash": "jrK22i5LRzxZCfGb+tGmke2VH7oE0DvcDlJ1HAKYU8cPmD8XnpUT0bYn2Gy98GEhGjtfbR/sxKTVb+dE770pfA==",
-        "dependencies": {
-          "System.CodeDom": "8.0.0"
-        }
-      },
       "Vortice.Direct3D9": {
         "type": "Direct",
         "requested": "[3.8.3, )",
@@ -145,6 +145,11 @@
           "SharpGen.Runtime.COM": "2.4.2-beta",
           "Vortice.Mathematics": "2.1.0"
         }
+      },
+      "AngleSharp": {
+        "type": "Transitive",
+        "resolved": "1.5.2",
+        "contentHash": "LVZ7rrr6GHbhERhTgVDarVygl1e6KwE96pronA90LBOMacDhxR4lB+xYLjn/vlnUu+xbOB2RM9fuCPEx5bdyWA=="
       },
       "CommunityToolkit.HighPerformance": {
         "type": "Transitive",
@@ -194,11 +199,6 @@
         "dependencies": {
           "System.Text.Json": "9.0.1"
         }
-      },
-      "System.CodeDom": {
-        "type": "Transitive",
-        "resolved": "8.0.0",
-        "contentHash": "WTlRjL6KWIMr/pAaq3rYqh0TJlzpouaQ/W1eelssHgtlwHAH25jXTkUphTYx9HaIIf7XA6qs/0+YhtLEQRkJ+Q=="
       },
       "System.Diagnostics.DiagnosticSource": {
         "type": "Transitive",
@@ -271,15 +271,6 @@
         "requested": "[1.0.4078.44, )",
         "resolved": "1.0.4078.44",
         "contentHash": "TQkHa/aOHUqFHnJIJ/2ZmJ4nLcQJi0Pc0rj9BAs7SP5sT/KtVtb8jFp9uqQL6cKzCRSrwjS/wEPA43NWUOzU+A=="
-      },
-      "System.Management": {
-        "type": "Direct",
-        "requested": "[8.0.0, )",
-        "resolved": "8.0.0",
-        "contentHash": "jrK22i5LRzxZCfGb+tGmke2VH7oE0DvcDlJ1HAKYU8cPmD8XnpUT0bYn2Gy98GEhGjtfbR/sxKTVb+dE770pfA==",
-        "dependencies": {
-          "System.CodeDom": "8.0.0"
-        }
       },
       "System.Text.Encodings.Web": {
         "type": "Transitive",

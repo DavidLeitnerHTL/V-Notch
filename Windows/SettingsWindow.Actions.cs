@@ -328,6 +328,7 @@ public partial class SettingsWindow
     {
         if (_isClosing) return;
         _isClosing = true;
+        _navPill.Settle();
 
         AnimatedClosing?.Invoke(this, EventArgs.Empty);
 

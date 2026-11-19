@@ -9,6 +9,7 @@ namespace VNotch.Controllers;
 public sealed class OverlayWindowController : IDisposable
 {
     private const double HorizontalPadding = 96;
+    private const double VerticalPadding = 80;
     private readonly Window _window;
     private readonly NotchShellState _state;
     private readonly Func<bool> _isVisible;
@@ -97,7 +98,7 @@ public sealed class OverlayWindowController : IDisposable
         var screen = TargetScreen?.Invoke() ?? System.Windows.Forms.Screen.FromHandle(_state.Hwnd);
         double dpiScale = MonitorSelection.GetScale(screen);
         double widthDip = surfaceWidth + HorizontalPadding;
-        double heightDip = expandedHeight + 80;
+        double heightDip = expandedHeight + VerticalPadding;
         if (!double.IsFinite(widthDip) || widthDip <= 0) throw new ArgumentOutOfRangeException(nameof(surfaceWidth));
         if (!double.IsFinite(heightDip) || heightDip <= 0) throw new ArgumentOutOfRangeException(nameof(expandedHeight));
         int screenLeft = screen.Bounds.Left;
@@ -124,6 +125,12 @@ public sealed class OverlayWindowController : IDisposable
         // when Explorer rebuilds WorkerW/Progman windows during sign-in.
         ApplyFixedBounds();
         ApplyPreferredZOrder();
+    }
+
+    public void SetInitialSize(double surfaceWidth, double notchHeight)
+    {
+        _window.Width = surfaceWidth + HorizontalPadding;
+        _window.Height = notchHeight + VerticalPadding;
     }
 
     public void ResizeHeight(double heightDip)
@@ -168,7 +175,7 @@ public sealed class OverlayWindowController : IDisposable
 
     public void ResetToCenteredTop(double widthDip, double heightDip)
     {
-        PositionAtTop(Math.Max(600, widthDip - HorizontalPadding), Math.Max(200, heightDip - 80));
+        PositionAtTop(Math.Max(600, widthDip - HorizontalPadding), Math.Max(200, heightDip - VerticalPadding));
     }
 
     public void ReassertBounds()
