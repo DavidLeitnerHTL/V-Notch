@@ -61,7 +61,7 @@ public partial class SettingsWindow
                     if (!_current.Contains(input)) Watch(input, false);
                 foreach (var input in _current)
                     if (!_observed.Contains(input)) Watch(input, true);
-                (_current, _observed) = (_observed, _current);
+                (_observed, _current) = (_current, _observed);
                 MarkDirty();
             }
             _current.Clear();
@@ -128,7 +128,8 @@ public partial class SettingsWindow
         private void OnContentChanged(object? sender, EventArgs e)
         {
             OnTextChanged(sender, e);
-            // WPF can still expose the retired visuals until layout catches up.
+            // WPF can still expose the old visual children during a collection reset.
+            // Reconcile once after layout, even if the user never searches again.
             _pendingRefresh ??= _root.Dispatcher.InvokeAsync(() =>
             {
                 _pendingRefresh = null;

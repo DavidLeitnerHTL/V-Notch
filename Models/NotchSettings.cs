@@ -34,11 +34,16 @@ public partial class NotchSettings : IJsonOnDeserialized
 
     public string AccentColor { get; set; } = "default";
 
-    public int Width { get; set; } = 230;
-    public int DynamicIslandWidth { get; set; } = 220;
-    public int DynamicIslandHeight { get; set; } = 40;
-    public int Height { get; set; } = 34;
-    public int CornerRadius { get; set; } = 8;
+    private int _width = 230;
+    public int Width { get => _width; set => _width = ClampInt(value, 1, 8192); }
+    private int _dynamicIslandWidth = 220;
+    public int DynamicIslandWidth { get => _dynamicIslandWidth; set => _dynamicIslandWidth = ClampInt(value, 1, 8192); }
+    private int _dynamicIslandHeight = 40;
+    public int DynamicIslandHeight { get => _dynamicIslandHeight; set => _dynamicIslandHeight = ClampInt(value, 1, 8192); }
+    private int _height = 34;
+    public int Height { get => _height; set => _height = ClampInt(value, 1, 8192); }
+    private int _cornerRadius = 8;
+    public int CornerRadius { get => _cornerRadius; set => _cornerRadius = ClampInt(value, 0, 4096); }
     public double Opacity { get; set; } = 1.0;
     public double MediaBlurBrightnessBoost { get; set; } = 2.0;
     public double MediaBlurDarkOverlay { get; set; } = 0.0;
@@ -509,7 +514,7 @@ public partial class LiquidGlassConfig
     {
         var clone = (LiquidGlassConfig)MemberwiseClone();
         if (ExtensionData != null)
-            clone.ExtensionData = new(ExtensionData, StringComparer.Ordinal);
+            clone.ExtensionData = new Dictionary<string, JsonElement>(ExtensionData, StringComparer.Ordinal);
         return clone;
     }
 
@@ -557,7 +562,7 @@ public partial class LiquidGlassConfig
 
         var left = ToNative();
         var right = other.ToNative();
-        return vn_liquid_glass_config_equals(ref left, ref right, out byte equal) == 0 && equal != 0
-            && NotchSettings.ExtensionDataEquals(ExtensionData, other.ExtensionData);
+        return vn_liquid_glass_config_equals(ref left, ref right, out byte equal) == 0 && equal != 0 &&
+            NotchSettings.ExtensionDataEquals(ExtensionData, other.ExtensionData);
     }
 }

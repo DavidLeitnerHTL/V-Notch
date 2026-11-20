@@ -272,7 +272,7 @@ public sealed partial class WeatherService : IWeatherService, IDisposable
         double ReadFirst(string key) =>
             daily.TryGetProperty(key, out var values) && values.ValueKind == JsonValueKind.Array &&
             values.GetArrayLength() > 0 && values[0].ValueKind == JsonValueKind.Number &&
-            values[0].TryGetDouble(out double value) && double.IsFinite(value) ? value : fallbackTemp;
+            values[0].TryGetDouble(out var value) && double.IsFinite(value) ? value : fallbackTemp;
 
         return (ReadFirst("temperature_2m_max"), ReadFirst("temperature_2m_min"));
     }

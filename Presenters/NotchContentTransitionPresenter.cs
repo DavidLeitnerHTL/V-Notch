@@ -213,6 +213,7 @@ public sealed class NotchContentTransitionPresenter : IDisposable
                 HoldSpring(layer.Scale, ScaleTransform.ScaleXProperty);
                 HoldSpring(layer.Scale, ScaleTransform.ScaleYProperty);
             }
+            el.IsHitTestVisible = true;
             HoldCurrentTransformAndEffect(el);
         }
         if (_refs.AudioScrollViewer != null && !ReferenceEquals(_refs.AudioScrollViewer, _refs.AudioContent))
@@ -220,6 +221,7 @@ public sealed class NotchContentTransitionPresenter : IDisposable
             double currentScrollOpacity = _refs.AudioScrollViewer.Visibility == Visibility.Visible ? _refs.AudioScrollViewer.Opacity : 0.0;
             _refs.AudioScrollViewer.BeginAnimation(UIElement.OpacityProperty, null);
             _refs.AudioScrollViewer.Opacity = currentScrollOpacity;
+            _refs.AudioScrollViewer.IsHitTestVisible = true;
             HoldCurrentTransformAndEffect(_refs.AudioScrollViewer);
         }
     }

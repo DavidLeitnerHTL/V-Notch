@@ -342,7 +342,8 @@ public sealed partial class UpdateService : IUpdateService, IDisposable
                     if (update != null) break;
                 }
             }
-            // Assets can arrive after the feed is published. Recheck a fallback even when the tags are unchanged.
+            // The feed validator covers tags, not the separately published signed assets.
+            // A lower-ranked fallback must be re-probed even if the feed is unchanged.
             _latestReleaseEtag = update != null && update.Version == candidates[0].Release.Version ? etag : null;
             if (update == null && cached?.IsNewerVersion == true) update = Clone(cached);
             _lastCheckUtc = DateTime.UtcNow;

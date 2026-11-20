@@ -611,7 +611,12 @@ public partial class MainWindow
                 continue;
             }
 
-            await ProcessBlurRequestAsync(req);
+            try { await ProcessBlurRequestAsync(req); }
+            catch (Exception ex)
+            {
+                if (req.Version == _blurTaskVersion) _lastBlurThumbnailRef = null;
+                RuntimeLog.Error("MEDIA-BG-BLUR", ex.ToString());
+            }
         }
     }
 

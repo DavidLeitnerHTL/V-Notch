@@ -198,7 +198,7 @@ public partial class SettingsWindow : Window
     {
         if (e.LeftButton == System.Windows.Input.MouseButtonState.Pressed)
         {
-            DragMove();
+            this.TryDragMove();
         }
     }
 
@@ -214,7 +214,7 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        DragMove();
+        this.TryDragMove();
     }
 
     private static bool IsInteractiveElement(DependencyObject? source)

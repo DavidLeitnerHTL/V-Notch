@@ -331,7 +331,7 @@ public partial class SpotifyLoginWindow : Window
     {
         if (e.LeftButton == MouseButtonState.Pressed)
         {
-            DragMove();
+            this.TryDragMove();
         }
     }
 
@@ -347,7 +347,7 @@ public partial class SpotifyLoginWindow : Window
             return;
         }
 
-        DragMove();
+        this.TryDragMove();
     }
 
     private static bool IsInteractiveElement(DependencyObject? source)
@@ -362,7 +362,7 @@ public partial class SpotifyLoginWindow : Window
             {
                 return true;
             }
-            source = source is Visual ? VisualTreeHelper.GetParent(source) : LogicalTreeHelper.GetParent(source);
+            source = WindowInteraction.Parent(source);
         }
         return false;
     }
@@ -399,6 +399,28 @@ public partial class SpotifyLoginWindow : Window
         _isClosing = true;
         _dialogResultToSet = result;
 
+        var fallback = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(450) };
+        bool completed = false;
+        void Finish(object? sender, EventArgs args)
+        {
+            if (completed) return;
+            completed = true;
+            fallback.Stop();
+            if (_dialogResultToSet.HasValue)
+            {
+                try { DialogResult = _dialogResultToSet; return; }
+                catch (InvalidOperationException) { /* Modeless window. */ }
+            }
+            Close();
+        }
+        if (VNotch.Services.AnimationConfig.ReduceMotion)
+        {
+            Dispatcher.BeginInvoke(() => Finish(null, EventArgs.Empty));
+            return;
+        }
+        fallback.Tick += Finish;
+        fallback.Start();
+
         var easeIn = new ExponentialEase { EasingMode = EasingMode.EaseIn, Exponent = 6 };
         int fps = VNotch.Services.AnimationConfig.TargetFps;
         var duration = TimeSpan.FromMilliseconds(400);
@@ -406,30 +428,7 @@ public partial class SpotifyLoginWindow : Window
         var fade = new DoubleAnimation(MainShell.Opacity, 0.0, duration) { EasingFunction = easeIn };
         Timeline.SetDesiredFrameRate(fade, fps);
 
-        fade.Completed += (s, e) =>
-        {
-            RuntimeLog.Debug(LogCategory, () => "Exit animation completed. Setting DialogResult.");
-            try
-            {
-                if (_dialogResultToSet == true)
-                {
-                    DialogResult = true;
-                }
-                else if (_dialogResultToSet == false)
-                {
-                    DialogResult = false;
-                }
-                else
-                {
-                    Close();
-                }
-            }
-            catch (Exception ex)
-            {
-                RuntimeLog.Warn(LogCategory, $"Error during animated close: {ex.Message}");
-                Close();
-            }
-        };
+        fade.Completed += Finish;
 
         MainShell.BeginAnimation(OpacityProperty, fade);
 
