@@ -70,10 +70,27 @@ public partial class ControlCenterView
         }
         else if (_micMuted is { } current)
         {
-            // Windows' mute works for ordinary mics; the XLR ignores it, and the next read shows what really happened.
+            // Without Wave Link only Windows' mute is left. It works for ordinary mics, but the XLR undoes it a moment
+            // later, so the row only changes once the mic really stayed muted; otherwise it says where to mute.
             bool target = !current;
-            if (await Task.Run(() => MicrophoneControl.SetMuted(target)) && !_disposed) _micMuted = target;
-            if (!_disposed) RefreshSoon(400);
+            bool took = await Task.Run(async () =>
+            {
+                if (!MicrophoneControl.SetMuted(target)) return false;
+                await Task.Delay(700);
+                return MicrophoneControl.IsMuted() == target;
+            });
+            if (_disposed) return;
+            if (took) _micMuted = target;
+            else
+            {
+                _micMuted = await Task.Run(MicrophoneControl.IsMuted) ?? current;
+                if (_disposed) return;
+                PaintMic();
+                mic.State.Text = Say("Am XLR stummschalten", "Mute on the XLR");
+                ((FrameworkElement)mic.Disc.Parent).ToolTip = Say("Wave Link sieht das Wave XLR gerade nicht; ein Neustart von Wave Link holt das Stummschalten zurück",
+                    "Wave Link can't see the Wave XLR right now; restarting Wave Link brings muting back");
+                return;
+            }
         }
         if (!_disposed) PaintMic();
     }
