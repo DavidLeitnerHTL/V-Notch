@@ -355,19 +355,16 @@ public partial class ControlCenterView
     {
         if (_countdownDigits == null || _countdownDue is not { } due) return;
         string value = SchoolCountdown(due, DateTimeOffset.Now);
-        if (value.Length != _countdownShown.Length)
+        // A running clock just ticks: the digits change in place. Rolling each digit every second read as flicker.
+        if (_countdownDigits.Children.Count != 1 || _countdownDigits.Children[0] is not TextBlock label)
         {
             _countdownDigits.Children.Clear();
-            foreach (char c in value)
-            {
-                // Each slot is sized to its glyph at 15 px: a narrow "T" slot clipped it into a "1", wide colons left gaps.
-                var holder = new Grid { Width = char.IsDigit(c) ? 8.5 : c == 'T' ? 9.5 : c == ':' ? 4.5 : 4, Height = 20, ClipToBounds = true };
-                SwapCompactLabel(holder, c.ToString(), horizontal: false, size: 15);
-                _countdownDigits.Children.Add(holder);
-            }
+            label = CompactText(value, 15, CompactInk);
+            label.TextTrimming = TextTrimming.None;
+            System.Windows.Documents.Typography.SetNumeralAlignment(label, FontNumeralAlignment.Tabular);
+            _countdownDigits.Children.Add(label);
         }
-        else for (int i = 0; i < value.Length; i++)
-            if (value[i] != _countdownShown[i]) SwapCompactLabel((Grid)_countdownDigits.Children[i], value[i].ToString(), horizontal: false, size: 15);
+        label.Text = value;
         _countdownShown = value;
         if (due <= DateTimeOffset.Now) _schoolCountdownTimer?.Stop();
     }

@@ -274,15 +274,16 @@ public sealed class HomeSchoolTabTests
             var timer = (System.Windows.Threading.DispatcherTimer)Field(view, "_schoolCountdownTimer");
             Assert.True(timer.IsEnabled);
             var digits = (StackPanel)Field(view, "_countdownDigits");
-            Assert.All(digits.Children.Cast<Grid>(), digit => Assert.Single(digit.Children.Cast<UIElement>()));
+            var clock = Assert.IsType<TextBlock>(Assert.Single(digits.Children.Cast<UIElement>()));
             AnimationConfig.ClientAreaAnimationOverride = true;
             AnimationConfig.SetReduceMotion(false);
-            var holders = digits.Children.Cast<Grid>().ToArray();
+            string shownBefore = clock.Text;
             SetField(view, "_countdownDue", school.Deadlines[0].Due.AddSeconds(-1));
             Invoke(view, "TickSchoolCountdown");
-            Assert.InRange(holders.Count(digit => digit.Children.Count > 1), 1, 2);
-            Assert.All(holders.Where(digit => digit.Children.Count > 1), digit =>
-                Assert.True(((TranslateTransform)((TextBlock)digit.Children[^1]).RenderTransform).Y > 0));
+            // The clock ticks in place: same label, new text, nothing animating.
+            Assert.Same(clock, Assert.Single(digits.Children.Cast<UIElement>()));
+            Assert.NotEqual(shownBefore, clock.Text);
+            Assert.False(clock.HasAnimatedProperties);
             SetField(view, "_countdownDue", DateTimeOffset.Now.AddSeconds(-1));
             Invoke(view, "OnSchoolCountdownTick", null!, EventArgs.Empty);
             Assert.False(timer.IsEnabled);
@@ -293,7 +294,6 @@ public sealed class HomeSchoolTabTests
             Assert.True(timer.IsEnabled);
             view.Visibility = Visibility.Collapsed;
             Assert.False(timer.IsEnabled);
-            Assert.All(holders, digit => Assert.Single(digit.Children.Cast<UIElement>()));
             await Task.CompletedTask;
         }
         finally { window.Close(); AnimationConfig.ClientAreaAnimationOverride = clientAnimations; AnimationConfig.SetReduceMotion(before); }
