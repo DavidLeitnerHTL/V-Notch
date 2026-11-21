@@ -30,6 +30,9 @@ public sealed partial class MediaPlaybackView : UserControl, IDisposable
     public MediaPlaybackView()
     {
         InitializeComponent();
+        // Until the first media update arrives, the title says so in the user's language (the XAML text is English).
+        TrackTitle.Text = Loc.Get("media.noMedia");
+        TrackArtist.Text = "";
         RenderPlaybackMorph(0);
         ProgressBarContainer.LostMouseCapture += ProgressBar_LostMouseCapture;
         IsVisibleChanged += (_, _) =>

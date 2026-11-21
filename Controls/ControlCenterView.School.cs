@@ -60,6 +60,7 @@ public partial class ControlCenterView
     private DateTimeOffset? _countdownDue;
     private string _countdownShown = "";
     private static readonly Brush HandedIn = Frozen("#9DBDB1");
+    private readonly HashSet<PiExam> _schoolExamsOnTop = new();
 
     private void BuildPiSchool()
     {
@@ -95,8 +96,12 @@ public partial class ControlCenterView
         var merged = open.Skip(1).Select(d => (At: d.Due, Deadline: (PiDeadline?)d, Exam: (PiExam?)null))
             .Concat(exams.Select(e => (At: SchoolExamTime(e), Deadline: (PiDeadline?)null, Exam: (PiExam?)e)))
             .OrderBy(e => e.At).Take(3);
+        _schoolExamsOnTop.Clear();
         foreach (var item in merged)
+        {
+            if (item.Exam is { } exam) _schoolExamsOnTop.Add(exam);
             _piSchoolSection.Children.Add(item.Deadline is { } deadline ? SchoolDeadline(deadline, hero: false) : SchoolExam(item.Exam!));
+        }
         UpdateCountdownVisibility();
     }
 
@@ -215,11 +220,15 @@ public partial class ControlCenterView
     {
         _piExamSection.Children.Clear();
         if (_isLocalOnly() || _piSchool is not { } school) return;
-        _piExamSection.Children.Add(CompactText("Tests", 11, CompactLabel));
-        foreach (var exam in school.Exams.Where(e => e.Date.Date >= DateTime.Today).OrderBy(e => e.Date))
+        // The tests the page already lists above the drawer are not repeated in it.
+        var later = school.Exams.Where(e => e.Date.Date >= DateTime.Today && !_schoolExamsOnTop.Contains(e)).OrderBy(e => e.Date).ToList();
+        var handedIn = school.Deadlines.Where(d => d.Submitted && (d.SubmittedAt ?? d.Due) >= DateTimeOffset.Now.AddDays(-7))
+            .OrderByDescending(d => d.SubmittedAt ?? d.Due).Take(3).ToList();
+        if (later.Count == 0 && handedIn.Count == 0) return;
+        _piExamSection.Children.Add(CompactText(_schoolExamsOnTop.Count > 0 ? "Weitere Tests" : "Tests", 11, CompactLabel));
+        foreach (var exam in later)
             _piExamSection.Children.Add(SchoolExam(exam));
-        foreach (var deadline in school.Deadlines.Where(d => d.Submitted && (d.SubmittedAt ?? d.Due) >= DateTimeOffset.Now.AddDays(-7))
-                     .OrderByDescending(d => d.SubmittedAt ?? d.Due).Take(3))
+        foreach (var deadline in handedIn)
         {
             var row = CompactLine(0xE73E, deadline.Name); row.Opacity = .45; row.ToolTip = "Abgegeben";
             OpenOnClick(row, () => DeadlineLink(deadline), SignInToSchoolAsync); _piExamSection.Children.Add(row);
