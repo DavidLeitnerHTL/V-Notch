@@ -293,7 +293,7 @@ public static partial class SettingsMigrator
             currentVersion++;
         }
 
-        root[nameof(NotchSettings.SettingsVersion)] = CurrentVersion;
+        root[nameof(NotchSettings.SettingsVersion)] = currentVersion;
 
         // Inspect all files for legacy plaintext keys regardless of reported version;
         // callers must preserve the old file if protection fails.
@@ -321,7 +321,6 @@ public static partial class SettingsMigrator
 
         var normalizedJson = root.ToJsonString();
         var settings = JsonSerializer.Deserialize<NotchSettings>(normalizedJson) ?? new NotchSettings();
-        settings.SettingsVersion = CurrentVersion;
 
         bool hasAccepted = SpotifyCanvasConsent.HasAccepted(settings);
         byte acceptedFlag = hasAccepted ? (byte)1 : (byte)0;
@@ -347,6 +346,6 @@ public static partial class SettingsMigrator
             migrated = true;
         }
 
-        return (settings, migrated);
+        return (settings, startVersion <= CurrentVersion && migrated);
     }
 }

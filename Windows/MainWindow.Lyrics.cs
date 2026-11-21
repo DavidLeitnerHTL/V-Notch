@@ -31,8 +31,6 @@ public partial class MainWindow
                 {
                     Background = LyricsCanvasBackground,
                     Viewport = LyricsCanvasViewport,
-                    Video = LyricsCanvasVideo,
-                    VideoAlt = LyricsCanvasVideoAlt,
                     BrightnessOverlay = LyricsCanvasBrightnessOverlay,
                     BlurFallbackBackground = LyricsBlurBackground,
                     BlurFallbackImage = LyricsBlurImage
@@ -447,8 +445,7 @@ public partial class MainWindow
             if (_isLyricsSearchVisible && LyricsSearchPanel.Visibility == Visibility.Visible)
             {
                 LyricsSearchText.Text = searchText;
-                if (_lyricsSearchShimmerStoryboard == null)
-                    StartLyricsSearchShimmer();
+                RefreshLyricsSearchShimmer();
                 return;
             }
 
@@ -472,7 +469,7 @@ public partial class MainWindow
             Motion.To(LyricsSearchPanel, OpacityProperty, 1, Motion.Tile, from: returning ? null : 0);
             Motion.To(searchTranslate, TranslateTransform.YProperty, 0, Motion.Tile, from: returning ? null : 8);
 
-            StartLyricsSearchShimmer();
+            RefreshLyricsSearchShimmer();
         }
 
         if (Dispatcher.CheckAccess())
@@ -537,15 +534,16 @@ public partial class MainWindow
         return brush;
     }
 
-    private void StartLyricsSearchShimmer()
+    private void RefreshLyricsSearchShimmer()
     {
-        StopLyricsSearchShimmer();
-
-        if (AnimationConfig.ReduceMotion)
+        if (!_isLyricsSearchVisible || !AmbientAnimationsAllowed || !LyricsSearchText.IsVisible)
         {
-            LyricsSearchText.Foreground = ReducedMotionLyricsSearchBrush;
+            StopLyricsSearchShimmer();
+            if (_isLyricsSearchVisible)
+                LyricsSearchText.Foreground = ReducedMotionLyricsSearchBrush;
             return;
         }
+        if (_lyricsSearchShimmerStoryboard != null) return;
 
         var shimmerBrush = new LinearGradientBrush
         {
@@ -586,7 +584,7 @@ public partial class MainWindow
 
     private void StopLyricsSearchShimmer()
     {
-        _lyricsSearchShimmerStoryboard?.Stop(this);
+        _lyricsSearchShimmerStoryboard?.Remove(this);
         _lyricsSearchShimmerStoryboard = null;
     }
 

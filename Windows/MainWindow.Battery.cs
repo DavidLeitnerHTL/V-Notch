@@ -31,6 +31,7 @@ public partial class MainWindow
         PrivacyDot.IsVisibleChanged += (_, _) => RefreshPrivacyBreathing();
         UpdateNotificationButton.IsVisibleChanged += (_, _) => StartUpdatePulseAnimation();
         MediaPlayback.TrackTitle.IsVisibleChanged += (_, _) => RefreshAmbientAnimations();
+        LyricsSearchText.IsVisibleChanged += (_, _) => RefreshLyricsSearchShimmer();
     }
 
     private bool AmbientAnimationsAllowed =>
@@ -52,6 +53,7 @@ public partial class MainWindow
 
         if (_shimmerWanted && allowed && MediaPlayback.TrackTitle.IsVisible) StartTitleShimmer();
         else StopTitleShimmerInternal();
+        RefreshLyricsSearchShimmer();
 
         RefreshChargePulse();
         RefreshPrivacyBreathing();

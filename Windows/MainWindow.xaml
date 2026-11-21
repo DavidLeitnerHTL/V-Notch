@@ -366,6 +366,7 @@
         <tb:TaskbarIcon x:Name="TrayIcon"
                         Visibility="Collapsed"
                         ToolTipText="V-Notch"
+                        TrayMouseMove="TraySettingsTargeted"
                         MenuActivation="RightClick">
             <tb:TaskbarIcon.ContextMenu>
                 <ContextMenu Style="{StaticResource TrayContextMenuStyle}"
@@ -396,6 +397,8 @@
                     <Separator Style="{StaticResource TraySeparatorStyle}"/>
                     <MenuItem Style="{StaticResource TrayMenuItemStyle}"
                               Icon="{StaticResource TraySettingsIconGeometry}"
+                              MouseEnter="TraySettingsTargeted"
+                              GotKeyboardFocus="TraySettingsTargeted"
                               Click="OpenSettings_Click">
                         <MenuItem.Header>
                             <TextBlock x:Name="MenuSettingsText" Text="Notch settings" Style="{StaticResource TrayMenuItemText}"/>
@@ -2615,24 +2618,6 @@
                             <Grid x:Name="LyricsCanvasViewport"
                                   Background="Transparent"
                                   ClipToBounds="True">
-                                <MediaElement x:Name="LyricsCanvasVideo"
-                                              LoadedBehavior="Manual"
-                                              UnloadedBehavior="Manual"
-                                              Stretch="UniformToFill"
-                                              HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"
-                                              IsMuted="True"
-                                              ScrubbingEnabled="True"
-                                              Opacity="1"/>
-                                <MediaElement x:Name="LyricsCanvasVideoAlt"
-                                              LoadedBehavior="Manual"
-                                              UnloadedBehavior="Manual"
-                                              Stretch="UniformToFill"
-                                              HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"
-                                              IsMuted="True"
-                                              ScrubbingEnabled="True"
-                                              Opacity="0"/>
                                 <Rectangle x:Name="LyricsCanvasBrightnessOverlay"
                                            Fill="Black"
                                            Opacity="0.3"

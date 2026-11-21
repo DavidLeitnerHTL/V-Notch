@@ -1,12 +1,13 @@
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using VNotch.Services;
 
 namespace VNotch.Models;
 
-public partial class NotchSettings
+public partial class NotchSettings : IJsonOnDeserialized
 {
     private static int ClampInt(int value, int min, int max) =>
         min <= max ? Math.Clamp(value, min, max) : value;
@@ -260,6 +261,15 @@ public partial class NotchSettings
     public bool EnableDiagnosticLogging { get; set; } = true;
     public bool EnableSpotlightHistory { get; set; } = true;
 
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
+
+    void IJsonOnDeserialized.OnDeserialized()
+    {
+        if (SettingsVersion <= SettingsMigrator.CurrentVersion)
+            ExtensionData = null;
+    }
+
     [JsonIgnore]
     public bool IsDirty { get; set; } = false;
 
@@ -296,7 +306,7 @@ public partial class NotchSettings
         for (int i = 0; i < _cloneableProperties.Length; i++)
         {
             var prop = _cloneableProperties[i];
-            if (prop.PropertyType == typeof(LiquidGlassConfig) || prop.Name == nameof(BannerRestore))
+            if (prop.PropertyType == typeof(LiquidGlassConfig) || prop.Name is nameof(BannerRestore) or nameof(ExtensionData))
                 continue;
 
             var p1 = Expression.Property(left, prop);
@@ -342,7 +352,16 @@ public partial class NotchSettings
         clone.LiquidGlass = LiquidGlass?.Clone() ?? new LiquidGlassConfig();
         clone.LiquidGlassCustom = LiquidGlassCustom?.Clone();
         clone.BannerRestore = new(BannerRestore ?? new(), StringComparer.OrdinalIgnoreCase);
+        if (ExtensionData != null)
+            clone.ExtensionData = new(ExtensionData, StringComparer.Ordinal);
         return clone;
+    }
+
+    internal static bool ExtensionDataEquals(Dictionary<string, JsonElement>? left, Dictionary<string, JsonElement>? right)
+    {
+        if ((left?.Count ?? 0) != (right?.Count ?? 0)) return false;
+        return left == null || left.All(entry => right != null && right.TryGetValue(entry.Key, out var value)
+            && entry.Value.GetRawText() == value.GetRawText());
     }
 
     public bool ValueEquals(NotchSettings? other)
@@ -350,7 +369,7 @@ public partial class NotchSettings
         if (ReferenceEquals(this, other)) return true;
         if (other is null) return false;
 
-        if (!_scalarValueEquals(this, other))
+        if (!_scalarValueEquals(this, other) || !ExtensionDataEquals(ExtensionData, other.ExtensionData))
             return false;
 
         if (BannerRestore.Count != other.BannerRestore.Count ||
@@ -466,7 +485,16 @@ public partial class LiquidGlassConfig
     // the adapter driving the window's monitor, including in this mode.
     public bool UseUltimateGpu { get; set; } = false;
 
-    public LiquidGlassConfig Clone() => (LiquidGlassConfig)MemberwiseClone();
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
+
+    public LiquidGlassConfig Clone()
+    {
+        var clone = (LiquidGlassConfig)MemberwiseClone();
+        if (ExtensionData != null)
+            clone.ExtensionData = new(ExtensionData, StringComparer.Ordinal);
+        return clone;
+    }
 
     private VnLiquidGlassScalars ToNative() => new()
     {
@@ -512,6 +540,7 @@ public partial class LiquidGlassConfig
 
         var left = ToNative();
         var right = other.ToNative();
-        return vn_liquid_glass_config_equals(ref left, ref right, out byte equal) == 0 && equal != 0;
+        return vn_liquid_glass_config_equals(ref left, ref right, out byte equal) == 0 && equal != 0
+            && NotchSettings.ExtensionDataEquals(ExtensionData, other.ExtensionData);
     }
 }

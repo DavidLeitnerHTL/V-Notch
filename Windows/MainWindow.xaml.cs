@@ -607,7 +607,6 @@ public partial class MainWindow : Window
             if (_cleanedUp) return;
             _viewModel.Initialize();
             StartCoreModules();
-            ScheduleSettingsFirstOpenPreparation();
         }), DispatcherPriority.ApplicationIdle);
     }
 
@@ -2131,6 +2130,8 @@ public partial class MainWindow : Window
         OpenAppSettings();
     }
 
+    private void TraySettingsTargeted(object sender, RoutedEventArgs e) => ScheduleSettingsFirstOpenPreparation();
+
     private void Settings_Click(object sender, MouseButtonEventArgs e)
     {
         e.Handled = true;
@@ -2142,6 +2143,7 @@ public partial class MainWindow : Window
 
     private void SettingsButton_MouseEnter(object sender, MouseEventArgs e)
     {
+        ScheduleSettingsFirstOpenPreparation();
         SettingsButton.CacheMode ??= new System.Windows.Media.BitmapCache(1.5);
         AnimateSettingsHover(true);
     }
