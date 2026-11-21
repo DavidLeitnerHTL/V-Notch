@@ -29,9 +29,9 @@ public partial class ControlCenterView
 {
     private enum DrawerPage { Main, Processes, Displays }
 
-    private const double MixCapsuleWidth = 44, MixCapsuleHeight = 76, MeterHeight = 68;
-    private const double ScreenWidth = 112, ScreenHeight = 46;
-    private const int MixMaxChannels = 6, BatteryRows = 4;
+    private const double MixCapsuleWidth = 44, MixCapsuleHeight = 66, MeterHeight = 58;
+    private const double ScreenWidth = 104, ScreenHeight = 44;
+    private const int MixMaxChannels = 5, BatteryRows = 3;
     private static readonly Color SandColor = Color.FromRgb(0xD2, 0xAE, 0x7C);
     private static readonly Color RoseColor = Color.FromRgb(0xD2, 0x85, 0x7E);
     private static readonly Brush DrawerHair = Frozen("#14FFFFFF");
@@ -83,6 +83,7 @@ public partial class ControlCenterView
     private TextBlock? _mixEmpty, _screenName;
     private Border? _screenHolder;
     private TextBlock? _cpuValue, _gpuValue, _ramValue, _cpuSub, _gpuSub, _ramSub, _netLine;
+    private Border? _cpuBar, _gpuBar, _ramBar;
     private Ellipse? _cpuHeat, _gpuHeat;
     private DockPanel? _footer;
     private SegmentedParts? _awakeSegment;
@@ -103,47 +104,51 @@ public partial class ControlCenterView
         if (_drawerRoot != null) return;
         _drawerMain = new StackPanel { RenderTransform = new TranslateTransform() };
 
-        // Top row: the mixer up to the power tile's right edge, the second screen under the face's sliders.
+        // Four modules on a quiet surface, like Control Center's, on the face's columns with 10 px between them; the
+        // footer stays on the bare backdrop. Top row: the mixer up to the power tile's right edge, the second screen
+        // under the face's sliders.
         _drawerRowA = DrawerColumns();
         _mixColumn = new StackPanel();
         _mixColumn.Children.Add(DrawerHeading("Apps"));
-        _mixHost = new UniformGrid { Rows = 1, Columns = 4, Margin = new Thickness(0, 6, 0, 0) };
+        _mixHost = new UniformGrid { Rows = 1, Columns = 5, Margin = new Thickness(0, 2, 0, 0) };
         _mixEmpty = CompactText(Say("Gerade spielt keine App Ton", "No app is playing sound"), 11.5, CompactLabel);
-        _mixEmpty.Margin = new Thickness(0, 8, 0, 6);
+        _mixEmpty.Margin = new Thickness(0, 6, 0, 4);
         _mixColumn.Children.Add(_mixHost);
         _mixColumn.Children.Add(_mixEmpty);
-        Grid.SetColumnSpan(_mixColumn, 2);
-        _drawerRowA.Children.Add(_mixColumn);
-        _screenColumn = new StackPanel { Margin = new Thickness(14, 0, 0, 0) };
+        var apps = DrawerModule(_mixColumn);
+        apps.Margin = new Thickness(0, 0, 10, 0);
+        Grid.SetColumnSpan(apps, 2);
+        _drawerRowA.Children.Add(apps);
+        _screenColumn = new StackPanel();
         _screenColumn.Children.Add(DrawerLink(Say("Bildschirme", "Displays"), heading: true, () => ShowDrawerPage(DrawerPage.Displays)));
-        _screenHolder = new Border { Margin = new Thickness(0, 12, 0, 0), HorizontalAlignment = HorizontalAlignment.Center };
+        _screenHolder = new Border { Margin = new Thickness(0, 8, 0, 0), HorizontalAlignment = HorizontalAlignment.Center };
         _screenName = CompactText("", 11.5, SoftInk);
         _screenName.HorizontalAlignment = HorizontalAlignment.Center;
-        _screenName.Margin = new Thickness(0, 5, 0, 0);
+        _screenName.Margin = new Thickness(0, 6, 0, 0);
         _screenColumn.Children.Add(_screenHolder);
         _screenColumn.Children.Add(_screenName);
-        Grid.SetColumn(_screenColumn, 2);
-        _drawerRowA.Children.Add(_screenColumn);
+        var screen = DrawerModule(_screenColumn);
+        Grid.SetColumn(screen, 2);
+        _drawerRowA.Children.Add(screen);
         _drawerMain.Children.Add(_drawerRowA);
-        _drawerMain.Children.Add(DrawerHairline());
 
         // Second row: batteries under the connections, the load under the power mode.
         var rowB = DrawerColumns();
-        var batteries = new StackPanel { Margin = new Thickness(0, 0, 14, 0) };
+        rowB.Margin = new Thickness(0, 10, 0, 0);
+        var batteries = new StackPanel();
         batteries.Children.Add(DrawerHeading(Say("Akkus", "Batteries")));
-        _batteryHost = new StackPanel { Margin = new Thickness(0, 2, 0, 0) };
+        _batteryHost = new StackPanel();
         batteries.Children.Add(_batteryHost);
-        rowB.Children.Add(batteries);
-        var load = BuildLoadColumn();
+        var batteryModule = DrawerModule(batteries);
+        batteryModule.Margin = new Thickness(0, 0, 10, 0);
+        rowB.Children.Add(batteryModule);
+        var load = DrawerModule(BuildLoadColumn());
         Grid.SetColumn(load, 1);
         Grid.SetColumnSpan(load, 2);
         rowB.Children.Add(load);
         _drawerMain.Children.Add(rowB);
 
-        _footer = new DockPanel { Height = 40, LastChildFill = false };
-        var footerHair = DrawerHairline();
-        footerHair.Margin = new Thickness(0, 6, 0, 0);
-        _drawerMain.Children.Add(footerHair);
+        _footer = new DockPanel { Height = 36, LastChildFill = false, Margin = new Thickness(2, 10, 0, 0) };
         _drawerMain.Children.Add(_footer);
 
         _drawerRoot = new Grid { ClipToBounds = false, Children = { _drawerMain } };
@@ -215,9 +220,10 @@ public partial class ControlCenterView
         if (_faceGrid == null) return;
         var columns = _faceGrid.ColumnDefinitions;
         double left = columns[0].ActualWidth > 0 ? columns[0].ActualWidth : 164;
-        double right = columns[2].ActualWidth + columns[3].ActualWidth;
-        // Without a brightness capsule the face's right side is narrow; the screen still needs its room.
-        right = right > 0 ? Math.Max(right, ScreenWidth + 16) : 128;
+        // The right column is a fixed 128 (it starts about where the face's volume capsule does): the face's own
+        // right columns change width with the output name and the brightness capsule without the face resizing, so
+        // following them left the screen module too narrow for its screen.
+        const double right = 128;
         foreach (var grid in _drawerGrids)
         {
             grid.ColumnDefinitions[0].Width = new GridLength(left);
@@ -225,21 +231,27 @@ public partial class ControlCenterView
         }
     }
 
+    /// <summary>A quiet label over a module; the module's values carry the weight.</summary>
     private TextBlock DrawerHeading(string text)
     {
-        var heading = CompactText(text, 13, CompactInk);
+        var heading = CompactText(text, 12, CompactLabel);
         heading.FontWeight = FontWeights.SemiBold;
-        heading.Height = 24;
-        heading.Padding = new Thickness(0, 4, 0, 0);
+        heading.Height = 20;
+        heading.Padding = new Thickness(0, 2, 0, 0);
         return heading;
     }
 
-    private static Border DrawerHairline() => new() { Height = 1, Background = DrawerHair, Margin = new Thickness(0, 4, 0, 4) };
+    /// <summary>One group of the drawer: a faint surface with a hairline, rounded like the face's tiles.</summary>
+    private static Border DrawerModule(UIElement content) => new()
+    {
+        CornerRadius = new CornerRadius(14), Background = Frozen("#0AFFFFFF"), BorderBrush = Frozen("#14FFFFFF"),
+        BorderThickness = new Thickness(1), Padding = new Thickness(10, 7, 10, 10), Child = content
+    };
 
     /// <summary>A text link with a small chevron; as a heading it reads like the other headings.</summary>
     private Border DrawerLink(string text, bool heading, Action open)
     {
-        var label = CompactText(text, heading ? 13 : 12, heading ? CompactInk : LinkInk);
+        var label = CompactText(text, 12, heading ? CompactLabel : LinkInk);
         if (heading) label.FontWeight = FontWeights.SemiBold;
         var chevron = CompactGlyph(0xE76C);
         chevron.FontSize = 9;
@@ -247,7 +259,7 @@ public partial class ControlCenterView
         chevron.Margin = new Thickness(2, 1, 0, 0);
         var link = new Border
         {
-            Height = 24, CornerRadius = new CornerRadius(8), Padding = new Thickness(6, 0, 4, 0), Background = Brushes.Transparent,
+            Height = heading ? 20 : 24, CornerRadius = new CornerRadius(8), Padding = new Thickness(6, 0, 4, 0), Background = Brushes.Transparent,
             Cursor = Cursors.Hand, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(-6, 0, 0, 0),
             Child = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Children = { label, chevron } }
         };
@@ -418,8 +430,10 @@ public partial class ControlCenterView
     {
         var first = sessions[0];
         string name = first.IsSystemSounds ? "System" : first.DisplayName;
-        var capsule = BuildCapsule(0xE767, v => SetAppVolume(key, v), Say($"{name}: ziehen ändert die Lautstärke, tippen schaltet stumm", $"{name}: drag to set the volume, tap to mute"),
-            MixCapsuleWidth, MixCapsuleHeight, sessions.FirstOrDefault(s => s.Icon != null)?.Icon, () => ToggleAppMute(key));
+        // The capsule only sets the volume; muting is the button under it (a tap on the capsule muted too, which
+        // read as a glitch while dragging).
+        var capsule = BuildCapsule(0xE767, v => SetAppVolume(key, v), Say($"{name}: ziehen ändert die Lautstärke", $"{name}: drag to set the volume"),
+            MixCapsuleWidth, MixCapsuleHeight, sessions.FirstOrDefault(s => s.Icon != null)?.Icon);
         capsule.Root.HorizontalAlignment = HorizontalAlignment.Left;
         // The app's own colour (from its icon, muted): its level line, and a soft light behind it that rises with its sound.
         var icon = sessions.FirstOrDefault(s => s.Icon != null)?.Icon;
@@ -459,11 +473,11 @@ public partial class ControlCenterView
         glyph.RenderTransformOrigin = new Point(.5, .5);
         var label = CompactText(name, 11.5, SoftInk);
         label.TextTrimming = TextTrimming.CharacterEllipsis;
-        label.MaxWidth = 66;
+        label.MaxWidth = 50;
         label.Margin = new Thickness(3, 0, 0, 0);
         var button = new Border
         {
-            Height = 26, CornerRadius = new CornerRadius(8), Padding = new Thickness(5, 0, 6, 0), Margin = new Thickness(0, 2, 0, 0),
+            Height = 20, CornerRadius = new CornerRadius(8), Padding = new Thickness(5, 0, 6, 0), Margin = new Thickness(0, 4, 0, 0),
             HorizontalAlignment = HorizontalAlignment.Center, Background = Brushes.Transparent, Cursor = Cursors.Hand, ToolTip = Say($"{name} stummschalten", $"Mute {name}"),
             Child = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Children = { glyph, label } }
         };
@@ -727,7 +741,7 @@ public partial class ControlCenterView
     {
         var dock = new DockPanel { LastChildFill = true };
         var ring = BatteryRing(glyph, percent);
-        ring.Margin = new Thickness(0, 0, 8, 0);
+        ring.Margin = new Thickness(0, 0, 6, 0);
         dock.Children.Add(ring);
         var right = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0) };
         var value = CompactText(note ?? (percent >= 0 ? $"{percent} %" : ""), 12, note == null ? CompactInk : CompactLabel);
@@ -756,7 +770,7 @@ public partial class ControlCenterView
             middle.Children.Add(cast);
         }
         dock.Children.Add(middle);
-        var line = new Border { Height = 26, CornerRadius = new CornerRadius(8), Padding = new Thickness(6, 0, 6, 0), Margin = new Thickness(-6, 0, -6, 0),
+        var line = new Border { Height = 28, CornerRadius = new CornerRadius(8), Padding = new Thickness(6, 0, 6, 0), Margin = new Thickness(-6, 0, -6, 0),
             Background = Brushes.Transparent, Child = dock };
         if (open != null)
         {
@@ -769,7 +783,7 @@ public partial class ControlCenterView
 
     private static Grid BatteryRing(int glyph, int percent)
     {
-        const double size = 22, stroke = 1.8;
+        const double size = 18, stroke = 1.7;
         var grid = new Grid { Width = size, Height = size, VerticalAlignment = VerticalAlignment.Center };
         grid.Children.Add(new Ellipse { Stroke = Frozen("#24FFFFFF"), StrokeThickness = stroke });
         if (percent > 0)
@@ -787,7 +801,7 @@ public partial class ControlCenterView
         }
         grid.Children.Add(new TextBlock
         {
-            Text = Glyph(glyph), FontFamily = FluentFont, FontSize = 10, Foreground = Frozen("#D9FFFFFF"),
+            Text = Glyph(glyph), FontFamily = FluentFont, FontSize = 8.5, Foreground = Frozen("#D9FFFFFF"),
             HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center
         });
         return grid;
@@ -810,27 +824,31 @@ public partial class ControlCenterView
 
         var metrics = new Grid { Margin = new Thickness(0, 2, 0, 0), Background = Brushes.Transparent, Cursor = Cursors.Hand, ToolTip = Say("Prozesse zeigen", "Show processes") };
         for (int i = 0; i < 3; i++) metrics.ColumnDefinitions.Add(new ColumnDefinition());
-        metrics.Children.Add(Metric(0, "CPU", out _cpuValue, out _cpuSub, out _cpuHeat));
-        metrics.Children.Add(Metric(1, "GPU", out _gpuValue, out _gpuSub, out _gpuHeat));
-        metrics.Children.Add(Metric(2, "RAM", out _ramValue, out _ramSub, out _));
+        // Each part keeps its colour on a thin usage line: CPU mist, GPU lilac, RAM sand.
+        metrics.Children.Add(Metric(0, "CPU", Color.FromRgb(0x7F, 0xA6, 0xCC), out _cpuValue, out _cpuSub, out _cpuHeat, out _cpuBar));
+        metrics.Children.Add(Metric(1, "GPU", Color.FromRgb(0xA1, 0x9B, 0xD2), out _gpuValue, out _gpuSub, out _gpuHeat, out _gpuBar));
+        metrics.Children.Add(Metric(2, "RAM", SandColor, out _ramValue, out _ramSub, out _, out _ramBar));
         metrics.MouseLeftButtonUp += (_, e) => { e.Handled = true; ShowDrawerPage(DrawerPage.Processes); };
         // Until the first reading: dashes, so the row keeps its height.
         SetMetric(_cpuValue, "–", "%");
         SetMetric(_gpuValue, "–", "%");
         SetMetric(_ramValue, "–", "GB");
         column.Children.Add(metrics);
-        _netLine = CompactText("", 11.5, CompactLabel);
-        _netLine.Margin = new Thickness(0, 6, 0, 0);
-        Typography.SetNumeralAlignment(_netLine, FontNumeralAlignment.Tabular);
-        column.Children.Add(_netLine);
         return column;
     }
 
-    private StackPanel Metric(int column, string name, out TextBlock value, out TextBlock sub, out Ellipse heat)
+    private const double UsageBarWidth = 64;
+
+    private StackPanel Metric(int column, string name, Color color, out TextBlock value, out TextBlock sub, out Ellipse heat, out Border bar)
     {
-        value = new TextBlock { FontSize = 24, FontWeight = FontWeights.SemiBold, Foreground = CompactInk, FontFamily = CompactText("", 12, CompactInk).FontFamily,
+        value = new TextBlock { FontSize = 20, FontWeight = FontWeights.SemiBold, Foreground = CompactInk, FontFamily = CompactText("", 12, CompactInk).FontFamily,
             Margin = new Thickness(0, 1, 0, 0) };
         Typography.SetNumeralAlignment(value, FontNumeralAlignment.Tabular);
+        var fill = new SolidColorBrush(color);
+        fill.Freeze();
+        bar = new Border { Width = 0, Height = 2, CornerRadius = new CornerRadius(1), Background = fill, HorizontalAlignment = HorizontalAlignment.Left };
+        var track = new Border { Width = UsageBarWidth, Height = 2, CornerRadius = new CornerRadius(1), Background = Frozen("#1AFFFFFF"),
+            HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 3, 0, 4), Child = bar };
         heat = new Ellipse { Width = 6, Height = 6, Margin = new Thickness(0, 1, 5, 0), Visibility = Visibility.Collapsed, VerticalAlignment = VerticalAlignment.Center };
         sub = CompactText("", 11.5, CompactLabel);
         Typography.SetNumeralAlignment(sub, FontNumeralAlignment.Tabular);
@@ -838,12 +856,22 @@ public partial class ControlCenterView
         {
             Children =
             {
-                CompactText(name, 11, CompactLabel), value,
+                CompactText(name, 11, CompactLabel), value, track,
                 new StackPanel { Orientation = Orientation.Horizontal, Children = { heat, sub } }
             }
         };
         Grid.SetColumn(cell, column);
         return cell;
+    }
+
+    /// <summary>A usage line glides to its new share; the numbers above it stay put.</summary>
+    private static void SetUsage(Border? bar, double? share)
+    {
+        if (bar == null) return;
+        double width = Math.Clamp(share ?? 0, 0, 1) * UsageBarWidth;
+        if (Math.Abs(bar.Width - width) < .5) return;
+        if (bar.IsVisible && !AnimationConfig.ReduceMotion) Motion.To(bar, WidthProperty, width, Motion.Shift);
+        else Motion.Stop(bar, WidthProperty, width);
     }
 
     /// <summary>Digits change in place; only a new value rewrites a number.</summary>
@@ -877,6 +905,9 @@ public partial class ControlCenterView
         if (_ramSub != null) _ramSub.Text = Say($"von {stats.RamTotalGb:0} GB", $"of {stats.RamTotalGb:0} GB");
         SetHeat(_cpuHeat, cpuTemp);
         SetHeat(_gpuHeat, gpuTemp);
+        SetUsage(_cpuBar, stats.CpuPercent / 100);
+        SetUsage(_gpuBar, stats.GpuPercent / 100);
+        SetUsage(_ramBar, stats.RamTotalGb > 0 ? stats.RamUsedGb / stats.RamTotalGb : null);
         if (_netLine != null)
         {
             bool online = s.Wired.Any(w => w.IsUp) || s.Networks.Any(n => n.IsConnected);
@@ -936,8 +967,6 @@ public partial class ControlCenterView
                 _footer.Children.Add(setup);
             }
             _footer.Visibility = _footer.Children.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-            if (_footer.Parent is StackPanel main && main.Children.IndexOf(_footer) is > 0 and var at)
-                main.Children[at - 1].Visibility = _footer.Visibility;
         }
         PaintAwake();
         return rebuilt;

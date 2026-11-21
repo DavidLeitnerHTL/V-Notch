@@ -461,6 +461,7 @@ public partial class ControlCenterView : UserControl, IDisposable
         public List<OutputDevice>? Outputs;
         public List<AudioSessionInfo>? Apps;
         public WaveXlrState? WaveXlr;
+        public bool? MicMuted;
     }
 
     private Snapshot ReadSnapshot(bool? wifiOn, bool? bluetoothOn, bool rescanWifi, bool withStats, TopMode top)

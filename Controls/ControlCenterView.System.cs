@@ -28,11 +28,17 @@ public partial class ControlCenterView
             MountCompactPage();
             BuildSystemFace();
         }
-        if (s.Outputs != null) _outputs = s.Outputs;
-        _waveXlr = s.WaveXlr;
+        // Sound is only read while the tab is visible; a read without it keeps the last mic state instead of
+        // flashing "not found" when the tab opens.
+        if (s.Outputs != null)
+        {
+            _outputs = s.Outputs;
+            _waveXlr = s.WaveXlr;
+            _micMuted = s.WaveXlr == null ? s.MicMuted : null;
+        }
         PaintFaceRow(_faceWifi, s.WifiOn, s.Networks.FirstOrDefault(n => n.IsConnected)?.Ssid ?? Say("An", "On"), Say("Aus", "Off"), ConnectionBlue);
         PaintFaceRow(_faceBluetooth, s.BluetoothOn, Say("An", "On"), Say("Aus", "Off"), ConnectionBlue);
-        PaintFaceRow(_faceMic, _waveXlr == null ? null : !_waveXlr.Muted, "Wave XLR", Say("Stumm", "Muted"), MicSand);
+        PaintMic();
         ShowFaceOutput();
         ShowFaceMode();
         RefreshQuickPage(s);
@@ -46,16 +52,33 @@ public partial class ControlCenterView
     private static string PercentAndTemp(double? percent, int? temp) =>
         (percent is { } p ? $"{p:0} %" : "–") + (temp is > 0 ? $", {temp} °C" : "");
 
+    /// <summary>Wave Link's own state when it knows the XLR, otherwise the default mic's mute flag from Windows.</summary>
+    private void PaintMic() => PaintFaceRow(_faceMic,
+        _waveXlr != null ? !_waveXlr.Muted : _micMuted is { } muted ? !muted : null,
+        _waveXlr != null ? "Wave XLR" : Say("An", "On"), Say("Stumm", "Muted"), MicSand);
+
     private async void ToggleWaveXlr()
     {
-        if (_waveXlr is not { } state || _faceMic is not { } mic) return;
+        if (_faceMic is not { } mic) return;
         ((FrameworkElement)mic.Disc.Parent).IsEnabled = false;
-        bool muted = !state.Muted;
-        bool changed = await WaveXlrControl.SetMutedAsync(state, muted);
-        if (_disposed) return;
-        if (changed) _waveXlr = state with { Muted = muted };
-        PaintFaceRow(_faceMic, _waveXlr == null ? null : !_waveXlr.Muted, "Wave XLR", Say("Stumm", "Muted"), MicSand);
+        if (_waveXlr is { } state)
+        {
+            bool muted = !state.Muted;
+            bool changed = await WaveXlrControl.SetMutedAsync(state, muted);
+            if (_disposed) return;
+            if (changed) _waveXlr = state with { Muted = muted };
+        }
+        else if (_micMuted is { } current)
+        {
+            // Windows' mute works for ordinary mics; the XLR ignores it, and the next read shows what really happened.
+            bool target = !current;
+            if (await Task.Run(() => MicrophoneControl.SetMuted(target)) && !_disposed) _micMuted = target;
+            if (!_disposed) RefreshSoon(400);
+        }
+        if (!_disposed) PaintMic();
     }
+
+    private bool? _micMuted;
 
     internal static string ShortOutputName(OutputDevice output)
     {

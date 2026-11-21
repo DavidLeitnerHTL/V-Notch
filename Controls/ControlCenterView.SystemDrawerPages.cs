@@ -68,6 +68,11 @@ public partial class ControlCenterView
             _endArmed = null;
             RefreshSoon(0);
         }).Root);
+        // The connection's speed lives here now, with the apps that use it, so the main page can breathe.
+        _netLine = CompactText("", 11.5, CompactLabel);
+        _netLine.Margin = new Thickness(2, -2, 0, 8);
+        Typography.SetNumeralAlignment(_netLine, FontNumeralAlignment.Tabular);
+        page.Children.Add(_netLine);
         var head = ProcGrid();
         head.Height = 20;
         foreach (var (text, column) in new[] { ("App", 0), ("CPU", 1), ("RAM", 2) })
