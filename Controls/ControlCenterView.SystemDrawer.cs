@@ -39,9 +39,11 @@ public partial class ControlCenterView
     private static readonly Brush CapsuleWhite = Frozen("#F2F2F4");
     private static readonly Brush CapsuleMuted = Frozen("#40FFFFFF");
 
+    /// <summary>One app in the mixer: every audio session it has (Chrome, Discord and games open several).</summary>
     private sealed class MixChannel
     {
-        public required uint ProcessId;
+        public required string Key;
+        public required uint[] ProcessIds;
         public required bool SystemSounds;
         public required FaceCapsule Capsule;
         public required Border MeterFill;
@@ -84,7 +86,7 @@ public partial class ControlCenterView
     private SegmentedParts? _awakeSegment;
     private TextBlock? _awakeGlyph, _awakeText;
     private DrawerPage _drawerPage;
-    private readonly Dictionary<uint, MixChannel> _mixChannels = new();
+    private readonly Dictionary<string, MixChannel> _mixChannels = new(StringComparer.OrdinalIgnoreCase);
     private string _mixKey = "", _batteryKey = "", _footerKey = "";
     private ScreenSlider? _screenSlider;
     private Dictionary<string, int?> _monitorLevels = new();
@@ -144,6 +146,9 @@ public partial class ControlCenterView
 
         _drawerRoot = new Grid { ClipToBounds = false, Children = { _drawerMain } };
         AddDrawer(_drawerRoot);
+        // The hairline that opens the drawer keeps some air from the face's labels above it (inside the clip, so a
+        // closed drawer adds nothing).
+        if (_drawerFrame != null) _drawerFrame.Margin = new Thickness(DrawerBleed, 12, DrawerBleed, 0);
         if (_faceGrid != null) _faceGrid.SizeChanged += (_, _) => SyncDrawerColumns();
         SyncDrawerColumns();
         IsVisibleChanged += (_, _) =>
@@ -351,38 +356,42 @@ public partial class ControlCenterView
     {
         // No sound read this time (the tab was hidden): keep what the mixer shows.
         if (_mixHost == null || _mixEmpty == null || apps == null) return false;
-        var list = apps.Take(MixMaxChannels).ToList();
-        string key = string.Join(";", list.Select(a => $"{a.ProcessId}:{a.DisplayName}:{a.Icon != null}"));
+        // One capsule per app, not per session: its volume and mute reach every session it has.
+        var groups = apps.GroupBy(MixKey, StringComparer.OrdinalIgnoreCase).Take(MixMaxChannels).ToList();
+        string key = string.Join(";", groups.Select(g => $"{g.Key}:{string.Join(",", g.Select(a => a.ProcessId).Order())}:{g.Any(a => a.Icon != null)}"));
         bool rebuilt = key != _mixKey;
         if (rebuilt)
         {
             _mixKey = key;
             _mixHost.Children.Clear();
             _mixChannels.Clear();
-            _mixHost.Columns = Math.Max(4, list.Count);
-            foreach (var app in list) _mixHost.Children.Add(MixCell(app));
-            _mixHost.Visibility = list.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-            _mixEmpty.Visibility = list.Count > 0 ? Visibility.Collapsed : Visibility.Visible;
+            _mixHost.Columns = Math.Max(4, groups.Count);
+            foreach (var group in groups) _mixHost.Children.Add(MixCell(group.Key, group.ToList()));
+            _mixHost.Visibility = groups.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            _mixEmpty.Visibility = groups.Count > 0 ? Visibility.Collapsed : Visibility.Visible;
             // New sessions: the level lines read them from a fresh list.
             _peakSessions?.Dispose();
             _peakSessions = null;
             UpdatePeakTimer();
         }
-        foreach (var app in list)
+        foreach (var group in groups)
         {
-            if (!_mixChannels.TryGetValue(app.ProcessId, out var channel)) continue;
-            ShowCapsuleLevel(channel.Capsule, app.Volume);
-            if (channel.Muted != app.IsMuted) PaintMute(channel, app.IsMuted, animate: !rebuilt);
+            if (!_mixChannels.TryGetValue(group.Key, out var channel)) continue;
+            ShowCapsuleLevel(channel.Capsule, group.Max(a => a.Volume));
+            bool muted = group.All(a => a.IsMuted);
+            if (channel.Muted != muted) PaintMute(channel, muted, animate: !rebuilt);
         }
         return rebuilt;
     }
 
-    private FrameworkElement MixCell(AudioSessionInfo app)
+    private static string MixKey(AudioSessionInfo app) => app.IsSystemSounds ? "\u0001system" : app.DisplayName.Trim();
+
+    private FrameworkElement MixCell(string key, List<AudioSessionInfo> sessions)
     {
-        uint pid = app.ProcessId;
-        string name = app.IsSystemSounds ? "System" : app.DisplayName;
-        var capsule = BuildCapsule(0xE767, v => SetAppVolume(pid, v), $"{name}: ziehen ändert die Lautstärke, tippen schaltet stumm",
-            MixCapsuleWidth, MixCapsuleHeight, app.Icon, () => ToggleAppMute(pid));
+        var first = sessions[0];
+        string name = first.IsSystemSounds ? "System" : first.DisplayName;
+        var capsule = BuildCapsule(0xE767, v => SetAppVolume(key, v), $"{name}: ziehen ändert die Lautstärke, tippen schaltet stumm",
+            MixCapsuleWidth, MixCapsuleHeight, sessions.FirstOrDefault(s => s.Icon != null)?.Icon, () => ToggleAppMute(key));
         capsule.Root.HorizontalAlignment = HorizontalAlignment.Left;
         var meterFill = new Border { Background = Frozen("#A3FFFFFF"), CornerRadius = new CornerRadius(1.5), VerticalAlignment = VerticalAlignment.Bottom, Height = 0 };
         var meter = new Border
@@ -409,32 +418,49 @@ public partial class ControlCenterView
             Child = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Children = { glyph, label } }
         };
         Pressable(button, () => Brushes.Transparent, CardHover, gentle: true);
-        button.MouseLeftButtonUp += (_, e) => { e.Handled = true; ToggleAppMute(pid); };
+        button.MouseLeftButtonUp += (_, e) => { e.Handled = true; ToggleAppMute(key); };
 
         var channel = new MixChannel
         {
-            ProcessId = pid, SystemSounds = app.IsSystemSounds, Capsule = capsule, MeterFill = meterFill, MuteGlyph = glyph, Name = label,
-            Icon = capsule.Root.Children.OfType<Image>().FirstOrDefault()
+            Key = key, ProcessIds = sessions.Select(s => s.ProcessId).Distinct().ToArray(), SystemSounds = first.IsSystemSounds,
+            Capsule = capsule, MeterFill = meterFill, MuteGlyph = glyph, Name = label, Icon = capsule.Root.Children.OfType<Image>().FirstOrDefault()
         };
-        _mixChannels[pid] = channel;
-        ShowCapsuleLevel(capsule, app.Volume);
-        PaintMute(channel, app.IsMuted, animate: false);
+        _mixChannels[key] = channel;
+        ShowCapsuleLevel(capsule, sessions.Max(s => s.Volume));
+        PaintMute(channel, sessions.All(s => s.IsMuted), animate: false);
         return new StackPanel { HorizontalAlignment = HorizontalAlignment.Center, Children = { wrap, button } };
     }
 
-    private void SetAppVolume(uint pid, double level)
+    private void SetAppVolume(string key, double level)
     {
-        if (_mixer?.Invoke() is { } mixer) Task.Run(() => mixer.SetSessionVolume(pid, (float)level));
+        if (!_mixChannels.TryGetValue(key, out var channel) || _mixer?.Invoke() is not { } mixer) return;
+        var pids = channel.ProcessIds;
+        Task.Run(() => { foreach (uint pid in pids) mixer.SetSessionVolume(pid, (float)level); });
     }
 
-    /// <summary>Mutes at once on screen, then follows what Windows reports.</summary>
-    private async void ToggleAppMute(uint pid)
+    /// <summary>
+    /// Mutes (or unmutes) every session of the app at once on screen, then follows what Windows reports. Windows only
+    /// toggles, so a session that already had the wanted state is toggled back.
+    /// </summary>
+    private async void ToggleAppMute(string key)
     {
-        if (!_mixChannels.TryGetValue(pid, out var channel) || _mixer?.Invoke() is not { } mixer) return;
-        PaintMute(channel, !channel.Muted, animate: true);
-        bool muted = await Task.Run(() => mixer.ToggleSessionMute(pid));
-        if (_disposed || !_mixChannels.TryGetValue(pid, out var current) || current != channel) return;
-        if (muted != channel.Muted) PaintMute(channel, muted, animate: false);
+        if (!_mixChannels.TryGetValue(key, out var channel) || _mixer?.Invoke() is not { } mixer) return;
+        bool target = !channel.Muted;
+        PaintMute(channel, target, animate: true);
+        var pids = channel.ProcessIds;
+        bool reached = await Task.Run(() =>
+        {
+            bool all = true;
+            foreach (uint pid in pids)
+            {
+                bool muted = mixer.ToggleSessionMute(pid);
+                if (muted != target) muted = mixer.ToggleSessionMute(pid);
+                all &= muted == target;
+            }
+            return all;
+        });
+        if (_disposed || !_mixChannels.TryGetValue(key, out var current) || current != channel) return;
+        if (!reached) RefreshSoon(150);
     }
 
     private static void PaintMute(MixChannel channel, bool muted, bool animate)
@@ -445,6 +471,8 @@ public partial class ControlCenterView
         channel.MuteGlyph.Foreground = muted ? new SolidColorBrush(RoseColor) : CompactLabel;
         channel.Name.Foreground = muted ? Frozen("#6BFFFFFF") : SoftInk;
         if (channel.Icon != null) channel.Icon.Opacity = muted ? .45 : 1;
+        // The grey muted fill lets the light glyph show through; the dark copy would double it.
+        if (channel.Capsule.Dark != null) channel.Capsule.Dark.Opacity = muted ? 0 : 1;
         if (!animate || !channel.MuteGlyph.IsVisible || AnimationConfig.ReduceMotion) return;
         var scale = FeedbackScale(channel.MuteGlyph);
         Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.Pop, from: .6);
@@ -503,7 +531,7 @@ public partial class ControlCenterView
             double peak = 0;
             if (sessions != null && !channel.Muted)
                 foreach (var session in sessions)
-                    if (channel.SystemSounds ? session.IsSystemSoundsSession : !session.IsSystemSoundsSession && session.GetProcessID == channel.ProcessId)
+                    if (channel.SystemSounds ? session.IsSystemSoundsSession : !session.IsSystemSoundsSession && channel.ProcessIds.Contains(session.GetProcessID))
                         peak = Math.Max(peak, session.ReadPeak());
             // A quick rise and a slow fall, like a real meter; the square root makes quiet sound visible.
             double target = Math.Sqrt(Math.Clamp(peak, 0, 1));

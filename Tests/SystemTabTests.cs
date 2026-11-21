@@ -186,6 +186,31 @@ public sealed class SystemTabTests
     });
 
     [Fact]
+    public void LongOutputAndNetworkNamesNeverPushTheSlidersIntoTheModeTile() => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        BackgroundTestWindows.EnsureApplicationResources();
+        using var view = CreateView();
+        var host = new BackgroundWindow { Width = 600, Height = 260, Left = -20000, Top = -20000,
+            Content = new Border { Padding = new Thickness(16, 30, 16, 0), Child = view } };
+        try
+        {
+            var snapshot = HomeSchoolTabTests.Field(view, "_snapshot")!;
+            snapshot.GetType().GetField("Outputs")!.SetValue(snapshot, new List<OutputDevice>
+                { new("wf", "Kopfhörer WF-1000XM6", "Kopfhörer (WF-1000XM6 Stereo)", true, true), new("wave", "Wave", "Wave Link Stream", false, false) });
+            snapshot.GetType().GetField("Networks")!.SetValue(snapshot, new List<WifiNetwork> { new("FRITZ!Box 7590 KL Gastzugang", null, 90, true, true) });
+            HomeSchoolTabTests.Invoke(view, "BuildCompactSystem", snapshot);
+            host.Show(); host.UpdateLayout();
+            Rect Bounds(FrameworkElement element) => element.TransformToAncestor(view).TransformBounds(new Rect(element.RenderSize));
+            var face = (Grid)HomeSchoolTabTests.Field(view, "_faceGrid");
+            var columns = face.Children.Cast<FrameworkElement>().Where(c => c.Visibility == Visibility.Visible).OrderBy(c => Bounds(c).Left).ToArray();
+            for (int i = 1; i < columns.Length; i++)
+                Assert.True(Bounds(columns[i]).Left - Bounds(columns[i - 1]).Right >= -0.5, $"column {i} overlaps by {Bounds(columns[i - 1]).Right - Bounds(columns[i]).Left:0.#}");
+            await Task.CompletedTask;
+        }
+        finally { HomeSchoolTabTests.SetField(view, "_gpuSampling", false); host.Close(); }
+    });
+
+    [Fact]
     public void DrawerPagesSlideInAndBackAndOnlyTheProcessPageAsksForProcesses() => SharedStaTestRunner.RunAsync(async ct =>
     {
         BackgroundTestWindows.EnsureApplicationResources();

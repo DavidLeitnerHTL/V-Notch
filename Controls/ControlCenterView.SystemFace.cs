@@ -50,6 +50,7 @@ public partial class ControlCenterView
         public required Border Fill;
         public required TextBlock Number;
         public required TextBlock NumberDark;
+        public Canvas? Dark;
         public double Height = CapsuleHeight;
         public double Level;
         public bool Dragging;
@@ -92,7 +93,11 @@ public partial class ControlCenterView
 
         var volume = BuildCapsule(0xE767, v => _volume?.SetVolume((float)v), "Lautstärke");
         _volumeCapsule = volume;
+        // The face's columns must leave the mode tile its full width (236 px): the output name, the network name and
+        // the screen name are capped instead of widening their column into the tile.
         _outputLabel = CompactText("–", 11.5, CompactInk);
+        _outputLabel.MaxWidth = 50;
+        _outputLabel.TextTrimming = TextTrimming.CharacterEllipsis;
         _outputGlyph = CompactGlyph(0xE7F5);
         _outputGlyph.FontSize = 12;
         _outputGlyph.Margin = new Thickness(0, 0, 5, 0);
@@ -124,6 +129,8 @@ public partial class ControlCenterView
         var brightness = BuildCapsule(0xE706, SetFaceBrightness, "Helligkeit");
         _brightnessCapsule = brightness;
         _brightnessName = CompactText("Monitor", 11, CompactLabel);
+        _brightnessName.MaxWidth = 62;
+        _brightnessName.TextTrimming = TextTrimming.CharacterEllipsis;
         _brightnessColumn = FaceColumn(brightness.Root, _brightnessName, 10);
         _brightnessColumn.Visibility = Visibility.Collapsed; // until the monitor answers over DDC
         Grid.SetColumn(_brightnessColumn, 3);
@@ -159,6 +166,8 @@ public partial class ControlCenterView
         var disc = new Border { Width = 30, Height = 30, CornerRadius = new CornerRadius(15), Background = Frozen("#1AFFFFFF"), Child = icon };
         var dot = new Ellipse { Width = 6, Height = 6, Fill = Frozen("#40FFFFFF"), Margin = new Thickness(0, 0, 5, 0), VerticalAlignment = VerticalAlignment.Center };
         var state = CompactText("–", 11.5, CompactLabel);
+        state.MaxWidth = 80;
+        state.TextTrimming = TextTrimming.CharacterEllipsis;
         var title = CompactText(name, 13, CompactInk);
         title.FontWeight = FontWeights.SemiBold;
         var text = new StackPanel { Margin = new Thickness(10, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center,
@@ -357,29 +366,32 @@ public partial class ControlCenterView
             n.Opacity = 0;
             return n;
         }
-        // A light copy over the empty track and a dark copy inside the white fill, cut by its top edge, so the glyph
-        // and the number read at every level. An app icon has its own colours and simply sits on top.
+        // A light copy over the empty track and a dark copy over the white fill, cut exactly at the fill's top edge,
+        // so the glyph and the number read at every level. Both copies sit in identical canvases (the dark one is
+        // clipped, not moved), so they line up to the pixel. An app icon has its own colours and simply sits on top.
         var lightGlyph = Glyph(Frozen("#8CFFFFFF"));
         var darkGlyph = Glyph(Frozen("#161616"));
         var number = Number(Frozen("#D9FFFFFF"));
         var numberDark = Number(Frozen("#161616"));
         if (icon != null) lightGlyph.Visibility = darkGlyph.Visibility = Visibility.Collapsed;
-        var inside = new Canvas();
-        Place(inside, darkGlyph, numberDark);
-        var fill = new Border { Background = Frozen("#F2F2F4"), VerticalAlignment = VerticalAlignment.Bottom, Height = 0, ClipToBounds = true, Child = inside };
+        var fill = new Border { Background = Frozen("#F2F2F4"), VerticalAlignment = VerticalAlignment.Bottom, Height = 0 };
         var over = new Canvas();
         Place(over, lightGlyph, number);
+        var cut = new RectangleGeometry(new Rect(0, height, width, 0));
+        var dark = new Canvas { IsHitTestVisible = false, Clip = cut };
+        Place(dark, darkGlyph, numberDark);
+        fill.SizeChanged += (_, e) => cut.Rect = new Rect(0, height - e.NewSize.Height, width, e.NewSize.Height);
         double radius = small ? 17 : 22;
         var root = new Grid
         {
             Width = width, Height = height, Cursor = Cursors.SizeNS, ToolTip = name,
             Clip = new RectangleGeometry(new Rect(0, 0, width, height), radius, radius),
-            Children = { new Border { Background = Frozen("#1AFFFFFF") }, over, fill }
+            Children = { new Border { Background = Frozen("#1AFFFFFF") }, over, fill, dark }
         };
         if (icon != null)
             root.Children.Add(new Image { Source = icon, Width = 20, Height = 20, VerticalAlignment = VerticalAlignment.Bottom,
                 HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 9), IsHitTestVisible = false });
-        var capsule = new FaceCapsule { Root = root, Fill = fill, Number = number, NumberDark = numberDark, Height = height };
+        var capsule = new FaceCapsule { Root = root, Fill = fill, Number = number, NumberDark = numberDark, Dark = dark, Height = height };
         HookCapsule(capsule, set, tap);
         return capsule;
 
