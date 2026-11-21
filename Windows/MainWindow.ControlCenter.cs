@@ -66,6 +66,7 @@ public partial class MainWindow
         {
             _claudeTracker?.Sweep();
             CheckClaudeLimitResets();
+            CheckAllowanceAlerts();
         };
         _claudeSweepTimer.Start();
         // Asking Windows about notification access is a cross-apartment call that pumps messages: after startup.
@@ -286,10 +287,11 @@ public partial class MainWindow
     /// </summary>
     private const string NotificationBellGlyph = "";
 
-    private void ShowNotchPill(string title, string status, ImageSource? appIcon, bool isClaude, Func<bool>? tap,
+    /// <summary>Shows the pill; false when the notch was busy or another pill held the slot, so callers can try again.</summary>
+    private bool ShowNotchPill(string title, string status, ImageSource? appIcon, bool isClaude, Func<bool>? tap,
         string? doneSessionId = null, string? glyph = null, TimeSpan? duration = null, Brush? accent = null)
     {
-        if (_cleanedUp || _isGreetingActive || _isAnimating || _isExpanded || _isMusicExpanded || !CanShowClaudeAttention) return;
+        if (_cleanedUp || _isGreetingActive || _isAnimating || _isExpanded || _isMusicExpanded || !CanShowClaudeAttention) return false;
 
         _isClaudePeek = false;
         _isCopiedPillShown = false;
@@ -311,7 +313,7 @@ public partial class MainWindow
         _isClaudePill = isClaude;
         if (!_isClaudeNotificationVisible)
         {
-            if (!TryAcquireCompactSlot(CompactPillSlot.Claude, out int token)) return;
+            if (!TryAcquireCompactSlot(CompactPillSlot.Claude, out int token)) return false;
             _claudeNotificationToken = token;
             _isClaudeNotificationVisible = true;
             AnimateClaudeNotificationIn();
@@ -324,6 +326,7 @@ public partial class MainWindow
         _claudeNotificationTimer.Stop();
         _claudeNotificationTimer.Interval = duration ?? (isClaude ? ClaudeNotificationDuration : AppNotificationDuration);
         _claudeNotificationTimer.Start();
+        return true;
     }
 
     private const double PillMaxWidth = 460;
@@ -393,6 +396,8 @@ public partial class MainWindow
             FrameworkElement content = _isMusicCompactMode && _currentMediaInfo != null ? MusicCompactContent : CollapsedContent;
             content.Visibility = Visibility.Visible;
             Motion.To(content, OpacityProperty, 1, Motion.Tile);
+            // A limit warning that waited for this pill can come next, without waiting for the 15 s sweep.
+            Dispatcher.BeginInvoke(DispatcherPriority.Background, CheckAllowanceAlerts);
         });
     }
 
