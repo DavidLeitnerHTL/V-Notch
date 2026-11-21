@@ -173,16 +173,7 @@ public partial class MainWindow : Window
     private VNotch.Presenters.NotchShellPresenter? _notchShellPresenter;
     private VNotch.Presenters.NotchContentTransitionPresenter? _notchContentPresenter;
 
-    private int _viewTransitionGeneration
-    {
-        get => (int)_transitionCoordinator.ActiveTransitionId;
-        set
-        {
-            // Transition generation is centrally managed by _transitionCoordinator.ActiveTransitionId.
-            // Setter is kept for compatibility with view transition callers.
-            _ = value;
-        }
-    }
+    private int _viewTransitionGeneration => (int)_transitionCoordinator.ActiveTransitionId;
 
     private static readonly TimeSpan LyricsUpdateInterval = TimeSpan.FromMilliseconds(100);
     private static readonly TimeSpan VolumeSyncInterval = TimeSpan.FromMilliseconds(500);
@@ -259,7 +250,6 @@ public partial class MainWindow : Window
         _transitionCoordinator.CanInitiateTransition = _canInitiateTransition;
         _transitionCoordinator.StateChanged += OnCoordinatorStateChanged;
         _transitionCoordinator.TransitionRequested += OnTransitionRequested;
-        _transitionCoordinator.CountdownCompletionDisplayRequested += OnCountdownCompletionDisplayRequested;
 
         InitializeShellAttachment();
         _notchShellPresenter = new VNotch.Presenters.NotchShellPresenter(new VNotch.Presenters.NotchShellViewRefs
@@ -824,7 +814,6 @@ public partial class MainWindow : Window
         AudioContent.Dispose();
         _transitionCoordinator.StateChanged -= OnCoordinatorStateChanged;
         _transitionCoordinator.TransitionRequested -= OnTransitionRequested;
-        _transitionCoordinator.CountdownCompletionDisplayRequested -= OnCountdownCompletionDisplayRequested;
         _notchShellPresenter?.Dispose();
         _notchContentPresenter?.Dispose();
         if (_transitionCoordinator.CanInitiateTransition == _canInitiateTransition)
@@ -864,11 +853,6 @@ public partial class MainWindow : Window
         UpdateGlassMotionState();
         SyncPrivacyDotVisibilityForCurrentView();
         UpdateSpotifyCanvasPresentationContext();
-    }
-
-    private void OnCountdownCompletionDisplayRequested(object? sender, EventArgs e)
-    {
-        // Managed through TransitionRequested with Reason="CountdownCompletion"
     }
 
     private readonly object _transitionRequestGate = new();

@@ -1045,7 +1045,6 @@ public partial class MainWindow
         }
         RetractBubbleForExpand();
         int generation = (int)transitionId;
-        _viewTransitionGeneration = generation;
         _isAnimating = true;
 
         var effectiveTarget = targetView ?? VNotch.Models.NotchView.Media;
@@ -1735,7 +1734,6 @@ public partial class MainWindow
             return;
         }
         int generation = (int)transitionId;
-        _viewTransitionGeneration = generation;
         _isAnimating = true;
 
         PrepareStateBeforeCollapse();

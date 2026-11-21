@@ -177,12 +177,6 @@ internal sealed partial class SpotlightUsageStore : IAsyncDisposable, IDisposabl
 
     public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
-    public double GetBoost(string id, string query = "")
-    {
-        if (!Enabled) return 0;
-        return GetBoostNormalized(id, SettingsSearchMatcher.Normalize(query));
-    }
-
     internal double GetBoostNormalized(string id, string normalizedQuery)
     {
         if (!Enabled) return 0;

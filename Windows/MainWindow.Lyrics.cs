@@ -131,7 +131,7 @@ public partial class MainWindow
             return;
         }
 
-        StartSpotifyCanvasFetch(info, trackKey);
+        SpotifyCanvasController.UpdateTrack(info);
 
         if (_isLyricsActive || _isExpanded)
         {
@@ -174,12 +174,6 @@ public partial class MainWindow
             if (lines[i].Words is { Length: > 0 }) return true;
         }
         return false;
-    }
-
-    private void StartSpotifyCanvasFetch(MediaInfo info, string trackKey)
-    {
-        _ = trackKey;
-        SpotifyCanvasController.UpdateTrack(info);
     }
 
 
@@ -359,7 +353,7 @@ public partial class MainWindow
         if (!string.IsNullOrEmpty(info.CurrentTrack))
         {
             var lookup = await _mediaService.TryGetYouTubeVideoIdWithInfoAsync(
-                info.CurrentTrack, info.CurrentArtist, System.Threading.CancellationToken.None);
+                info.CurrentTrack);
             if (!string.IsNullOrEmpty(lookup?.Id)) return lookup.Id;
         }
 
