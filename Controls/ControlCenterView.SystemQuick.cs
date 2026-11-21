@@ -27,6 +27,7 @@ public partial class ControlCenterView
     private List<WifiNetwork>? _quickNetworks;
     private readonly TranslateTransform _faceShift = new(), _quickShift = new();
     private string _quickKey = "";
+    private bool _drawerBeforeQuick;
 
     /// <summary>The open page follows the regular refresh, but only rebuilds when what it lists has changed.</summary>
     private void RefreshQuickPage(Snapshot s)
@@ -43,6 +44,9 @@ public partial class ControlCenterView
     private void OpenQuickPage(QuickPage page)
     {
         if (_faceGrid == null || _snapshot is not { } snapshot) return;
+        // The page takes the face's place; the drawer folds away meanwhile so the notch stays short, and comes back after.
+        if (_quickPage == QuickPage.None) _drawerBeforeQuick = _drawerOpen;
+        if (_drawerOpen) SetDrawerOpen(false);
         _quickPage = page;
         _quickNetworks = null;
         EnsureQuickPanel();
@@ -57,6 +61,8 @@ public partial class ControlCenterView
         if (_quickPage == QuickPage.None) return;
         _quickPage = QuickPage.None;
         SwapQuickPage(toPanel: false, animate);
+        if (_drawerBeforeQuick && animate && IsVisible) SetDrawerOpen(true);
+        _drawerBeforeQuick = false;
     }
 
     private void EnsureQuickPanel()

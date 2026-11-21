@@ -50,6 +50,7 @@ public partial class ControlCenterView
         public required Border Fill;
         public required TextBlock Number;
         public required TextBlock NumberDark;
+        public double Height = CapsuleHeight;
         public double Level;
         public bool Dragging;
     }
@@ -68,6 +69,7 @@ public partial class ControlCenterView
     private TextBlock? _outputLabel, _outputGlyph;
     private Border? _outputMenu;
     private string? _brightnessDisplay;
+    private TextBlock? _brightnessName;
 
     private void BuildSystemFace()
     {
@@ -121,7 +123,8 @@ public partial class ControlCenterView
 
         var brightness = BuildCapsule(0xE706, SetFaceBrightness, "Helligkeit");
         _brightnessCapsule = brightness;
-        _brightnessColumn = FaceColumn(brightness.Root, CompactText("Monitor", 11, CompactLabel), 10);
+        _brightnessName = CompactText("Monitor", 11, CompactLabel);
+        _brightnessColumn = FaceColumn(brightness.Root, _brightnessName, 10);
         _brightnessColumn.Visibility = Visibility.Collapsed; // until the monitor answers over DDC
         Grid.SetColumn(_brightnessColumn, 3);
         row.Children.Add(_brightnessColumn);
@@ -332,69 +335,80 @@ public partial class ControlCenterView
         _backdrop.Gather(center);
     }
 
-    private FaceCapsule BuildCapsule(int glyph, Action<double> set, string name)
+    /// <summary>
+    /// A tall slider like Control Center's. With <paramref name="icon"/> (an app's own icon) it sits on top at the
+    /// bottom; with <paramref name="tap"/>, a press that does not drag calls it (the app mixer mutes that way).
+    /// </summary>
+    private FaceCapsule BuildCapsule(int glyph, Action<double> set, string name, double width = CapsuleWidth, double height = CapsuleHeight,
+        ImageSource? icon = null, Action? tap = null)
     {
+        bool small = height < CapsuleHeight;
         TextBlock Glyph(Brush brush)
         {
             var g = CompactGlyph(glyph);
-            g.FontSize = 18;
+            g.FontSize = small ? 16 : 18;
             g.Foreground = brush;
             return g;
         }
         TextBlock Number(Brush brush)
         {
-            var n = CompactText("", 12, brush);
+            var n = CompactText("", small ? 10.5 : 12, brush);
             n.FontWeight = FontWeights.SemiBold;
             n.Opacity = 0;
             return n;
         }
         // A light copy over the empty track and a dark copy inside the white fill, cut by its top edge, so the glyph
-        // and the number read at every level.
+        // and the number read at every level. An app icon has its own colours and simply sits on top.
         var lightGlyph = Glyph(Frozen("#8CFFFFFF"));
         var darkGlyph = Glyph(Frozen("#161616"));
         var number = Number(Frozen("#D9FFFFFF"));
         var numberDark = Number(Frozen("#161616"));
+        if (icon != null) lightGlyph.Visibility = darkGlyph.Visibility = Visibility.Collapsed;
         var inside = new Canvas();
         Place(inside, darkGlyph, numberDark);
         var fill = new Border { Background = Frozen("#F2F2F4"), VerticalAlignment = VerticalAlignment.Bottom, Height = 0, ClipToBounds = true, Child = inside };
         var over = new Canvas();
         Place(over, lightGlyph, number);
+        double radius = small ? 17 : 22;
         var root = new Grid
         {
-            Width = CapsuleWidth, Height = CapsuleHeight, Cursor = Cursors.SizeNS, ToolTip = name,
-            Clip = new RectangleGeometry(new Rect(0, 0, CapsuleWidth, CapsuleHeight), 22, 22),
+            Width = width, Height = height, Cursor = Cursors.SizeNS, ToolTip = name,
+            Clip = new RectangleGeometry(new Rect(0, 0, width, height), radius, radius),
             Children = { new Border { Background = Frozen("#1AFFFFFF") }, over, fill }
         };
-        var capsule = new FaceCapsule { Root = root, Fill = fill, Number = number, NumberDark = numberDark };
-        HookCapsule(capsule, set);
+        if (icon != null)
+            root.Children.Add(new Image { Source = icon, Width = 20, Height = 20, VerticalAlignment = VerticalAlignment.Bottom,
+                HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 9), IsHitTestVisible = false });
+        var capsule = new FaceCapsule { Root = root, Fill = fill, Number = number, NumberDark = numberDark, Height = height };
+        HookCapsule(capsule, set, tap);
         return capsule;
 
-        static void Place(Canvas canvas, TextBlock glyphBlock, TextBlock numberBlock)
+        void Place(Canvas canvas, TextBlock glyphBlock, TextBlock numberBlock)
         {
-            glyphBlock.Width = CapsuleWidth; glyphBlock.TextAlignment = TextAlignment.Center;
-            numberBlock.Width = CapsuleWidth; numberBlock.TextAlignment = TextAlignment.Center;
-            Canvas.SetBottom(glyphBlock, 12);
-            Canvas.SetBottom(numberBlock, CapsuleHeight - 26);
+            glyphBlock.Width = width; glyphBlock.TextAlignment = TextAlignment.Center;
+            numberBlock.Width = width; numberBlock.TextAlignment = TextAlignment.Center;
+            Canvas.SetBottom(glyphBlock, small ? 10 : 12);
+            Canvas.SetBottom(numberBlock, height - (small ? 21 : 26));
             canvas.Children.Add(glyphBlock);
             canvas.Children.Add(numberBlock);
         }
     }
 
-    private void HookCapsule(FaceCapsule capsule, Action<double> set)
+    private void HookCapsule(FaceCapsule capsule, Action<double> set, Action? tap = null)
     {
         double downY = 0, startLevel = 0;
-        bool down = false;
+        bool down = false, moved = false;
         void Apply(double level, bool user)
         {
             level = Math.Clamp(level, 0, 1);
             capsule.Level = level;
-            Motion.Stop(capsule.Fill, HeightProperty, level * CapsuleHeight);
+            Motion.Stop(capsule.Fill, HeightProperty, level * capsule.Height);
             capsule.Number.Text = capsule.NumberDark.Text = $"{level * 100:0}";
             if (user) set(level);
         }
         capsule.Root.MouseLeftButtonDown += (_, e) =>
         {
-            down = true; capsule.Dragging = true;
+            down = true; moved = false; capsule.Dragging = true;
             downY = e.GetPosition(capsule.Root).Y; startLevel = capsule.Level;
             capsule.Root.CaptureMouse();
             e.Handled = true;
@@ -403,7 +417,11 @@ public partial class ControlCenterView
         capsule.Root.MouseMove += (_, e) =>
         {
             if (!down) return;
-            Apply(startLevel + (downY - e.GetPosition(capsule.Root).Y) / CapsuleHeight, true);
+            double dy = downY - e.GetPosition(capsule.Root).Y;
+            // A few pixels of give, so a tap (mute) never nudges the level.
+            if (!moved && Math.Abs(dy) < 3) return;
+            moved = true;
+            Apply(startLevel + dy / capsule.Height, true);
         };
         capsule.Root.MouseLeftButtonUp += (_, e) =>
         {
@@ -412,6 +430,7 @@ public partial class ControlCenterView
             capsule.Root.ReleaseMouseCapture();
             e.Handled = true;
             ShowCapsuleNumber(capsule, false);
+            if (!moved) tap?.Invoke();
         };
         capsule.Root.LostMouseCapture += (_, _) => { down = false; capsule.Dragging = false; ShowCapsuleNumber(capsule, false); };
         capsule.Root.PreviewMouseWheel += (_, e) =>
@@ -437,17 +456,21 @@ public partial class ControlCenterView
         level = Math.Clamp(level, 0, 1);
         capsule.Level = level;
         capsule.Number.Text = capsule.NumberDark.Text = $"{level * 100:0}";
-        if (capsule.Fill.IsVisible && !AnimationConfig.ReduceMotion) Motion.To(capsule.Fill, HeightProperty, level * CapsuleHeight, Motion.Shift);
-        else Motion.Stop(capsule.Fill, HeightProperty, level * CapsuleHeight);
+        if (capsule.Fill.IsVisible && !AnimationConfig.ReduceMotion) Motion.To(capsule.Fill, HeightProperty, level * capsule.Height, Motion.Shift);
+        else Motion.Stop(capsule.Fill, HeightProperty, level * capsule.Height);
     }
 
     private async Task LoadFaceBrightness()
     {
         if (_brightnessColumn == null || _disposed) return;
         string? id;
-        try { id = DisplayApi.List().FirstOrDefault(d => d.Primary)?.Id; }
-        catch { id = null; }
+        IReadOnlyList<DisplayInfo> displays;
+        try { displays = DisplayApi.List(); id = displays.FirstOrDefault(d => d.Primary)?.Id; }
+        catch { displays = []; id = null; }
         if (id == null) return;
+        // With a second screen, "Monitor" would be ambiguous next to the drawer's screens: it names the main one.
+        if (_brightnessName != null)
+            _brightnessName.Text = displays.Count(d => d.Active) > 1 ? ShortMonitorName(displays.First(d => d.Id == id).Name) : "Monitor";
         int? value;
         try { value = DisplayApi is Win32DisplayApi native ? await native.GetBrightnessAsync(id) : await DisplayBrightness.GetAsync(id); }
         catch { value = null; }
