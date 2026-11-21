@@ -60,7 +60,7 @@ public partial class ControlCenterView
     private FrameworkElement BuildProcessPage()
     {
         var page = new StackPanel { Visibility = Visibility.Collapsed, RenderTransform = new TranslateTransform() };
-        page.Children.Add(DrawerPageHeader("Prozesse", out var right));
+        page.Children.Add(DrawerPageHeader(Say("Prozesse", "Processes"), out var right));
         right.Children.Add(Segmented(["CPU", "RAM"], _procByMemory ? 1 : 0, i =>
         {
             _procByMemory = i == 1;
@@ -83,7 +83,7 @@ public partial class ControlCenterView
         _procList = new Canvas { Height = 0 };
         _procList.SizeChanged += (_, e) => { foreach (var row in _procRows.Values) row.Row.Width = e.NewSize.Width; };
         page.Children.Add(_procList);
-        _procWaiting = CompactText("Liest die Prozesse …", 12, CompactLabel);
+        _procWaiting = CompactText(Say("Liest die Prozesse …", "Reading processes …"), 12, CompactLabel);
         _procWaiting.Margin = new Thickness(0, 8, 0, 6);
         page.Children.Add(_procWaiting);
         return page;
@@ -221,8 +221,8 @@ public partial class ControlCenterView
     private FrameworkElement BuildDisplayPage()
     {
         var page = new StackPanel { Visibility = Visibility.Collapsed, RenderTransform = new TranslateTransform() };
-        page.Children.Add(DrawerPageHeader("Bildschirme", out var right));
-        right.Children.Add(DrawerLink("Windows-Einstellungen", heading: false, () =>
+        page.Children.Add(DrawerPageHeader(Say("Bildschirme", "Displays"), out var right));
+        right.Children.Add(DrawerLink(Say("Windows-Einstellungen", "Windows settings"), heading: false, () =>
         {
             try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-settings:display") { UseShellExecute = true }); }
             catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException) { RuntimeLog.Warn("CONTROL-CENTER", $"Display settings not opened: {ex.Message}"); }
@@ -233,7 +233,7 @@ public partial class ControlCenterView
         body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         _arrangement = new Canvas { Width = ArrangementWidth, Height = 80, Margin = new Thickness(0, 4, 0, 0) };
         _dispOff = new StackPanel { Margin = new Thickness(0, 6, 0, 0) };
-        var hint = CompactText("Tippen wählt aus · Ziehen dimmt", 10.5, Frozen("#66FFFFFF"));
+        var hint = CompactText(Say("Tippen wählt aus · Ziehen dimmt", "Tap to pick · drag to dim"), 10.5, Frozen("#66FFFFFF"));
         hint.HorizontalAlignment = HorizontalAlignment.Center;
         hint.Margin = new Thickness(0, 8, 0, 0);
         body.Children.Add(new StackPanel { Children = { _arrangement, _dispOff, hint } });
@@ -246,9 +246,9 @@ public partial class ControlCenterView
         _dispCountdown.VerticalAlignment = VerticalAlignment.Center;
         _dispCountdown.Margin = new Thickness(10, 0, 0, 0);
         Typography.SetNumeralAlignment(_dispCountdown, FontNumeralAlignment.Tabular);
-        var ask = CompactText("Bleibt das so?", 12, CompactInk);
+        var ask = CompactText(Say("Bleibt das so?", "Keep this?"), 12, CompactInk);
         ask.VerticalAlignment = VerticalAlignment.Center;
-        var undo = ConfirmPill("Zurücksetzen", main: false, () => { Changes.Revert(); StopDisplayTimer(); FillDisplayPage(); });
+        var undo = ConfirmPill(Say("Zurücksetzen", "Revert"), main: false, () => { Changes.Revert(); StopDisplayTimer(); FillDisplayPage(); });
         var keep = ConfirmPill(Loc.Get("control.displays.keep"), main: true, () => { Changes.Confirm(); StopDisplayTimer(); FillDisplayPage(); });
         var bar = new DockPanel { LastChildFill = false, Height = 40 };
         DockPanel.SetDock(keep, Dock.Right);
@@ -351,7 +351,7 @@ public partial class ControlCenterView
         else _arrangement.Height = 0;
         foreach (var off in displays.Where(d => !d.Active))
         {
-            var line = DrawerLink($"{DisplayLabel(off)} · aus", heading: false, () => { RevertPendingDisplayChange(); _dispSelected = off.Id; FillDisplayPage(); });
+            var line = DrawerLink(Say($"{DisplayLabel(off)} · aus", $"{DisplayLabel(off)} · off"), heading: false, () => { RevertPendingDisplayChange(); _dispSelected = off.Id; FillDisplayPage(); });
             line.Margin = new Thickness(0);
             _dispOff.Children.Add(line);
         }
@@ -457,13 +457,13 @@ public partial class ControlCenterView
         host.Children.Clear();
         if (display == null)
         {
-            host.Children.Add(CompactText("Keine Bildschirme gefunden", 12, CompactLabel));
+            host.Children.Add(CompactText(Say("Keine Bildschirme gefunden", "No displays found"), 12, CompactLabel));
             return;
         }
-        var title = CompactText(display.Internal ? "Laptop-Bildschirm" : display.Name, 13, CompactInk);
+        var title = CompactText(display.Internal ? Say("Laptop-Bildschirm", "Laptop screen") : display.Name, 13, CompactInk);
         title.FontWeight = FontWeights.SemiBold;
         title.TextTrimming = TextTrimming.CharacterEllipsis;
-        string role = display.Primary ? "Hauptanzeige" : display.Active ? "Zweitanzeige" : "Aus";
+        string role = display.Primary ? Say("Hauptanzeige", "Main display") : display.Active ? Say("Zweitanzeige", "Second display") : Say("Aus", "Off");
         var meta = CompactText(display.Active ? $"{role} · {display.Mode.Width}×{display.Mode.Height}" : role, 11.5, CompactLabel);
         meta.Margin = new Thickness(0, 2, 0, 4);
         host.Children.Add(title);
@@ -494,7 +494,7 @@ public partial class ControlCenterView
         if (display.Active && display.HdrSupported)
             toggles.Children.Add(DisplaySwitch(Loc.Get("control.displays.hdr"), display.HdrOn, !pending,
                 on => ChangeFromPage(DisplayChangeKind.Hdr, api => api.SetHdr(display.Id, on))));
-        toggles.Children.Add(DisplaySwitch("Hauptanzeige", display.Primary, !pending && !display.Primary && display.Active,
+        toggles.Children.Add(DisplaySwitch(Say("Hauptanzeige", "Main display"), display.Primary, !pending && !display.Primary && display.Active,
             _ => ChangeFromPage(DisplayChangeKind.Primary, api => api.SetPrimary(display.Id))));
         toggles.Children.Add(DisplaySwitch(Loc.Get("control.displays.on"), display.Active, !pending && !display.Primary,
             on => ChangeFromPage(DisplayChangeKind.Active, api => api.SetActive(display.Id, on))));
@@ -517,7 +517,7 @@ public partial class ControlCenterView
     private static string DisplayLabel(DisplayInfo display)
     {
         if (display.Internal) return "Laptop";
-        if (display.Name.Length == 0 || display.Name.StartsWith(@"\\", StringComparison.Ordinal)) return "Bildschirm";
+        if (display.Name.Length == 0 || display.Name.StartsWith(@"\\", StringComparison.Ordinal)) return Say("Bildschirm", "Display");
         return ShortMonitorName(display.Name);
     }
 

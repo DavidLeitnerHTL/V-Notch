@@ -79,9 +79,9 @@ public partial class ControlCenterView
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = width });
 
         var connections = new StackPanel { VerticalAlignment = VerticalAlignment.Center, MinWidth = 150, Margin = new Thickness(0, 0, 14, 0) };
-        _faceWifi = FaceConnection(connections, 0xE701, "WLAN", () => { if (_wifiRadio != null) SetRadio(_wifiRadio, _snapshot?.WifiOn != true); }, () => OpenQuickPage(QuickPage.Wifi));
+        _faceWifi = FaceConnection(connections, 0xE701, Say("WLAN", "Wi-Fi"), () => { if (_wifiRadio != null) SetRadio(_wifiRadio, _snapshot?.WifiOn != true); }, () => OpenQuickPage(QuickPage.Wifi));
         _faceBluetooth = FaceConnection(connections, 0xE702, "Bluetooth", () => { if (_bluetoothRadio != null) SetRadio(_bluetoothRadio, _snapshot?.BluetoothOn != true); }, () => OpenQuickPage(QuickPage.Bluetooth));
-        _faceMic = FaceConnection(connections, 0xE720, "Mikrofon", ToggleWaveXlr);
+        _faceMic = FaceConnection(connections, 0xE720, Say("Mikrofon", "Microphone"), ToggleWaveXlr);
         row.Children.Add(connections);
 
         if (_legionAttached)
@@ -91,24 +91,24 @@ public partial class ControlCenterView
             row.Children.Add(_modeTile);
         }
 
-        var volume = BuildCapsule(0xE767, v => _volume?.SetVolume((float)v), "Lautstärke");
+        var volume = BuildCapsule(0xE767, v => _volume?.SetVolume((float)v), Say("Lautstärke", "Volume"));
         _volumeCapsule = volume;
-        // The face's columns must leave the mode tile its full width (236 px): the output name, the network name and
-        // the screen name are capped instead of widening their column into the tile.
+        // The face's columns must leave the mode tile its full width (236 px of 568): the output chip is just its name
+        // (capped) and a small arrow, so the volume column stays at most ~100 px; the network and screen names are
+        // capped the same way instead of widening their column into the tile.
         _outputLabel = CompactText("–", 11.5, CompactInk);
-        _outputLabel.MaxWidth = 50;
+        _outputLabel.MaxWidth = 58;
         _outputLabel.TextTrimming = TextTrimming.CharacterEllipsis;
         _outputGlyph = CompactGlyph(0xE7F5);
-        _outputGlyph.FontSize = 12;
-        _outputGlyph.Margin = new Thickness(0, 0, 5, 0);
         var chevron = CompactGlyph(0xE70D);
         chevron.FontSize = 8;
+        chevron.Width = 10;
         chevron.Margin = new Thickness(3, 1, 0, 0);
         var outputButton = new Border
         {
             CornerRadius = new CornerRadius(9), Padding = new Thickness(7, 3, 7, 3), Background = Frozen("#14FFFFFF"), Cursor = Cursors.Hand,
             HorizontalAlignment = HorizontalAlignment.Center,
-            Child = new StackPanel { Orientation = Orientation.Horizontal, Children = { _outputGlyph, _outputLabel, chevron } }
+            Child = new StackPanel { Orientation = Orientation.Horizontal, Children = { _outputLabel, chevron } }
         };
         Pressable(outputButton, () => Frozen("#14FFFFFF"), CardHover);
         outputButton.MouseLeftButtonUp += (_, e) => { e.Handled = true; ToggleOutputMenu(); };
@@ -126,10 +126,10 @@ public partial class ControlCenterView
         Grid.SetColumn(volumeColumn, 2);
         row.Children.Add(volumeColumn);
 
-        var brightness = BuildCapsule(0xE706, SetFaceBrightness, "Helligkeit");
+        var brightness = BuildCapsule(0xE706, SetFaceBrightness, Say("Helligkeit", "Brightness"));
         _brightnessCapsule = brightness;
         _brightnessName = CompactText("Monitor", 11, CompactLabel);
-        _brightnessName.MaxWidth = 62;
+        _brightnessName.MaxWidth = 52;
         _brightnessName.TextTrimming = TextTrimming.CharacterEllipsis;
         _brightnessColumn = FaceColumn(brightness.Root, _brightnessName, 10);
         _brightnessColumn.Visibility = Visibility.Collapsed; // until the monitor answers over DDC
@@ -204,7 +204,7 @@ public partial class ControlCenterView
         ((FrameworkElement)row.Disc.Parent).Opacity = on == null ? .45 : 1;
         row.Glyph.Foreground = on == true ? CompactInk : Frozen("#73FFFFFF");
         row.Dot.Fill = on == true ? new SolidColorBrush(color) : Frozen("#40FFFFFF");
-        row.State.Text = on == true ? onText : on == false ? offText : "Nicht da";
+        row.State.Text = on == true ? onText : on == false ? offText : Say("Nicht da", "Not found");
         if (changed && row.Glyph.IsVisible && !AnimationConfig.ReduceMotion)
         {
             var scale = FeedbackScale(row.Glyph);

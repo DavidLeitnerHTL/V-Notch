@@ -30,9 +30,9 @@ public partial class ControlCenterView
         }
         if (s.Outputs != null) _outputs = s.Outputs;
         _waveXlr = s.WaveXlr;
-        PaintFaceRow(_faceWifi, s.WifiOn, s.Networks.FirstOrDefault(n => n.IsConnected)?.Ssid ?? "An", "Aus", ConnectionBlue);
-        PaintFaceRow(_faceBluetooth, s.BluetoothOn, "An", "Aus", ConnectionBlue);
-        PaintFaceRow(_faceMic, _waveXlr == null ? null : !_waveXlr.Muted, "Wave XLR", "Stumm", MicSand);
+        PaintFaceRow(_faceWifi, s.WifiOn, s.Networks.FirstOrDefault(n => n.IsConnected)?.Ssid ?? Say("An", "On"), Say("Aus", "Off"), ConnectionBlue);
+        PaintFaceRow(_faceBluetooth, s.BluetoothOn, Say("An", "On"), Say("Aus", "Off"), ConnectionBlue);
+        PaintFaceRow(_faceMic, _waveXlr == null ? null : !_waveXlr.Muted, "Wave XLR", Say("Stumm", "Muted"), MicSand);
         ShowFaceOutput();
         ShowFaceMode();
         RefreshQuickPage(s);
@@ -54,7 +54,7 @@ public partial class ControlCenterView
         bool changed = await WaveXlrControl.SetMutedAsync(state, muted);
         if (_disposed) return;
         if (changed) _waveXlr = state with { Muted = muted };
-        PaintFaceRow(_faceMic, _waveXlr == null ? null : !_waveXlr.Muted, "Wave XLR", "Stumm", MicSand);
+        PaintFaceRow(_faceMic, _waveXlr == null ? null : !_waveXlr.Muted, "Wave XLR", Say("Stumm", "Muted"), MicSand);
     }
 
     internal static string ShortOutputName(OutputDevice output)

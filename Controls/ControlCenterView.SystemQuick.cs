@@ -109,10 +109,10 @@ public partial class ControlCenterView
         var back = CompactGlyph(0xE76B);
         back.FontSize = 12;
         var backButton = new Border { Width = 30, Height = 30, CornerRadius = new CornerRadius(15), Background = Frozen("#1AFFFFFF"),
-            Cursor = Cursors.Hand, Child = back, ToolTip = "Zurück" };
+            Cursor = Cursors.Hand, Child = back, ToolTip = Say("Zurück", "Back") };
         Squish(backButton);
         backButton.MouseLeftButtonUp += (_, e) => { e.Handled = true; CloseQuickPage(); };
-        var title = CompactText(wifi ? "WLAN" : "Bluetooth", 15, CompactInk);
+        var title = CompactText(wifi ? Say("WLAN", "Wi-Fi") : "Bluetooth", 15, CompactInk);
         title.FontWeight = FontWeights.SemiBold;
         title.Margin = new Thickness(12, 0, 0, 0);
         title.VerticalAlignment = VerticalAlignment.Center;
@@ -134,7 +134,7 @@ public partial class ControlCenterView
 
         if (on != true)
         {
-            _quickPanel.Children.Add(QuickNote(wifi ? "WLAN ist aus" : "Bluetooth ist aus"));
+            _quickPanel.Children.Add(QuickNote(wifi ? Say("WLAN ist aus", "Wi-Fi is off") : Say("Bluetooth ist aus", "Bluetooth is off")));
         }
         else if (wifi)
         {
@@ -155,7 +155,7 @@ public partial class ControlCenterView
         {
             var devices = s.Devices.OrderByDescending(d => d.IsConnected).ThenBy(d => d.Name, StringComparer.CurrentCultureIgnoreCase)
                 .Take(QuickNetworkLimit).ToList();
-            if (devices.Count == 0) _quickPanel.Children.Add(QuickNote("Keine gekoppelten Geräte"));
+            if (devices.Count == 0) _quickPanel.Children.Add(QuickNote(Say("Keine gekoppelten Geräte", "No paired devices")));
             foreach (var device in devices)
             {
                 var chosen = device;
@@ -165,7 +165,7 @@ public partial class ControlCenterView
             }
         }
 
-        var more = CompactText(wifi ? Loc.Get("control.moreNetworks") : "Bluetooth-Einstellungen", 11, CompactLabel);
+        var more = CompactText(wifi ? Loc.Get("control.moreNetworks") : Say("Bluetooth-Einstellungen", "Bluetooth settings"), 11, CompactLabel);
         var moreButton = new Border { Background = Brushes.Transparent, Cursor = Cursors.Hand, Padding = new Thickness(0, 8, 0, 2), Child = more,
             HorizontalAlignment = HorizontalAlignment.Left };
         moreButton.MouseLeftButtonUp += (_, e) =>

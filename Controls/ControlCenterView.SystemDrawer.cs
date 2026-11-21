@@ -9,6 +9,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using VNotch.Services;
@@ -49,6 +50,7 @@ public partial class ControlCenterView
         public required Border MeterFill;
         public required TextBlock MuteGlyph;
         public required TextBlock Name;
+        public Ellipse? Glow;
         public Image? Icon;
         public bool Muted;
         public double Meter;
@@ -106,14 +108,14 @@ public partial class ControlCenterView
         _mixColumn = new StackPanel();
         _mixColumn.Children.Add(DrawerHeading("Apps"));
         _mixHost = new UniformGrid { Rows = 1, Columns = 4, Margin = new Thickness(0, 6, 0, 0) };
-        _mixEmpty = CompactText("Gerade spielt keine App Ton", 11.5, CompactLabel);
+        _mixEmpty = CompactText(Say("Gerade spielt keine App Ton", "No app is playing sound"), 11.5, CompactLabel);
         _mixEmpty.Margin = new Thickness(0, 8, 0, 6);
         _mixColumn.Children.Add(_mixHost);
         _mixColumn.Children.Add(_mixEmpty);
         Grid.SetColumnSpan(_mixColumn, 2);
         _drawerRowA.Children.Add(_mixColumn);
         _screenColumn = new StackPanel { Margin = new Thickness(14, 0, 0, 0) };
-        _screenColumn.Children.Add(DrawerLink("Bildschirme", heading: true, () => ShowDrawerPage(DrawerPage.Displays)));
+        _screenColumn.Children.Add(DrawerLink(Say("Bildschirme", "Displays"), heading: true, () => ShowDrawerPage(DrawerPage.Displays)));
         _screenHolder = new Border { Margin = new Thickness(0, 12, 0, 0), HorizontalAlignment = HorizontalAlignment.Center };
         _screenName = CompactText("", 11.5, SoftInk);
         _screenName.HorizontalAlignment = HorizontalAlignment.Center;
@@ -128,7 +130,7 @@ public partial class ControlCenterView
         // Second row: batteries under the connections, the load under the power mode.
         var rowB = DrawerColumns();
         var batteries = new StackPanel { Margin = new Thickness(0, 0, 14, 0) };
-        batteries.Children.Add(DrawerHeading("Akkus"));
+        batteries.Children.Add(DrawerHeading(Say("Akkus", "Batteries")));
         _batteryHost = new StackPanel { Margin = new Thickness(0, 2, 0, 0) };
         batteries.Children.Add(_batteryHost);
         rowB.Children.Add(batteries);
@@ -341,6 +343,32 @@ public partial class ControlCenterView
         finally { _accent = accent; }
     }
 
+    /// <summary>The system tab's own words: German when the app is German, English otherwise.</summary>
+    private static string Say(string de, string en) => Loc.CurrentLanguage == "de" ? de : en;
+
+    /// <summary>An app's colour from its icon, softened to the tab's muted pastels (or none for a plain glyph).</summary>
+    private static Color? AppTint(ImageSource? icon)
+    {
+        if (icon is not BitmapSource bitmap) return null;
+        Color c;
+        try { c = DynamicIslandColorExtractor.GetDominantColor(bitmap); }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or NotSupportedException) { return null; }
+        double r = c.R / 255.0, g = c.G / 255.0, b = c.B / 255.0;
+        double max = Math.Max(r, Math.Max(g, b)), min = Math.Min(r, Math.Min(g, b)), delta = max - min;
+        if (delta < .08) return null;  // a grey icon has no colour worth showing
+        double hue = max == r ? (g - b) / delta % 6 : max == g ? (b - r) / delta + 2 : (r - g) / delta + 4;
+        hue = (hue * 60 + 360) % 360;
+        // Muted like mist, lilac, sand: low saturation, light.
+        const double s = .42, l = .68;
+        double chroma = (1 - Math.Abs(2 * l - 1)) * s, x = chroma * (1 - Math.Abs(hue / 60 % 2 - 1)), m = l - chroma / 2;
+        (double r1, double g1, double b1) = hue switch
+        {
+            < 60 => (chroma, x, 0d), < 120 => (x, chroma, 0d), < 180 => (0d, chroma, x),
+            < 240 => (0d, x, chroma), < 300 => (x, 0d, chroma), _ => (chroma, 0d, x)
+        };
+        return Color.FromRgb((byte)((r1 + m) * 255), (byte)((g1 + m) * 255), (byte)((b1 + m) * 255));
+    }
+
     internal static string ShortMonitorName(string name)
     {
         string trimmed = name.Trim();
@@ -390,10 +418,29 @@ public partial class ControlCenterView
     {
         var first = sessions[0];
         string name = first.IsSystemSounds ? "System" : first.DisplayName;
-        var capsule = BuildCapsule(0xE767, v => SetAppVolume(key, v), $"{name}: ziehen ändert die Lautstärke, tippen schaltet stumm",
+        var capsule = BuildCapsule(0xE767, v => SetAppVolume(key, v), Say($"{name}: ziehen ändert die Lautstärke, tippen schaltet stumm", $"{name}: drag to set the volume, tap to mute"),
             MixCapsuleWidth, MixCapsuleHeight, sessions.FirstOrDefault(s => s.Icon != null)?.Icon, () => ToggleAppMute(key));
         capsule.Root.HorizontalAlignment = HorizontalAlignment.Left;
-        var meterFill = new Border { Background = Frozen("#A3FFFFFF"), CornerRadius = new CornerRadius(1.5), VerticalAlignment = VerticalAlignment.Bottom, Height = 0 };
+        // The app's own colour (from its icon, muted): its level line, and a soft light behind it that rises with its sound.
+        var icon = sessions.FirstOrDefault(s => s.Icon != null)?.Icon;
+        var tint = AppTint(icon);
+        var lineBrush = new SolidColorBrush(tint ?? Color.FromArgb(0xA3, 0xFF, 0xFF, 0xFF));
+        lineBrush.Freeze();
+        var meterFill = new Border { Background = lineBrush, CornerRadius = new CornerRadius(1.5), VerticalAlignment = VerticalAlignment.Bottom, Height = 0 };
+        Ellipse? glow = null;
+        if (tint is { } color)
+        {
+            var light = new RadialGradientBrush
+            {
+                GradientStops = { new GradientStop(Color.FromArgb(0x8C, color.R, color.G, color.B), 0), new GradientStop(Color.FromArgb(0x30, color.R, color.G, color.B), .5),
+                    new GradientStop(Color.FromArgb(0, color.R, color.G, color.B), 1) }
+            };
+            light.Freeze();
+            glow = new Ellipse { Width = 104, Height = 118, Fill = light, Opacity = 0, IsHitTestVisible = false,
+                HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top,
+                // Negative margins on both sides: centred on the capsule, but no taller than it for layout.
+                Margin = new Thickness(MixCapsuleWidth / 2 - 52, MixCapsuleHeight / 2 - 59, 0, MixCapsuleHeight / 2 - 59) };
+        }
         var meter = new Border
         {
             Width = 3, Height = MeterHeight, CornerRadius = new CornerRadius(1.5), Background = Frozen("#0FFFFFFF"), Child = meterFill,
@@ -401,7 +448,10 @@ public partial class ControlCenterView
             IsHitTestVisible = false
         };
         // The line sits right of the capsule; the same room on the left keeps the capsule centred over its name.
-        var wrap = new Grid { Width = MixCapsuleWidth + 14, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(7, 0, 0, 0), Children = { capsule.Root, meter } };
+        var wrap = new Grid { Width = MixCapsuleWidth + 14, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(7, 0, 0, 0), ClipToBounds = false };
+        if (glow != null) wrap.Children.Add(glow);
+        wrap.Children.Add(capsule.Root);
+        wrap.Children.Add(meter);
 
         var glyph = CompactGlyph(0xE767);
         glyph.FontSize = 11;
@@ -414,7 +464,7 @@ public partial class ControlCenterView
         var button = new Border
         {
             Height = 26, CornerRadius = new CornerRadius(8), Padding = new Thickness(5, 0, 6, 0), Margin = new Thickness(0, 2, 0, 0),
-            HorizontalAlignment = HorizontalAlignment.Center, Background = Brushes.Transparent, Cursor = Cursors.Hand, ToolTip = $"{name} stummschalten",
+            HorizontalAlignment = HorizontalAlignment.Center, Background = Brushes.Transparent, Cursor = Cursors.Hand, ToolTip = Say($"{name} stummschalten", $"Mute {name}"),
             Child = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Children = { glyph, label } }
         };
         Pressable(button, () => Brushes.Transparent, CardHover, gentle: true);
@@ -423,7 +473,7 @@ public partial class ControlCenterView
         var channel = new MixChannel
         {
             Key = key, ProcessIds = sessions.Select(s => s.ProcessId).Distinct().ToArray(), SystemSounds = first.IsSystemSounds,
-            Capsule = capsule, MeterFill = meterFill, MuteGlyph = glyph, Name = label, Icon = capsule.Root.Children.OfType<Image>().FirstOrDefault()
+            Capsule = capsule, MeterFill = meterFill, MuteGlyph = glyph, Name = label, Glow = glow, Icon = capsule.Root.Children.OfType<Image>().FirstOrDefault()
         };
         _mixChannels[key] = channel;
         ShowCapsuleLevel(capsule, sessions.Max(s => s.Volume));
@@ -520,6 +570,7 @@ public partial class ControlCenterView
         {
             channel.Meter = 0;
             channel.MeterFill.Height = 0;
+            if (channel.Glow != null) channel.Glow.Opacity = 0;
         }
     }
 
@@ -538,6 +589,7 @@ public partial class ControlCenterView
             channel.Meter += (target - channel.Meter) * (target > channel.Meter ? .6 : .18);
             if (channel.Meter < .01) channel.Meter = 0;
             channel.MeterFill.Height = channel.Meter * MeterHeight;
+            if (channel.Glow != null) channel.Glow.Opacity = channel.Meter * .9;
         }
     }
 
@@ -557,12 +609,12 @@ public partial class ControlCenterView
             glyph.FontSize = 26;
             glyph.Width = 40;
             var plain = new Border { Width = 56, Height = 46, CornerRadius = new CornerRadius(12), Background = Brushes.Transparent, Cursor = Cursors.Hand,
-                Child = glyph, ToolTip = "Anzeige-Einstellungen" };
+                Child = glyph, ToolTip = Say("Anzeige-Einstellungen", "Display settings") };
             Pressable(plain, () => Brushes.Transparent, CardHover, gentle: true);
             plain.MouseLeftButtonUp += (_, e) => { e.Handled = true; ShowDrawerPage(DrawerPage.Displays); };
             _screenHolder.Child = plain;
             int count = _drawerDisplayList.Count(d => d.Active);
-            _screenName.Text = count > 1 ? $"{count} Bildschirme" : "Anzeige";
+            _screenName.Text = count > 1 ? Say($"{count} Bildschirme", $"{count} displays") : Say("Anzeige", "Display");
             return;
         }
         if (_screenSlider?.Id != other.Id)
@@ -576,9 +628,9 @@ public partial class ControlCenterView
 
     private ScreenSlider BuildScreenSlider(string id)
     {
-        Grid Readout(Brush ink, out TextBlock value)
+        Grid Readout(Brush ink, out TextBlock value, Brush? sunInk = null)
         {
-            var sun = CompactGlyph(0xE706, ink);
+            var sun = CompactGlyph(0xE706, sunInk ?? ink);
             sun.FontSize = 14;
             sun.HorizontalAlignment = HorizontalAlignment.Left;
             sun.Margin = new Thickness(9, 0, 0, 0);
@@ -591,8 +643,8 @@ public partial class ControlCenterView
             return new Grid { Width = ScreenWidth, Height = ScreenHeight, HorizontalAlignment = HorizontalAlignment.Left, Children = { sun, value } };
         }
         // As on the capsules: a light readout on the glass, a dark copy inside the white fill, cut at its edge.
-        var light = Readout(Frozen("#D9FFFFFF"), out var lightValue);
-        var dark = Readout(Frozen("#161616"), out var darkValue);
+        var light = Readout(Frozen("#D9FFFFFF"), out var lightValue, new SolidColorBrush(SandColor));
+        var dark = Readout(Frozen("#161616"), out var darkValue, new SolidColorBrush(Color.FromRgb(0x8A, 0x6A, 0x3E)));
         var fill = new Border { Background = CapsuleWhite, HorizontalAlignment = HorizontalAlignment.Left, Width = 0, ClipToBounds = true, Child = dark };
         var glass = new Grid
         {
@@ -614,7 +666,7 @@ public partial class ControlCenterView
             e.Handled = true;
             SetScreenLevel(slider, Math.Round(slider.Level * 20 + Math.Sign(e.Delta)) / 20, user: true);
         };
-        glass.ToolTip = "Ziehen oder scrollen ändert die Helligkeit";
+        glass.ToolTip = Say("Ziehen oder scrollen ändert die Helligkeit", "Drag or scroll to set the brightness");
         return slider;
     }
 
@@ -656,14 +708,14 @@ public partial class ControlCenterView
         {
             bool ready = phone.State == PhoneState.Device;
             var line = BatteryLine(0xE8EA, phone.Name ?? Loc.Get("phone.name"), phone.BatteryPercent ?? -1, phone.Charging,
-                ready ? () => _openPhone?.Invoke() : null, ready ? null : "Erlauben");
-            line.ToolTip = ready ? "Bildschirm vom Handy zeigen" : Loc.Get("phone.allow");
+                ready ? () => _openPhone?.Invoke() : null, ready ? null : Say("Erlauben", "Allow"));
+            line.ToolTip = ready ? Say("Bildschirm vom Handy zeigen", "Show the phone's screen") : Loc.Get("phone.allow");
             if (ready) line.MouseEnter += (_, _) => _prewarmPhone?.Invoke();
             _batteryHost.Children.Add(line);
         }
         if (_batteryHost.Children.Count == 0)
         {
-            var none = CompactText("Nichts verbunden", 11.5, CompactLabel);
+            var none = CompactText(Say("Nichts verbunden", "Nothing connected"), 11.5, CompactLabel);
             none.Margin = new Thickness(0, 5, 0, 0);
             _batteryHost.Children.Add(none);
         }
@@ -723,9 +775,11 @@ public partial class ControlCenterView
         if (percent > 0)
         {
             double circumference = Math.PI * (size - stroke);
+            // The ring says how full it is: sage when fine, sand from half down, rose when it needs the charger.
+            var level = percent <= 20 ? RoseColor : percent <= 50 ? SandColor : Color.FromRgb(0x9D, 0xBD, 0xB1);
             var arc = new Ellipse
             {
-                Stroke = percent <= 20 ? new SolidColorBrush(RoseColor) : Frozen("#F5F5F7"), StrokeThickness = stroke,
+                Stroke = new SolidColorBrush(level), StrokeThickness = stroke,
                 StrokeDashArray = new DoubleCollection { Math.Min(percent, 100) / 100.0 * circumference / stroke, 1000 },
                 StrokeDashCap = PenLineCap.Round, RenderTransformOrigin = new Point(.5, .5), RenderTransform = new RotateTransform(-90)
             };
@@ -747,14 +801,14 @@ public partial class ControlCenterView
     {
         var column = new StackPanel();
         var header = new DockPanel { LastChildFill = false };
-        header.Children.Add(DrawerHeading("Leistung"));
-        var link = DrawerLink("Prozesse", heading: false, () => ShowDrawerPage(DrawerPage.Processes));
+        header.Children.Add(DrawerHeading(Say("Leistung", "Performance")));
+        var link = DrawerLink(Say("Prozesse", "Processes"), heading: false, () => ShowDrawerPage(DrawerPage.Processes));
         link.Margin = new Thickness(0, 0, -4, 0);
         DockPanel.SetDock(link, Dock.Right);
         header.Children.Add(link);
         column.Children.Add(header);
 
-        var metrics = new Grid { Margin = new Thickness(0, 2, 0, 0), Background = Brushes.Transparent, Cursor = Cursors.Hand, ToolTip = "Prozesse zeigen" };
+        var metrics = new Grid { Margin = new Thickness(0, 2, 0, 0), Background = Brushes.Transparent, Cursor = Cursors.Hand, ToolTip = Say("Prozesse zeigen", "Show processes") };
         for (int i = 0; i < 3; i++) metrics.ColumnDefinitions.Add(new ColumnDefinition());
         metrics.Children.Add(Metric(0, "CPU", out _cpuValue, out _cpuSub, out _cpuHeat));
         metrics.Children.Add(Metric(1, "GPU", out _gpuValue, out _gpuSub, out _gpuHeat));
@@ -820,13 +874,18 @@ public partial class ControlCenterView
         int? cpuTemp = _legion?.CpuTemp is > 0 ? _legion.CpuTemp : null, gpuTemp = _legion?.GpuTemp is > 0 ? _legion.GpuTemp : null;
         if (_cpuSub != null) _cpuSub.Text = cpuTemp is { } c ? $"{c} °C" : "";
         if (_gpuSub != null) _gpuSub.Text = gpuTemp is { } g ? $"{g} °C" : "";
-        if (_ramSub != null) _ramSub.Text = $"von {stats.RamTotalGb:0} GB";
+        if (_ramSub != null) _ramSub.Text = Say($"von {stats.RamTotalGb:0} GB", $"of {stats.RamTotalGb:0} GB");
         SetHeat(_cpuHeat, cpuTemp);
         SetHeat(_gpuHeat, gpuTemp);
         if (_netLine != null)
         {
-            string link = s.Wired.Any(w => w.IsUp) ? "Ethernet" : s.Networks.Any(n => n.IsConnected) ? "WLAN" : "Offline";
-            _netLine.Text = $"{link}     ↓ {FormatRate(stats.DownBytesPerSecond)}     ↑ {FormatRate(stats.UpBytesPerSecond)}";
+            bool online = s.Wired.Any(w => w.IsUp) || s.Networks.Any(n => n.IsConnected);
+            string link = s.Wired.Any(w => w.IsUp) ? "Ethernet" : s.Networks.Any(n => n.IsConnected) ? Say("WLAN", "Wi-Fi") : "Offline";
+            // A sage dot while the connection is up, like the face's status dots.
+            _netLine.Inlines.Clear();
+            _netLine.Inlines.Add(new Run("● ") { FontSize = 8, Foreground = online ? new SolidColorBrush(Color.FromRgb(0x9D, 0xBD, 0xB1)) : Frozen("#40FFFFFF"),
+                BaselineAlignment = BaselineAlignment.Center });
+            _netLine.Inlines.Add(new Run($"{link}     ↓ {FormatRate(stats.DownBytesPerSecond)}     ↑ {FormatRate(stats.UpBytesPerSecond)}"));
         }
     }
 
@@ -849,12 +908,12 @@ public partial class ControlCenterView
             {
                 _awakeGlyph = CompactGlyph(0xEC32);
                 _awakeGlyph.FontSize = 14;
-                _awakeText = CompactText("Wach bleiben", 12, Frozen("#BFFFFFFF"));
+                _awakeText = CompactText(Say("Wach bleiben", "Stay awake"), 12, Frozen("#BFFFFFFF"));
                 _awakeText.MinWidth = 82;
                 _awakeText.Margin = new Thickness(6, 0, 6, 0);
                 _awakeText.VerticalAlignment = VerticalAlignment.Center;
                 var set = _setKeepAwakeMode;
-                _awakeSegment = Segmented(["Aus", "Auto", "Immer"], AwakeIndex(), i =>
+                _awakeSegment = Segmented([Say("Aus", "Off"), "Auto", Say("Immer", "Always")], AwakeIndex(), i =>
                     set(i switch { 0 => KeepAwakeMode.Off, 2 => KeepAwakeMode.Always, _ => KeepAwakeMode.Automatic }));
                 var awake = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Background = Brushes.Transparent,
                     Children = { _awakeGlyph, _awakeText, _awakeSegment.Root } };
@@ -864,14 +923,14 @@ public partial class ControlCenterView
             if (_legion is { } state)
             {
                 var locks = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-                locks.Children.Add(LockSwitch("Win-Taste sperren", state.WinKeyLocked, async on => ApplyLegion(await LegionService.SetWinKeyLockedAsync(on))));
-                locks.Children.Add(LockSwitch("Touchpad sperren", state.TouchpadLocked, async on => ApplyLegion(await LegionService.SetTouchpadLockedAsync(on))));
+                locks.Children.Add(LockSwitch(Say("Win-Taste sperren", "Lock Win key"), state.WinKeyLocked, async on => ApplyLegion(await LegionService.SetWinKeyLockedAsync(on))));
+                locks.Children.Add(LockSwitch(Say("Touchpad sperren", "Lock touchpad"), state.TouchpadLocked, async on => ApplyLegion(await LegionService.SetTouchpadLockedAsync(on))));
                 DockPanel.SetDock(locks, Dock.Right);
                 _footer.Children.Add(locks);
             }
             else if (_legionAttached)
             {
-                var setup = CompactPill("Lenovo-Helfer einrichten", async () => { await LegionService.RunSetupAsync(); RefreshLegion(); });
+                var setup = CompactPill(Say("Lenovo-Helfer einrichten", "Set up Lenovo helper"), async () => { await LegionService.RunSetupAsync(); RefreshLegion(); });
                 setup.ToolTip = Loc.Get("legion.setupHint");
                 DockPanel.SetDock(setup, Dock.Right);
                 _footer.Children.Add(setup);
@@ -895,7 +954,7 @@ public partial class ControlCenterView
         bool holding = _keepAwakeMode?.Invoke() == KeepAwakeMode.Always ||
             label == Loc.Get("control.keepAwake.claude") || label == Loc.Get("control.keepAwake.download") || label == Loc.Get("control.keepAwake.timer");
         _awakeGlyph.Foreground = holding ? new SolidColorBrush(SandColor) : CompactLabel;
-        _awakeText.Text = holding ? "Hält wach" : "Wach bleiben";
+        _awakeText.Text = holding ? Say("Hält wach", "Keeping awake") : Say("Wach bleiben", "Stay awake");
         ((FrameworkElement)_awakeText.Parent).ToolTip = label.Length > 0 ? label : null;
     }
 
@@ -958,7 +1017,7 @@ public partial class ControlCenterView
         var back = CompactGlyph(0xE76B);
         back.FontSize = 12;
         var backButton = new Border { Width = 30, Height = 30, CornerRadius = new CornerRadius(15), Background = Frozen("#1AFFFFFF"),
-            Cursor = Cursors.Hand, Child = back, ToolTip = "Zurück" };
+            Cursor = Cursors.Hand, Child = back, ToolTip = Say("Zurück", "Back") };
         Squish(backButton);
         backButton.MouseLeftButtonUp += (_, e) => { e.Handled = true; ShowDrawerPage(DrawerPage.Main); };
         var name = CompactText(title, 15, CompactInk);

@@ -199,6 +199,9 @@ public sealed class SystemTabTests
                 { new("wf", "Kopfhörer WF-1000XM6", "Kopfhörer (WF-1000XM6 Stereo)", true, true), new("wave", "Wave", "Wave Link Stream", false, false) });
             snapshot.GetType().GetField("Networks")!.SetValue(snapshot, new List<WifiNetwork> { new("FRITZ!Box 7590 KL Gastzugang", null, 90, true, true) });
             HomeSchoolTabTests.Invoke(view, "BuildCompactSystem", snapshot);
+            // With a second monitor the brightness slider is there too, named after the main screen.
+            ((FrameworkElement)HomeSchoolTabTests.Field(view, "_brightnessColumn")).Visibility = Visibility.Visible;
+            ((TextBlock)HomeSchoolTabTests.Field(view, "_brightnessName")).Text = "Odyssey-G60SD-Pro";
             host.Show(); host.UpdateLayout();
             Rect Bounds(FrameworkElement element) => element.TransformToAncestor(view).TransformBounds(new Rect(element.RenderSize));
             var face = (Grid)HomeSchoolTabTests.Field(view, "_faceGrid");
