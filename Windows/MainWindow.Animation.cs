@@ -1185,7 +1185,8 @@ public partial class MainWindow
             TargetHeight: targetHeight,
             TargetCornerRadius: _cornerRadiusExpanded,
             Motion: motion,
-            NavigationDirection: navigationDirection
+            NavigationDirection: navigationDirection,
+            FromHeight: currentHeight
         );
 
         int pendingPresenters = _notchContentPresenter != null ? 2 : 1;
