@@ -57,7 +57,9 @@ public partial class ControlCenterView
             if (IsVisible || _drawerHeight == null) return;
             _drawerDragging = false;
             IsLayoutFollowing = false;
-            Motion.Stop(_drawerHeight, WeatherTween.ValueProperty, _drawerOpen ? MeasureDrawer() : 0);
+            // Out of sight means done with it: the tab opens closed again next time, at its compact size.
+            _drawerOpen = false;
+            Motion.Stop(_drawerHeight, WeatherTween.ValueProperty, 0);
         };
     }
 

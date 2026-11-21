@@ -65,9 +65,20 @@ internal static class WaveXlrControl
         }
     }
 
+    /// <summary>
+    /// A JSON-RPC request. Wave Link 3.2.10 silently drops requests that carry "params": null (no reply at all, so
+    /// the mic read timed out and showed as missing), so the field is left out when there is nothing to send.
+    /// </summary>
+    internal static JsonObject BuildRequest(int id, string method, JsonNode? parameters)
+    {
+        var request = new JsonObject { ["jsonrpc"] = "2.0", ["id"] = id, ["method"] = method };
+        if (parameters != null) request["params"] = parameters;
+        return request;
+    }
+
     private static async Task<JsonNode?> RpcAsync(ClientWebSocket socket, int id, string method, JsonNode? parameters, CancellationToken token)
     {
-        var request = new JsonObject { ["jsonrpc"] = "2.0", ["id"] = id, ["method"] = method, ["params"] = parameters };
+        var request = BuildRequest(id, method, parameters);
         await socket.SendAsync(Encoding.UTF8.GetBytes(request.ToJsonString()), WebSocketMessageType.Text, true, token);
         var buffer = new byte[8192];
         while (socket.State == WebSocketState.Open)

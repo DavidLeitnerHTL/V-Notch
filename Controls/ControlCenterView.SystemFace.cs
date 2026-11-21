@@ -65,7 +65,7 @@ public partial class ControlCenterView
     private int _modeShown = -2;
     private FaceCapsule? _volumeCapsule, _brightnessCapsule;
     private Grid? _brightnessColumn;
-    private TextBlock? _outputLabel;
+    private TextBlock? _outputLabel, _outputGlyph;
     private Border? _outputMenu;
     private string? _brightnessDisplay;
 
@@ -90,17 +90,20 @@ public partial class ControlCenterView
 
         var volume = BuildCapsule(0xE767, v => _volume?.SetVolume((float)v), "Lautstärke");
         _volumeCapsule = volume;
-        _outputLabel = CompactText("–", 11, CompactLabel);
+        _outputLabel = CompactText("–", 11.5, CompactInk);
+        _outputGlyph = CompactGlyph(0xE7F5);
+        _outputGlyph.FontSize = 12;
+        _outputGlyph.Margin = new Thickness(0, 0, 5, 0);
         var chevron = CompactGlyph(0xE70D);
         chevron.FontSize = 8;
         chevron.Margin = new Thickness(3, 1, 0, 0);
         var outputButton = new Border
         {
-            CornerRadius = new CornerRadius(8), Padding = new Thickness(6, 2, 6, 2), Background = Brushes.Transparent, Cursor = Cursors.Hand,
+            CornerRadius = new CornerRadius(9), Padding = new Thickness(7, 3, 7, 3), Background = Frozen("#14FFFFFF"), Cursor = Cursors.Hand,
             HorizontalAlignment = HorizontalAlignment.Center,
-            Child = new StackPanel { Orientation = Orientation.Horizontal, Children = { _outputLabel, chevron } }
+            Child = new StackPanel { Orientation = Orientation.Horizontal, Children = { _outputGlyph, _outputLabel, chevron } }
         };
-        Pressable(outputButton, () => Brushes.Transparent, CardHover);
+        Pressable(outputButton, () => Frozen("#14FFFFFF"), CardHover);
         outputButton.MouseLeftButtonUp += (_, e) => { e.Handled = true; ToggleOutputMenu(); };
         _outputMenu = new Border
         {
@@ -452,7 +455,9 @@ public partial class ControlCenterView
         if (_outputLabel == null) return;
         var output = _outputs.FirstOrDefault(o => o.IsDefault);
         _outputLabel.Text = output == null ? "–" : ShortOutputName(output);
+        if (_outputGlyph != null) _outputGlyph.Text = Glyph(OutputGlyph(output));
         ((FrameworkElement)((FrameworkElement)_outputLabel.Parent).Parent).ToolTip = output?.FriendlyName ?? Loc.Get("control.noAdapter");
+        ((FrameworkElement)((FrameworkElement)_outputLabel.Parent).Parent).Opacity = _outputs.Count > 1 ? 1 : .6;
         if (_outputMenu?.Visibility == Visibility.Visible) FillOutputMenu();
     }
 

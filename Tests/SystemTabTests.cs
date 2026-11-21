@@ -52,6 +52,13 @@ public sealed class SystemTabTests
         Assert.Null(WaveXlrControl.Parse(JsonNode.Parse("{\"inputDevices\":[{\"name\":\"Wave XLR\",\"id\":\"bad\",\"inputs\":[{}]}]}")));
     }
 
+    [Fact]
+    public void WaveLinkRequestsLeaveOutEmptyParamsBecauseWaveLinkIgnoresNull()
+    {
+        Assert.Equal("""{"jsonrpc":"2.0","id":1,"method":"getInputDevices"}""", WaveXlrControl.BuildRequest(1, "getInputDevices", null).ToJsonString());
+        Assert.Contains("\"params\":{\"id\":\"x\"}", WaveXlrControl.BuildRequest(1, "setInputDevice", new JsonObject { ["id"] = "x" }).ToJsonString());
+    }
+
     [Theory]
     [InlineData("Wave Link Stream (Elgato Virtual Audio)", "Stream", "Wave")]
     [InlineData("Headphones (AirPods Pro)", "AirPods Pro", "AirPods")]
