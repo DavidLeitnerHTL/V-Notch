@@ -463,7 +463,7 @@ public partial class ControlCenterView
 
     private void UpdateLegion(LegionState state)
     {
-        if (_compactSystemReady) { ShowCompactMode(); return; }
+        if (_compactSystemReady) { ShowFaceMode(); return; }
         if (_legionParts is not { } parts) return;
         int index = Array.FindIndex(LegionModes, m => (int)m.Mode == state.Mode);
         if (index != parts.Selected || parts.Selected == -2) SelectLegionMode(index, state.Mode);

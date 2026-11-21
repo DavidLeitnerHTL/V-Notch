@@ -18,7 +18,7 @@ public partial class MainWindow
     private const double SchoolViewWidth = 430;
     private const double CenterViewMinHeight = 82;
     // As tall as the Claude tab may grow, so an open drawer fits instead of scrolling.
-    private const double CenterViewMaxHeight = 560;
+    private const double CenterViewMaxHeight = 580;
 
     private double _homeViewHeight = CenterViewMaxHeight;
     private double _schoolViewHeight = CenterViewMaxHeight;

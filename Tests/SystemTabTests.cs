@@ -67,7 +67,7 @@ public sealed class SystemTabTests
         Assert.Equal(glyph, ControlCenterView.OutputGlyph(new("id", "", friendly, true, false)));
 
     [Fact]
-    public void CompactSystemHasOneFluentIconFamilyAndInterruptibleSidewaysOutputLabels() => SharedStaTestRunner.RunAsync(async ct =>
+    public void SystemFaceShowsTheOutputAndPicksAnotherFromItsMenu() => SharedStaTestRunner.RunAsync(async ct =>
     {
         bool previous = AnimationConfig.ReduceMotion; bool? client = AnimationConfig.ClientAreaAnimationOverride;
         BackgroundTestWindows.EnsureApplicationResources();
@@ -78,28 +78,24 @@ public sealed class SystemTabTests
         try
         {
             window.Show(); view.UpdateLayout();
-            var chip = (Border)HomeSchoolTabTests.Field(view, "_systemOutputChip");
-            Assert.InRange(chip.ActualWidth, 50, 90);
-            Assert.Equal("Wave Link Stream", chip.ToolTip);
-            Assert.InRange(view.MeasureContentHeight(568), 80, 105);
-            var icons = HomeSchoolTabTests.Descendants<TextBlock>(view).Where(t => t.FontFamily.Source.Contains("Fluent", StringComparison.Ordinal)).ToList();
-            Assert.True(icons.Count >= 7);
-            Assert.All(icons, i => Assert.Equal(16, i.FontSize));
+            var label = (TextBlock)HomeSchoolTabTests.Field(view, "_outputLabel");
+            Assert.Equal("Wave", label.Text);
+            Assert.InRange(view.MeasureContentHeight(568), 140, 200);
+            // The drawer still lists every output.
             var sound = (StackPanel)HomeSchoolTabTests.Field(view, "_systemSound");
             var outputs = HomeSchoolTabTests.Descendants<Border>(sound).Where(b => b.ToolTip is string title &&
                 (title == "Wave Link Stream" || title == "Headphones (AirPods Pro)")).ToArray();
             Assert.Equal(2, outputs.Length);
-            Assert.All(outputs, output => Assert.Equal(System.Windows.Input.Cursors.Hand, output.Cursor));
-            var holder = (Grid)HomeSchoolTabTests.Field(view, "_systemOutputName");
-            HomeSchoolTabTests.SetField(view, "_outputs", new List<OutputDevice> { new("air", "AirPods", "Headphones (AirPods Pro)", true, true) });
-            HomeSchoolTabTests.Invoke(view, "ShowCompactOutput");
-            Assert.Equal(2, holder.Children.Count);
-            var incoming = Assert.IsType<TextBlock>(holder.Children[^1]);
-            Assert.True(((TranslateTransform)incoming.RenderTransform).X > 0);
-            Assert.Equal("Headphones (AirPods Pro)", chip.ToolTip);
-            await WpfFrameWaiter.UntilAsync(() => holder.Children.Count == 1, "output label leaves sideways", ct);
-            view.Visibility = Visibility.Collapsed;
-            Assert.False(((TranslateTransform)incoming.RenderTransform).HasAnimatedProperties);
+            // The label opens a menu with the current output ticked, instead of silently cycling.
+            HomeSchoolTabTests.Invoke(view, "ToggleOutputMenu");
+            var menu = (Border)HomeSchoolTabTests.Field(view, "_outputMenu");
+            Assert.Equal(Visibility.Visible, menu.Visibility);
+            var rows = ((StackPanel)menu.Child).Children.Cast<Border>().ToArray();
+            Assert.Equal(2, rows.Length);
+            var ticks = rows.Select(r => HomeSchoolTabTests.Descendants<TextBlock>(r).First(t => t.FontFamily.Source.Contains("Fluent", StringComparison.Ordinal)).Opacity).ToArray();
+            Assert.Equal(1, ticks.Count(t => t == 1));
+            HomeSchoolTabTests.Invoke(view, "CloseOutputMenu");
+            await WpfFrameWaiter.UntilAsync(() => menu.Visibility == Visibility.Collapsed, "menu closes", ct);
         }
         finally
         {
@@ -111,45 +107,34 @@ public sealed class SystemTabTests
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public void SystemControlsHaveClearGapsAndUsableVolumeAtTheRealNotchWidth(bool legion) => SharedStaTestRunner.RunAsync(async ct =>
+    public void SystemFaceFitsTheRealNotchWidthAndTheThumbLandsOnEachMode(bool legion) => SharedStaTestRunner.RunAsync(async ct =>
     {
         BackgroundTestWindows.EnsureApplicationResources();
         using var view = CreateView(legion);
-        var host = new BackgroundWindow { Width = 600, Height = 200, Left = -20000, Top = -20000,
+        var host = new BackgroundWindow { Width = 600, Height = 260, Left = -20000, Top = -20000,
             Content = new Border { Padding = new Thickness(16, 30, 16, 0), Child = view } };
         try
         {
             host.Show(); host.UpdateLayout();
             Rect Bounds(FrameworkElement element) => element.TransformToAncestor(view).TransformBounds(new Rect(element.RenderSize));
             var page = (StackPanel)HomeSchoolTabTests.Field(view, "_compactPage");
-            var bar = Assert.IsType<Grid>(page.Children[0]);
-            var chip = (Border)HomeSchoolTabTests.Field(view, "_systemOutputChip");
-            var volume = Assert.IsType<Grid>(bar.Children[legion ? 2 : 1]);
-            Assert.True(volume.ActualWidth >= 160);
-            Assert.True(Bounds(volume).Left - Bounds(chip).Right >= 15.5);
-            var toggles = Assert.IsType<StackPanel>(bar.Children[^1]);
-            var buttons = toggles.Children.Cast<FrameworkElement>().ToArray();
-            for (int i = 1; i < buttons.Length; i++)
-                Assert.True(Bounds(buttons[i]).Left - Bounds(buttons[i - 1]).Right >= 11.5);
-            Assert.All(buttons, button => Assert.InRange(Bounds(button).Right, 0, 568));
-            if (legion)
+            var face = Assert.IsType<Grid>(page.Children[0]);
+            var columns = face.Children.Cast<FrameworkElement>().Where(c => c.Visibility == Visibility.Visible).OrderBy(c => Bounds(c).Left).ToArray();
+            Assert.All(columns, c => Assert.InRange(Bounds(c).Right, 0, 568.5));
+            for (int i = 1; i < columns.Length; i++)
+                Assert.True(Bounds(columns[i]).Left - Bounds(columns[i - 1]).Right >= -0.5, $"column {i} overlaps");
+            var tile = HomeSchoolTabTests.Field(view, "_modeTile") as Border;
+            if (!legion) { Assert.Null(tile); return; }
+            Assert.NotNull(tile);
+            var shift = (TranslateTransform)HomeSchoolTabTests.Field(view, "_modeThumbShift");
+            var modes = new[] { LegionMode.Quiet, LegionMode.Balanced, LegionMode.Performance, LegionMode.Extreme };
+            for (int i = 0; i < 4; i++)
             {
-                Assert.True(Bounds(volume).Top - Bounds(buttons[0]).Bottom >= 11.5);
-                var icons = (List<TextBlock>)HomeSchoolTabTests.Field(view, "_systemModeIcons");
-                var modes = icons.Select(icon => (FrameworkElement)icon.Parent).ToArray();
-                for (int i = 1; i < modes.Length; i++)
-                    Assert.True(Bounds(modes[i]).Left - Bounds(modes[i - 1]).Right >= 7.5);
-                for (int i = 0; i < 4; i++)
-                {
-                    HomeSchoolTabTests.SetField(view, "_legion", new LegionState((int)new[] { LegionMode.Quiet, LegionMode.Balanced, LegionMode.Performance, LegionMode.Extreme }[i], false, false, 61, 44));
-                    HomeSchoolTabTests.Invoke(view, "ShowCompactMode");
-                    var shift = (TranslateTransform)HomeSchoolTabTests.Field(view, "_systemModeShift");
-                    await WpfFrameWaiter.UntilAsync(() => !Motion.IsRunning(shift, TranslateTransform.XProperty), "mode thumb settles", ct);
-                    var thumb = (Border)HomeSchoolTabTests.Field(view, "_systemModeThumb");
-                    Assert.Equal(Bounds(modes[i]).Left, Bounds(thumb).Left, 1);
-                }
+                HomeSchoolTabTests.SetField(view, "_legion", new LegionState((int)modes[i], false, false, 61, 44));
+                HomeSchoolTabTests.Invoke(view, "ShowFaceMode", false);
+                await WpfFrameWaiter.UntilAsync(() => !Motion.IsRunning(shift, TranslateTransform.XProperty), "thumb settles", ct);
+                Assert.Equal(i * 50, shift.X, 1);
             }
-            else Assert.True(Bounds(buttons[0]).Left - Bounds(volume).Right >= 19.5);
         }
         finally { HomeSchoolTabTests.SetField(view, "_gpuSampling", false); host.Close(); }
     });

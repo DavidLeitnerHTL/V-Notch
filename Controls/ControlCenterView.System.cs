@@ -15,30 +15,17 @@ namespace VNotch.Controls;
 public partial class ControlCenterView
 {
     private bool _compactSystemReady;
-    private Grid? _systemModeName, _systemOutputName;
-    private TextBlock? _systemOutputIcon;
-    private Border? _systemOutputChip, _systemModeThumb;
-    private readonly TranslateTransform _systemModeShift = new();
-    private readonly List<TextBlock> _systemModeIcons = new();
     private readonly List<(ScaleTransform Fill, TextBlock Value)> _systemMasterBars = new();
     private readonly Dictionary<uint, (ScaleTransform Fill, TextBlock Value)> _systemAppBars = new();
     private readonly StackPanel _systemSound = new(), _systemReadouts = new(), _systemGear = new(), _systemDevices = new(), _systemDisplays = new();
     private TextBlock? _systemCpu, _systemGpu, _systemRam, _systemTraffic;
     private string _systemDrawerKey = "";
-    private int _systemSelectedMode = -1;
-    private (Border Button, TextBlock Icon)? _systemWifi, _systemBluetooth, _systemMic;
     private WaveXlrState? _waveXlr;
     private readonly LoadWarningState _loadWarning = new();
     private Border? _advancedDisplays;
     private bool _advancedDisplaysOpen;
     private int _compactDisplayRevision;
     private bool _readingCompactDisplays;
-    private const double SystemModeStep = 34;
-
-    private static readonly Color[] SystemModeColors =
-    [ Color.FromRgb(0x8F, 0xA9, 0xC4), Color.FromRgb(0xE8, 0xE6, 0xEF), Color.FromRgb(0xC9, 0x8A, 0x84), Color.FromRgb(0xA6, 0xA2, 0xC8) ];
-    private static readonly int[] SystemModeGlyphs = [0xE8BE, 0xEC49, 0xECAD, 0xE945];
-
     private void BuildCompactSystem(Snapshot s)
     {
         _accent = Frozen("#8FA9C4");
@@ -46,16 +33,15 @@ public partial class ControlCenterView
         {
             _compactSystemReady = true;
             MountCompactPage();
-            BuildSystemBar();
+            BuildSystemFace();
         }
         if (s.Outputs != null) _outputs = s.Outputs;
         _waveXlr = s.WaveXlr;
-        PaintSystemToggle(_systemWifi, s.WifiOn, Color.FromRgb(0x8F, 0xA9, 0xC4));
-        PaintSystemToggle(_systemBluetooth, s.BluetoothOn, Color.FromRgb(0x8F, 0xA9, 0xC4));
-        PaintSystemToggle(_systemMic, _waveXlr == null ? null : !_waveXlr.Muted, Color.FromRgb(0xC9, 0xB0, 0x8E));
-        if (_systemMic is { } mic) mic.Button.ToolTip = _waveXlr == null ? "Wave XLR nicht erreichbar" : _waveXlr.Muted ? "Wave XLR: stumm" : "Wave XLR";
-        ShowCompactOutput();
-        ShowCompactMode();
+        PaintFaceRow(_faceWifi, s.WifiOn, s.Networks.FirstOrDefault(n => n.IsConnected)?.Ssid ?? "An", "Aus", ConnectionBlue);
+        PaintFaceRow(_faceBluetooth, s.BluetoothOn, "An", "Aus", ConnectionBlue);
+        PaintFaceRow(_faceMic, _waveXlr == null ? null : !_waveXlr.Muted, "Wave XLR", "Stumm", MicSand);
+        ShowFaceOutput();
+        ShowFaceMode();
         var current = _volume?.Current ?? (0f, false);
         ShowCompactVolume(current.Item1, current.Item2);
         string key = string.Join(";", (s.Apps ?? new()).Select(a => $"{a.ProcessId}:{a.DisplayName}")) + "|" +
@@ -82,125 +68,15 @@ public partial class ControlCenterView
     private static string PercentAndTemp(double? percent, int? temp) =>
         (percent is { } p ? $"{p:0} %" : "–") + (temp is > 0 ? $", {temp} °C" : "");
 
-    private void BuildSystemBar()
-    {
-        var row = new Grid { MinHeight = 32 };
-        row.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        if (_legionAttached) row.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        foreach (var width in new[] { GridLength.Auto, GridLength.Auto, new GridLength(1, GridUnitType.Star), GridLength.Auto })
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = width });
-        if (_legionAttached)
-        {
-            var modes = new Grid { Width = 4 + 3 * SystemModeStep + 26, Height = 30 };
-            var thumb = _systemModeThumb = new Border { Width = 26, Height = 26, CornerRadius = new CornerRadius(7),
-                HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(2, 0, 0, 0), RenderTransform = _systemModeShift,
-                Background = new SolidColorBrush(SystemModeColors[1]), IsHitTestVisible = false };
-            modes.Children.Add(thumb);
-            for (int i = 0; i < 4; i++)
-            {
-                int index = i;
-                var icon = CompactGlyph(SystemModeGlyphs[i]); _systemModeIcons.Add(icon);
-                var button = new Border { Width = 26, Height = 28, HorizontalAlignment = HorizontalAlignment.Left,
-                    Margin = new Thickness(2 + SystemModeStep * i, 0, 0, 0), Background = Brushes.Transparent, CornerRadius = new CornerRadius(7),
-                    Child = icon, Cursor = Cursors.Hand, ToolTip = Loc.Get(LegionModes[i].Key) };
-                Squish(button);
-                button.MouseLeftButtonUp += async (_, e) =>
-                {
-                    e.Handled = true;
-                    if (_legionBusy || _systemSelectedMode == index) return;
-                    _legionBusy = true;
-                    try
-                    {
-                        if (await LegionService.SetModeAsync(LegionModes[index].Mode) is { } state) ApplyLegion(state);
-                    }
-                    finally { _legionBusy = false; }
-                };
-                modes.Children.Add(button);
-            }
-            var segment = new Border { Background = CompactTrack, CornerRadius = new CornerRadius(9), Child = modes };
-            _systemModeName = new Grid { Width = 76, Height = 28, Margin = new Thickness(12, 0, 0, 0), ClipToBounds = true };
-            var block = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 20, 12), Children = { segment, _systemModeName } };
-            Grid.SetColumnSpan(block, 3);
-            row.Children.Add(block);
-        }
-        _systemOutputName = new Grid { Width = 46, Height = 22, ClipToBounds = true };
-        _systemOutputIcon = CompactGlyph(0xE7F5);
-        _systemOutputChip = new Border { Height = 25, CornerRadius = new CornerRadius(8), Background = CompactTrack,
-            Padding = new Thickness(5, 0, 5, 0), Margin = new Thickness(0, 0, 16, 0), Cursor = Cursors.Hand,
-            Child = new StackPanel { Orientation = Orientation.Horizontal, Children = { _systemOutputIcon, _systemOutputName } } };
-        Pressable(_systemOutputChip, () => CompactTrack, CardHover);
-        _systemOutputChip.MouseLeftButtonUp += (_, e) => { e.Handled = true; CycleCompactOutput(); };
-        Grid.SetRow(_systemOutputChip, _legionAttached ? 1 : 0);
-        row.Children.Add(_systemOutputChip);
-        var volume = CompactVolumeBar(0, v => _volume?.SetVolume((float)v), master: true);
-        volume.MinWidth = 160;
-        Grid.SetRow(volume, _legionAttached ? 1 : 0);
-        Grid.SetColumn(volume, 1); Grid.SetColumnSpan(volume, _legionAttached ? 3 : 2); row.Children.Add(volume);
-        var toggles = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(20, 0, 0, _legionAttached ? 12 : 0) };
-        _systemWifi = SystemRoundToggle(0xE701, "WLAN", () => { if (_wifiRadio != null) SetRadio(_wifiRadio, _snapshot?.WifiOn != true); });
-        _systemBluetooth = SystemRoundToggle(0xE702, "Bluetooth", () => { if (_bluetoothRadio != null) SetRadio(_bluetoothRadio, _snapshot?.BluetoothOn != true); });
-        _systemMic = SystemRoundToggle(0xE720, "Wave XLR", ToggleWaveXlr);
-        foreach (var toggle in new[] { _systemWifi.Value, _systemBluetooth.Value, _systemMic.Value }) toggles.Children.Add(toggle.Button);
-        _systemMic.Value.Button.Margin = new Thickness(0);
-        Grid.SetColumn(toggles, 3); row.Children.Add(toggles);
-        _compactPage.Children.Add(row);
-    }
-
-    private (Border Button, TextBlock Icon) SystemRoundToggle(int glyph, string tooltip, Action action)
-    {
-        var icon = CompactGlyph(glyph);
-        var button = new Border { Width = 28, Height = 28, CornerRadius = new CornerRadius(14), Background = CompactTrack,
-            Margin = new Thickness(0, 0, 12, 0), Child = icon, Cursor = Cursors.Hand, ToolTip = tooltip };
-        Pressable(button, () => button.Tag is true ? Frozen("#263F4D5B") : CompactTrack, CardHover);
-        button.MouseLeftButtonUp += (_, e) => { e.Handled = true; action(); };
-        return (button, icon);
-    }
-
-    private static void PaintSystemToggle((Border Button, TextBlock Icon)? parts, bool? on, Color color)
-    {
-        if (parts is not { } p) return;
-        bool changed = p.Button.Tag is bool previous && previous != on;
-        p.Button.Tag = on;
-        p.Button.IsEnabled = on != null;
-        p.Button.Opacity = on == null ? .4 : 1;
-        p.Button.Background = on == true ? new SolidColorBrush(Alpha(color, .24)) : CompactTrack;
-        p.Icon.Foreground = on == true ? new SolidColorBrush(color) : CompactLabel;
-        if (changed && p.Icon.IsVisible && !AnimationConfig.ReduceMotion)
-        {
-            var scale = FeedbackScale(p.Icon);
-            p.Icon.RenderTransformOrigin = new Point(.5, .5);
-            Motion.To(scale, ScaleTransform.ScaleXProperty, 1, Motion.Pop, from: .6);
-            Motion.To(scale, ScaleTransform.ScaleYProperty, 1, Motion.Pop, from: .6);
-        }
-    }
-
     private async void ToggleWaveXlr()
     {
-        if (_waveXlr is not { } state || _systemMic is not { } mic) return;
-        mic.Button.IsEnabled = false;
+        if (_waveXlr is not { } state || _faceMic is not { } mic) return;
+        ((FrameworkElement)mic.Disc.Parent).IsEnabled = false;
         bool muted = !state.Muted;
         bool changed = await WaveXlrControl.SetMutedAsync(state, muted);
         if (_disposed) return;
         if (changed) _waveXlr = state with { Muted = muted };
-        PaintSystemToggle(_systemMic, _waveXlr == null ? null : !_waveXlr.Muted, Color.FromRgb(0xC9, 0xB0, 0x8E));
-    }
-
-    private void ShowCompactMode()
-    {
-        if (_systemModeName == null || _systemModeThumb == null) return;
-        int index = _legion == null ? 1 : Array.FindIndex(LegionModes, m => (int)m.Mode == _legion.Mode);
-        int visual = Math.Max(0, index);
-        string name = _legion == null ? "–" : LegionModeLook(_legion.Mode).Name;
-        SwapCompactLabel(_systemModeName, name, direction: index >= _systemSelectedMode ? 1 : -1, size: 12);
-        if (_systemSelectedMode != index)
-        {
-            if (_systemSelectedMode < 0 || !_systemModeThumb.IsVisible) Motion.Stop(_systemModeShift, TranslateTransform.XProperty, visual * SystemModeStep);
-            else Motion.To(_systemModeShift, TranslateTransform.XProperty, visual * SystemModeStep, Motion.Shift);
-            _systemModeThumb.Background = new SolidColorBrush(SystemModeColors[visual]);
-            _systemSelectedMode = index;
-        }
-        _systemModeThumb.Opacity = _legion == null || index < 0 ? .25 : 1;
-        for (int i = 0; i < _systemModeIcons.Count; i++) _systemModeIcons[i].Foreground = i == index ? Frozen("#161616") : CompactLabel;
+        PaintFaceRow(_faceMic, _waveXlr == null ? null : !_waveXlr.Muted, "Wave XLR", "Stumm", MicSand);
     }
 
     internal static string ShortOutputName(OutputDevice output)
@@ -215,28 +91,11 @@ public partial class ControlCenterView
             output.FriendlyName.Contains("Kopfh", StringComparison.OrdinalIgnoreCase) ||
             output.FriendlyName.Contains("AirPods", StringComparison.OrdinalIgnoreCase)) ? 0xE7F6 : 0xE7F5;
 
-    private void ShowCompactOutput()
-    {
-        if (_systemOutputChip == null || _systemOutputName == null) return;
-        var output = _outputs.FirstOrDefault(o => o.IsDefault);
-        _systemOutputChip.ToolTip = output?.FriendlyName ?? Loc.Get("control.noAdapter");
-        _systemOutputChip.IsEnabled = _outputs.Count > 1;
-        if (_systemOutputIcon != null) _systemOutputIcon.Text = Glyph(OutputGlyph(output));
-        SwapCompactLabel(_systemOutputName, output == null ? "–" : ShortOutputName(output));
-    }
-
-    private void CycleCompactOutput()
-    {
-        if (_outputs.Count < 2) return;
-        int index = _outputs.FindIndex(o => o.IsDefault);
-        SelectCompactOutput(_outputs[(index + 1) % _outputs.Count]);
-    }
-
     private void SelectCompactOutput(OutputDevice output)
     {
         if (output.IsDefault) return;
         _outputs = _outputs.Select(o => o with { IsDefault = o.Id == output.Id }).ToList();
-        ShowCompactOutput();
+        ShowFaceOutput();
         if (_snapshot is { } snapshot)
         {
             snapshot.Outputs = _outputs;
@@ -263,6 +122,7 @@ public partial class ControlCenterView
     private void ShowCompactVolume(float volume, bool muted)
     {
         foreach (var bar in _systemMasterBars) PaintCompactBar(bar, volume, muted);
+        ShowCapsuleLevel(_volumeCapsule, muted ? 0 : volume);
     }
 
     private static void PaintCompactBar((ScaleTransform Fill, TextBlock Value) bar, double level, bool muted)

@@ -720,7 +720,8 @@ public partial class ControlCenterView : UserControl, IDisposable
     private void ApplyStats(SystemStats stats)
     {
         RecordSample(stats);
-        SetMood(MoodLoad(stats));
+        // On a Legion the power mode colours the tab; elsewhere the load does.
+        if (_modeTile == null || _legion == null) SetMood(MoodLoad(stats));
         if (_statsTiles is not { } tiles || !IsExpanded("system")) return;
         SetLoad(tiles.Cpu, stats.CpuPercent);
         SetLoad(tiles.Gpu, stats.GpuPercent);
