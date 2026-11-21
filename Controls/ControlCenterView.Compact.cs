@@ -41,7 +41,6 @@ public partial class ControlCenterView
         ControlRoot.Children.Clear();
         ControlRoot.Children.Add(_compactPage);
         _compactPage.Margin = new Thickness(0, 3, 0, 0);
-        ControlScrollViewer.Padding = new Thickness(0);
         ControlScrollViewer.PreviewMouseWheel += (_, e) =>
         {
             if (_drawerClip == null || e.Handled) return;
@@ -68,13 +67,17 @@ public partial class ControlCenterView
         if (_drawerHeight != null) Motion.Stop(_drawerHeight, WeatherTween.ValueProperty);
         _drawerDragging = false;
         IsLayoutFollowing = false;
-        if (_drawerClip != null) { _drawerClip.Child = null; _compactPage.Children.Remove(_drawerClip); }
+        if (_drawerClip != null) { DetachDrawerBody(); _compactPage.Children.Remove(_drawerClip); }
         if (_drawerGrabber != null) _compactPage.Children.Remove(_drawerGrabber);
         _drawerBody.Children.Clear();
         _drawerBody.Children.Add(body);
         _drawerBody.Margin = new Thickness(0, 10, 0, 3);
-        _drawerClip = new Border { Height = 0, ClipToBounds = true, Child = _drawerBody,
+        // The clip reaches DrawerBleed px past the page on both sides (the hairline and rows stay in place), so a
+        // row or button at the edge that rises under the pointer keeps its sides.
+        _drawerFrame = new Border { Margin = new Thickness(DrawerBleed, 0, DrawerBleed, 0), Child = _drawerBody,
             BorderBrush = Frozen("#14FFFFFF"), BorderThickness = new Thickness(0, 1, 0, 0) };
+        _drawerClip = new Border { Height = 0, ClipToBounds = true, Child = _drawerFrame,
+            Margin = new Thickness(-DrawerBleed, 0, -DrawerBleed, 0) };
         _drawerHeight = new WeatherTween { Step = height =>
         {
             _drawerClip.Height = Math.Max(0, height);
@@ -89,10 +92,20 @@ public partial class ControlCenterView
     }
 
     private FrameworkElement? _drawerGrabber;
+    private Border? _drawerFrame;
+    private const double DrawerBleed = 6;
+
+    private void DetachDrawerBody()
+    {
+        if (_drawerFrame != null) _drawerFrame.Child = null;
+        if (_drawerClip != null) _drawerClip.Child = null;
+        _drawerFrame = null;
+    }
+
     private void RemoveCompactDrawer()
     {
         if (_drawerHeight != null) Motion.Stop(_drawerHeight, WeatherTween.ValueProperty, 0);
-        if (_drawerClip != null) { _drawerClip.Child = null; _compactPage.Children.Remove(_drawerClip); }
+        if (_drawerClip != null) { DetachDrawerBody(); _compactPage.Children.Remove(_drawerClip); }
         if (_drawerGrabber != null) _compactPage.Children.Remove(_drawerGrabber);
         _drawerBody.Children.Clear();
         _drawerClip = null; _drawerHeight = null; _drawerGrabber = null;
@@ -100,8 +113,13 @@ public partial class ControlCenterView
     private double MeasureDrawer()
     {
         double width = ActualWidth > 0 ? ActualWidth : Page == ControlCenterPage.School ? 398 : 528;
-        _drawerBody.Measure(new Size(width, double.PositiveInfinity));
-        return _drawerBody.DesiredSize.Height + 1;
+        if (_drawerFrame == null)
+        {
+            _drawerBody.Measure(new Size(width, double.PositiveInfinity));
+            return _drawerBody.DesiredSize.Height + 1;
+        }
+        _drawerFrame.Measure(new Size(width + 2 * DrawerBleed, double.PositiveInfinity));
+        return _drawerFrame.DesiredSize.Height;
     }
 
     private FrameworkElement DrawerGrabber()
@@ -207,8 +225,10 @@ public partial class ControlCenterView
     private Border CompactPill(string text, Action click)
     {
         var label = CompactText(text, 11, CompactInk);
+        // Centred, not stretched: in a 29 px row a stretched pill touched the pills of the rows above and below.
         var button = new Border { CornerRadius = new CornerRadius(10), Background = CompactTrack,
-            Padding = new Thickness(9, 4, 9, 4), Cursor = Cursors.Hand, Child = label, HorizontalAlignment = HorizontalAlignment.Left };
+            Padding = new Thickness(9, 4, 9, 4), Cursor = Cursors.Hand, Child = label, HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center };
         Pressable(button, () => CompactTrack, CardHover);
         button.MouseLeftButtonUp += (_, e) => { e.Handled = true; click(); };
         return button;
@@ -222,7 +242,13 @@ public partial class ControlCenterView
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         row.Children.Add(CompactGlyph(glyph));
         var label = CompactText(name, 12, CompactInk); Grid.SetColumn(label, 1); row.Children.Add(label);
-        if (right != null) { Grid.SetColumn(right, 2); row.Children.Add(right); }
+        if (right != null)
+        {
+            if (right.ReadLocalValue(VerticalAlignmentProperty) == DependencyProperty.UnsetValue) right.VerticalAlignment = VerticalAlignment.Center;
+            // The value never runs into the name.
+            if (right.ReadLocalValue(MarginProperty) == DependencyProperty.UnsetValue) right.Margin = new Thickness(10, 0, 0, 0);
+            Grid.SetColumn(right, 2); row.Children.Add(right);
+        }
         return row;
     }
 

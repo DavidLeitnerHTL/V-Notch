@@ -22,7 +22,7 @@ public partial class ControlCenterView
     private readonly List<TextBlock> _systemModeIcons = new();
     private readonly List<(ScaleTransform Fill, TextBlock Value)> _systemMasterBars = new();
     private readonly Dictionary<uint, (ScaleTransform Fill, TextBlock Value)> _systemAppBars = new();
-    private readonly StackPanel _systemSound = new(), _systemReadouts = new(), _systemDevices = new(), _systemDisplays = new();
+    private readonly StackPanel _systemSound = new(), _systemReadouts = new(), _systemGear = new(), _systemDevices = new(), _systemDisplays = new();
     private TextBlock? _systemCpu, _systemGpu, _systemRam, _systemTraffic;
     private string _systemDrawerKey = "";
     private int _systemSelectedMode = -1;
@@ -276,12 +276,12 @@ public partial class ControlCenterView
 
     private void BuildSystemDrawer(Snapshot s)
     {
-        foreach (var part in new FrameworkElement[] { _systemSound, _systemReadouts, _systemDevices, _systemDisplays, _displaysSection, _topList })
+        foreach (var part in new FrameworkElement[] { _systemSound, _systemReadouts, _systemGear, _systemDevices, _systemDisplays, _displaysSection, _topList })
         {
             if (part.Parent is Panel parent) parent.Children.Remove(part);
             else if (part.Parent is Border border) border.Child = null;
         }
-        _systemSound.Children.Clear(); _systemReadouts.Children.Clear(); _systemDevices.Children.Clear();
+        _systemSound.Children.Clear(); _systemReadouts.Children.Clear(); _systemGear.Children.Clear(); _systemDevices.Children.Clear();
         while (_systemMasterBars.Count > 1) _systemMasterBars.RemoveAt(1);
         _systemAppBars.Clear();
         _systemSound.Children.Add(CompactText("Ton", 11, CompactLabel));
@@ -322,12 +322,18 @@ public partial class ControlCenterView
         _systemReadouts.Children.Add(cpu); _systemReadouts.Children.Add(CompactLine(0xE7F4, "GPU", _systemGpu));
         _systemReadouts.Children.Add(CompactLine(0xE964, "RAM", _systemRam));
         var processes = CompactPill("Prozesse", () => ToggleTop(TopMode.Cpu)); _systemReadouts.Children.Add(processes);
-        _systemReadouts.Children.Add(CompactText("Geräte", 11, CompactLabel));
-        _systemReadouts.Children.Add(_systemDevices);
+        _systemGear.Children.Add(CompactText("Geräte", 11, CompactLabel));
+        _systemGear.Children.Add(_systemDevices);
         foreach (var device in s.Devices)
         {
             var detail = new StackPanel { Orientation = Orientation.Horizontal };
-            if (device.Battery >= 0) detail.Children.Add(CompactText($"{device.Battery} %", 11, CompactLabel));
+            if (device.Battery >= 0)
+            {
+                var battery = CompactText($"{device.Battery} %", 11, CompactLabel);
+                battery.VerticalAlignment = VerticalAlignment.Center;
+                if (device.CanConnect) battery.Margin = new Thickness(0, 0, 8, 0);
+                detail.Children.Add(battery);
+            }
             if (device.CanConnect) detail.Children.Add(CompactPill(device.IsConnected ? "Trennen" : "Verbinden", () => SetBluetoothConnected(device, !device.IsConnected)));
             _systemDevices.Children.Add(CompactLine(device.Glyph[0], device.Name, detail));
         }
@@ -348,18 +354,43 @@ public partial class ControlCenterView
         {
             var actions = new StackPanel { Orientation = Orientation.Horizontal };
             var automatic = CompactPill("Auto", () => { _setKeepAwakeMode(KeepAwakeMode.Automatic); _systemDrawerKey = ""; if (_snapshot != null) BuildCompactSystem(_snapshot); });
-            automatic.ToolTip = _keepAwakeLabel?.Invoke(); actions.Children.Add(automatic);
+            automatic.ToolTip = _keepAwakeLabel?.Invoke(); automatic.Margin = new Thickness(0, 0, 8, 0); actions.Children.Add(automatic);
             actions.Children.Add(Toggle(_keepAwakeMode() != KeepAwakeMode.Off, on => _setKeepAwakeMode(on ? KeepAwakeMode.Always : KeepAwakeMode.Off)));
             _systemDevices.Children.Add(CompactLine(0xE708, "Wach bleiben", actions));
         }
         AddPhoneRow(_systemDevices);
-        var body = new StackPanel { Children = { CompactColumns(_systemSound, _systemReadouts) } };
+        var body = new StackPanel { Children = { BalancedSystemColumns() } };
         _advancedDisplays = new Border { Height = 0, ClipToBounds = true, Child = _displaysSection };
         body.Children.Add(_advancedDisplays); body.Children.Add(_topList);
         AddDrawer(body);
         if (_advancedDisplaysOpen) FoldInline(_advancedDisplays, true, false);
         if (IsVisible && _systemDisplays.Children.Count == 0) RefreshCompactDisplays();
         ContentHeightChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// Sound and displays sit left, devices right; the load readouts join whichever side keeps the drawer shorter,
+    /// so one long column does not push the drawer past the notch's height while the other half stays empty.
+    /// </summary>
+    private Grid BalancedSystemColumns()
+    {
+        double column = Math.Max(120, ((ActualWidth > 0 ? ActualWidth : 568) - 24) / 2);
+        double Height(FrameworkElement part)
+        {
+            part.Margin = new Thickness(0);
+            part.Measure(new Size(column, double.PositiveInfinity));
+            return part.DesiredSize.Height;
+        }
+        double sound = Height(_systemSound), load = Height(_systemReadouts), gear = Height(_systemGear);
+        const double gap = 8;
+        bool loadLeft = Math.Max(sound + gap + load, gear) < Math.Max(sound, load + gap + gear);
+        _systemReadouts.Margin = new Thickness(0, loadLeft ? gap : 0, 0, 0);
+        _systemGear.Margin = new Thickness(0, loadLeft ? 0 : gap, 0, 0);
+        var left = new StackPanel { Children = { _systemSound } };
+        var right = new StackPanel();
+        if (loadLeft) left.Children.Add(_systemReadouts); else right.Children.Add(_systemReadouts);
+        right.Children.Add(_systemGear);
+        return CompactColumns(left, right);
     }
 
     private void AddSystemNetwork(Snapshot s)

@@ -1291,8 +1291,9 @@ public partial class ControlCenterView : UserControl, IDisposable
     {
         if (Page == ControlCenterPage.Claude) BuildClaudeSection();
         var padding = ControlScrollViewer.Padding;
-        ControlRoot.Measure(new Size(Math.Max(0, width - padding.Left - padding.Right), double.PositiveInfinity));
-        return Math.Ceiling(ControlRoot.DesiredSize.Height);
+        var bleed = ControlRoot.Margin;
+        ControlRoot.Measure(new Size(Math.Max(0, width - padding.Left - padding.Right + bleed.Left + bleed.Right), double.PositiveInfinity));
+        return Math.Ceiling(Math.Max(0, ControlRoot.DesiredSize.Height - bleed.Top - bleed.Bottom));
     }
 
     private Func<bool>? _soundsOn;
@@ -1864,7 +1865,7 @@ public partial class ControlCenterView : UserControl, IDisposable
         {
             Content = body,
             MaxHeight = PlanMaxHeight,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             Margin = new Thickness(0, 4, 0, 10)
         });

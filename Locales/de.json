@@ -566,7 +566,7 @@
   "settings.search.clear": "Suche löschen",
   "settings.search.emptyHint": "Versuchen Sie ein anderes Stichwort oder eine kürzere Suche.",
   "settings.search.noResults": "Keine passenden Einstellungen gefunden.",
-  "settings.searchPlaceholder": "Einstellungen durchsuchen...",
+  "settings.searchPlaceholder": "Suchen...",
   "settings.searching": "Suchmodus",
   "settings.section.backup": "EINSTELLUNGEN SICHERN & ÜBERTRAGEN",
   "settings.showBattery": "Batterieanzeige einblenden",
