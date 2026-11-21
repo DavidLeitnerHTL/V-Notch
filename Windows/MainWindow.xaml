@@ -1599,6 +1599,7 @@
                                        FontSize="12"
                                        FontWeight="SemiBold"
                                        FontFamily="{StaticResource MainSystemFont}"
+                                       Typography.NumeralAlignment="Tabular"
                                        HorizontalAlignment="Right"
                                        VerticalAlignment="Center"
                                        Margin="30,0,2,0"/>

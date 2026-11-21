@@ -2008,10 +2008,14 @@ public partial class ControlCenterView : UserControl, IDisposable
         foreach (var id in gone) _questionPicks.Remove(id);
     }
 
+    /// <summary>
+    /// A running clock just ticks: the swap animation other values use would blank it out every second.
+    /// The digits are tabular, so the width holds still.
+    /// </summary>
     private void UpdateElapsedLabels()
     {
         DateTime now = DateTime.UtcNow;
-        foreach (var (label, started) in _elapsedLabels) SetDetailText(label, FormatElapsed(now - started));
+        foreach (var (label, started) in _elapsedLabels) label.Text = FormatElapsed(now - started);
     }
 
     internal static string FormatElapsed(TimeSpan span)

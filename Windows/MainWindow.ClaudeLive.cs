@@ -80,7 +80,8 @@ public partial class MainWindow
         var session = _claudeLiveSession;
         if (session == null) return;
         if (_bubbleOpen && _bubbleActivity == LiveActivity.Claude) UpdateBubbleContent();
-        CrossFadeText(ClaudeLiveText, ControlCenterView.FormatElapsed(DateTime.UtcNow - (session.TurnStartedUtc ?? DateTime.UtcNow)));
+        // A ticking clock changes in place; a cross-fade would blank it for a moment every second.
+        ClaudeLiveText.Text = ControlCenterView.FormatElapsed(DateTime.UtcNow - (session.TurnStartedUtc ?? DateTime.UtcNow));
     }
 
     /// <summary>One word for what the session is at, like Claude Code's own spinner: the tool decides it.</summary>
