@@ -42,6 +42,7 @@ public partial class ControlCenterView
         PaintFaceRow(_faceMic, _waveXlr == null ? null : !_waveXlr.Muted, "Wave XLR", "Stumm", MicSand);
         ShowFaceOutput();
         ShowFaceMode();
+        RefreshQuickPage(s);
         var current = _volume?.Current ?? (0f, false);
         ShowCompactVolume(current.Item1, current.Item2);
         string key = string.Join(";", (s.Apps ?? new()).Select(a => $"{a.ProcessId}:{a.DisplayName}")) + "|" +

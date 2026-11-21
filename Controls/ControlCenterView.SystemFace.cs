@@ -71,13 +71,13 @@ public partial class ControlCenterView
 
     private void BuildSystemFace()
     {
-        var row = new Grid { Height = FaceRowHeight };
+        var row = _faceGrid = new Grid { Height = FaceRowHeight };
         foreach (var width in new[] { GridLength.Auto, new GridLength(1, GridUnitType.Star), GridLength.Auto, GridLength.Auto })
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = width });
 
         var connections = new StackPanel { VerticalAlignment = VerticalAlignment.Center, MinWidth = 150, Margin = new Thickness(0, 0, 14, 0) };
-        _faceWifi = FaceConnection(connections, 0xE701, "WLAN", () => { if (_wifiRadio != null) SetRadio(_wifiRadio, _snapshot?.WifiOn != true); });
-        _faceBluetooth = FaceConnection(connections, 0xE702, "Bluetooth", () => { if (_bluetoothRadio != null) SetRadio(_bluetoothRadio, _snapshot?.BluetoothOn != true); });
+        _faceWifi = FaceConnection(connections, 0xE701, "WLAN", () => { if (_wifiRadio != null) SetRadio(_wifiRadio, _snapshot?.WifiOn != true); }, () => OpenQuickPage(QuickPage.Wifi));
+        _faceBluetooth = FaceConnection(connections, 0xE702, "Bluetooth", () => { if (_bluetoothRadio != null) SetRadio(_bluetoothRadio, _snapshot?.BluetoothOn != true); }, () => OpenQuickPage(QuickPage.Bluetooth));
         _faceMic = FaceConnection(connections, 0xE720, "Mikrofon", ToggleWaveXlr);
         row.Children.Add(connections);
 
@@ -148,7 +148,8 @@ public partial class ControlCenterView
         return column;
     }
 
-    private FaceRow FaceConnection(Panel host, int glyph, string name, Action toggle)
+    /// <summary>The round button switches it; with <paramref name="open"/>, the name opens its page (a small › says so).</summary>
+    private FaceRow FaceConnection(Panel host, int glyph, string name, Action toggle, Action? open = null)
     {
         var icon = CompactGlyph(glyph);
         icon.FontSize = 14;
@@ -159,13 +160,24 @@ public partial class ControlCenterView
         title.FontWeight = FontWeights.SemiBold;
         var text = new StackPanel { Margin = new Thickness(10, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center,
             Children = { title, new StackPanel { Orientation = Orientation.Horizontal, Children = { dot, state } } } };
+        var content = new StackPanel { Orientation = Orientation.Horizontal, Children = { disc, text } };
+        if (open != null)
+        {
+            var chevron = CompactGlyph(0xE76C);
+            chevron.FontSize = 9;
+            chevron.Margin = new Thickness(6, 0, 0, 0);
+            chevron.VerticalAlignment = VerticalAlignment.Center;
+            content.Children.Add(chevron);
+        }
         var row = new Border
         {
             Background = Brushes.Transparent, Cursor = Cursors.Hand, Margin = new Thickness(0, 5, 0, 5), ToolTip = name,
-            Child = new StackPanel { Orientation = Orientation.Horizontal, Children = { disc, text } }
+            Child = content
         };
         Squish(disc);
-        row.MouseLeftButtonUp += (_, e) => { e.Handled = true; toggle(); };
+        disc.Background = Frozen("#1AFFFFFF");
+        disc.MouseLeftButtonUp += (_, e) => { e.Handled = true; toggle(); };
+        row.MouseLeftButtonUp += (_, e) => { e.Handled = true; if (open != null) open(); else toggle(); };
         host.Children.Add(row);
         return new FaceRow { Disc = disc, Glyph = icon, State = state, Dot = dot };
     }

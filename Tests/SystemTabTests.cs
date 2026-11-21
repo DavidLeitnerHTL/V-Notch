@@ -146,6 +146,45 @@ public sealed class SystemTabTests
         finally { HomeSchoolTabTests.SetField(view, "_gpuSampling", false); host.Close(); }
     });
 
+    [Fact]
+    public void WifiAndBluetoothOpenInPlaceAndCloseWithTheNotch() => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        BackgroundTestWindows.EnsureApplicationResources();
+        using var view = CreateView();
+        var host = new BackgroundWindow { Width = 600, Height = 320, Left = -20000, Top = -20000, Content = new Border { Padding = new Thickness(16, 30, 16, 0), Child = view } };
+        try
+        {
+            host.Show(); host.UpdateLayout();
+            var snapshot = HomeSchoolTabTests.Field(view, "_snapshot")!;
+            snapshot.GetType().GetField("Networks")!.SetValue(snapshot, new List<WifiNetwork>
+            {
+                new("Home", "Home", 90, true, true), new("Cafe", null, 40, false, false), new("Neighbour", null, 70, true, false)
+            });
+            var pages = typeof(ControlCenterView).GetNestedType("QuickPage", BindingFlags.NonPublic)!;
+            var face = (Grid)HomeSchoolTabTests.Field(view, "_faceGrid")!;
+            HomeSchoolTabTests.Invoke(view, "OpenQuickPage", Enum.Parse(pages, "Wifi"));
+            var panel = (StackPanel)HomeSchoolTabTests.Field(view, "_quickPanel")!;
+            Assert.Equal(Visibility.Collapsed, face.Visibility);
+            Assert.Equal(Visibility.Visible, panel.Visibility);
+            // Header, three networks (connected first), the link to Windows' list.
+            Assert.Equal(5, panel.Children.Count);
+            Assert.Contains(HomeSchoolTabTests.Descendants<TextBlock>((FrameworkElement)panel.Children[1]), t => t.Text == "Home");
+
+            HomeSchoolTabTests.Invoke(view, "CloseQuickPage", true);
+            Assert.Equal(Visibility.Visible, face.Visibility);
+            Assert.Equal(Visibility.Collapsed, panel.Visibility);
+
+            HomeSchoolTabTests.Invoke(view, "OpenQuickPage", Enum.Parse(pages, "Bluetooth"));
+            Assert.Contains(HomeSchoolTabTests.Descendants<TextBlock>(panel), t => t.Text == "AirPods Pro");
+            // Closing the notch hides the tab: it opens on the face again.
+            view.Visibility = Visibility.Collapsed;
+            Assert.Equal(Visibility.Visible, face.Visibility);
+            Assert.Equal(Visibility.Collapsed, panel.Visibility);
+            await Task.CompletedTask;
+        }
+        finally { HomeSchoolTabTests.SetField(view, "_gpuSampling", false); host.Close(); }
+    });
+
     internal static ControlCenterView CreateView(bool legion = true)
     {
         var view = new ControlCenterView { Page = ControlCenterPage.System };
