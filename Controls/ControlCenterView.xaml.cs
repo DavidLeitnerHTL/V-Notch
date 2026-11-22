@@ -251,11 +251,17 @@ public partial class ControlCenterView : UserControl, IDisposable
 
     #region Lifecycle
 
+    private TabLedger? _seen;
+
+    /// <summary>What this tab last showed; faces ask it which values changed while the tab was away.</summary>
+    internal TabLedger Seen => _seen ??= new TabLedger(() => IsVisible);
+
     private void OnIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
         if (_disposed) return;
         if (IsVisible)
         {
+            Seen.Shown();
             if (Page == ControlCenterPage.System)
             {
                 ForgetStaleHistory();
@@ -294,6 +300,7 @@ public partial class ControlCenterView : UserControl, IDisposable
         }
         else
         {
+            Seen.Hidden();
             _refreshTimer.Stop();
             _clockTimer.Stop();
             StopLiveTexts();
