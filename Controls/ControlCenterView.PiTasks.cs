@@ -72,48 +72,47 @@ public partial class ControlCenterView
     /// <summary>The buttons at the end of a deadline row, by kind of assignment and where a hand-in stands.</summary>
     private FrameworkElement PiTaskActions(PiDeadline deadline, Grid row)
     {
-        var panel = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
+        var panel = new WrapPanel { VerticalAlignment = VerticalAlignment.Center };
         int cmid = deadline.Cmid;
         if (!_piAssignments.TryGetValue(cmid, out var task))
         {
             LoadPiAssignment(cmid);
             return panel;
         }
-        _accent = Frozen("#CF9AB2");
         _piTasks.TryGetValue(cmid, out var state);
         switch (state?.Step)
         {
             case PiTaskStep.Loading:
-                panel.Children.Add(Note(Loc.Get("pi.task.loading"), Muted));
+                panel.Children.Add(Note(Loc.Get("pi.task.loading")));
                 return panel;
             case PiTaskStep.Uploading:
-                panel.Children.Add(Note(Loc.Get("pi.task.uploading"), Muted));
+                panel.Children.Add(Note(Loc.Get("pi.task.uploading")));
                 return panel;
             case PiTaskStep.Done:
-                panel.Children.Add(Note("✓ " + Loc.Get("pi.task.submitted"), Mint));
+                panel.Children.Add(Note("✓ " + Loc.Get("pi.task.submitted")));
                 return panel;
             case PiTaskStep.Picked when state.File is { } file:
-                panel.Children.Add(TextButton(Loc.Get("pi.task.submitFile", Path.GetFileName(file)), accent: true, () => SubmitPiFile(deadline, file)));
+                panel.Children.Add(SubmitFileButton(file));
                 panel.Children.Add(IconButton("\uE711", Loc.Get("pi.task.cancel"), () => SetPiTask(cmid, new(PiTaskStep.Idle))));
                 return panel;
             case PiTaskStep.Picked when state.Pages is { Count: > 0 } pages:
-                panel.Children.Add(TextButton(Loc.Get("pi.task.submitPages", pages.Count), accent: true, () => SubmitPiPhotos(deadline, task, pages)));
+                panel.Children.Add(TextButton(Loc.Get("pi.task.submitPages", pages.Count), accent: false, () => SubmitPiPhotos(deadline, task, pages)));
                 panel.Children.Add(IconButton("", Loc.Get("pi.task.cancel"), () => SetPiTask(cmid, new(PiTaskStep.Idle))));
                 return panel;
             case PiTaskStep.Failed:
-                var failed = Note(state.Message ?? Loc.Get("pi.task.failed"), DueToday);
+                var failed = Note(state.Message ?? Loc.Get("pi.task.failed"));
                 failed.MaxWidth = 150;
                 failed.ToolTip = state.Message;
                 panel.Children.Add(failed);
                 if (state.Pages is { Count: > 0 } kept)
                 {
-                    panel.Children.Add(TextButton(Loc.Get("pi.task.submitPages", kept.Count), accent: true, () => SubmitPiPhotos(deadline, task, kept)));
+                    panel.Children.Add(TextButton(Loc.Get("pi.task.submitPages", kept.Count), accent: false, () => SubmitPiPhotos(deadline, task, kept)));
                     panel.Children.Add(IconButton("", Loc.Get("pi.task.cancel"), () => SetPiTask(cmid, new(PiTaskStep.Idle))));
                     return panel;
                 }
                 if (state.File is { } keptFile)
                 {
-                    panel.Children.Add(TextButton(Loc.Get("pi.task.submitFile", Path.GetFileName(keptFile)), accent: true, () => SubmitPiFile(deadline, keptFile)));
+                    panel.Children.Add(SubmitFileButton(keptFile));
                     panel.Children.Add(IconButton("\uE711", Loc.Get("pi.task.cancel"), () => SetPiTask(cmid, new(PiTaskStep.Idle))));
                     return panel;
                 }
@@ -123,7 +122,7 @@ public partial class ControlCenterView
         // NW-Abgaben (NSCS): one file, picked or dropped on the row, handed in only after a second click.
         if (task.Mode == "upload")
         {
-            var hand = TextButton(Loc.Get("pi.task.submit"), accent: true, () => PickPiFile(deadline, task));
+            var hand = TextButton(Loc.Get("pi.task.submit"), accent: false, () => PickPiFile(deadline, task));
             hand.ToolTip = Loc.Get("pi.task.dropFileHint");
             panel.Children.Add(hand);
             AcceptFileDrop(row, cmid);
@@ -131,13 +130,13 @@ public partial class ControlCenterView
         }
 
         if (task.Mode == "pose")
-            panel.Children.Add(TextButton(Loc.Get("pi.task.project", task.Nr), accent: true, () =>
+            panel.Children.Add(TextButton(Loc.Get("pi.task.project", task.Nr), accent: false, () =>
             {
                 if (!SchoolFiles.OpenPoseProject(cmid)) SetPiTask(cmid, new(PiTaskStep.Failed, Message: Loc.Get("pi.task.poseMissing")));
             }));
         // WMC on Classroom 50: accept, clone into WMC\HÜn and open VS Code, all through the dashboard's pi-wmc:// tool.
         else if (task.Mode == "classroom")
-            panel.Children.Add(TextButton(Loc.Get("pi.task.repo", task.Nr), accent: true, () =>
+            panel.Children.Add(TextButton(Loc.Get("pi.task.repo", task.Nr), accent: false, () =>
             {
                 if (!SchoolFiles.OpenClassroomRepo(cmid)) SetPiTask(cmid, new(PiTaskStep.Failed, Message: Loc.Get("pi.task.wmcMissing")));
             }));
@@ -146,7 +145,7 @@ public partial class ControlCenterView
 
         if (task.Mode == "photo")
         {
-            var submit = TextButton(Loc.Get("pi.task.submit"), accent: task.Blocked == null, () =>
+            var submit = TextButton(Loc.Get("pi.task.submit"), accent: false, () =>
             {
                 if (task.Blocked == null) PickPiPhotos(deadline, task);
             });
@@ -156,11 +155,20 @@ public partial class ControlCenterView
             AcceptPhotoDrops(row, deadline, task);
         }
         return panel;
+
+        Border SubmitFileButton(string path)
+        {
+            string text = Loc.Get("pi.task.submitFile", Path.GetFileName(path));
+            var button = TextButton(text, accent: false, () => SubmitPiFile(deadline, path));
+            button.MaxWidth = 360;
+            button.ToolTip = text;
+            return button;
+        }
     }
 
-    private TextBlock Note(string text, Brush color)
+    private TextBlock Note(string text)
     {
-        var note = MakeLabel(text, 11.5, color);
+        var note = CompactText(text, 11.5, CompactLabel);
         note.Margin = new Thickness(0, 0, 8, 0);
         return note;
     }

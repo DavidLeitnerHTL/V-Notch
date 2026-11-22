@@ -323,7 +323,7 @@ public partial class ControlCenterView
             done: () => { IsLayoutFollowing = false; ContentHeightChanged?.Invoke(); });
     }
 
-    private void SwapCompactLabel(Grid holder, string text, bool horizontal = true, int direction = 1, double size = 11)
+    private void SwapCompactLabel(Grid holder, string text, bool horizontal = true, int direction = 1, double size = 11, bool animate = true)
     {
         if (holder.Tag is string previous && previous == text) return;
         if (holder.Tag is not string)
@@ -350,7 +350,7 @@ public partial class ControlCenterView
         var blur = new System.Windows.Media.Effects.BlurEffect { Radius = 0, RenderingBias = System.Windows.Media.Effects.RenderingBias.Performance };
         label.Effect = blur;
         var property = horizontal ? TranslateTransform.XProperty : TranslateTransform.YProperty;
-        if (!holder.IsVisible || AnimationConfig.ReduceMotion)
+        if (!animate || !holder.IsVisible || AnimationConfig.ReduceMotion)
         {
             holder.Children.Clear(); holder.Children.Add(label); return;
         }

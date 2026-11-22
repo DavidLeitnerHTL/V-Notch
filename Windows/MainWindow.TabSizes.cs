@@ -15,7 +15,7 @@ namespace VNotch;
 public partial class MainWindow
 {
     private const double HomeViewWidth = 560;
-    private const double SchoolViewWidth = 430;
+    private const double SchoolViewWidth = 520;
     private const double CenterViewMinHeight = 82;
     // As tall as the Claude tab may grow, so an open drawer fits instead of scrolling.
     private const double CenterViewMaxHeight = 580;

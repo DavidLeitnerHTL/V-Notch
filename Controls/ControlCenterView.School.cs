@@ -7,7 +7,6 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
-using System.Windows.Threading;
 using VNotch.Services;
 using VNotch.Services.ControlCenter;
 
@@ -40,123 +39,26 @@ public partial class ControlCenterView
         return first.Length > 0 ? first : raw;
     }
 
-    internal static Color SubjectColor(string subject)
+    internal static Color SubjectColor(string subject) => SubjectPalette[SubjectColorIndex(subject)];
+
+    private static int SubjectColorIndex(string subject)
     {
         string key = SchoolSubject(subject);
-        if (SubjectColors.TryGetValue(key, out int index)) return SubjectPalette[index];
+        if (SubjectColors.TryGetValue(key, out int index)) return index;
         uint hash = 2166136261;
         foreach (char c in key) hash = unchecked((hash ^ c) * 16777619);
-        return SubjectPalette[hash % SubjectPalette.Length];
+        return (int)(hash % SubjectPalette.Length);
     }
 
     private static string DeadlineSubject(PiDeadline deadline) => SchoolSubject(deadline.Course);
-    private string? _selectedAssignment;
-    private readonly Dictionary<string, Border> _assignmentPanels = new();
     private DateTime? _schoolSelectedDay;
     private Border? _weekLessons;
     private readonly Dictionary<DateTime, Border> _weekButtons = new();
-    private DispatcherTimer? _schoolCountdownTimer;
-    private StackPanel? _countdownDigits;
-    private DateTimeOffset? _countdownDue;
-    private string _countdownShown = "";
-    private static readonly Brush HandedIn = Frozen("#9DBDB1");
-    private readonly HashSet<PiExam> _schoolExamsOnTop = new();
-
-    private void BuildPiSchool()
-    {
-        _schoolCountdownTimer?.Stop();
-        _countdownDigits = null; _countdownDue = null; _countdownShown = "";
-        _assignmentPanels.Clear(); _piSchoolSection.Children.Clear();
-        if (_isLocalOnly() || _pi?.IsConfigured != true)
-        {
-            RemoveCompactDrawer();
-            _piSchoolSection.Children.Add(NewRow(Glyph(0xE7BA), Loc.Get(_isLocalOnly() ? "pi.localOnly" : "pi.notConfigured"), muted: true));
-            SetCompactStatus(""); return;
-        }
-        if (_piSchool is not { } school)
-        {
-            RemoveCompactDrawer();
-            _piSchoolSection.Children.Add(new SkeletonPlaceholder(!_piReachable, Loc.Get(_piReachable ? "pi.loading" : "pi.unreachable"), 56, 28, 28, 28));
-            SetCompactStatus(""); return;
-        }
-        var open = school.Deadlines.Where(d => !d.Submitted).OrderBy(d => d.Due).ToList();
-        var exams = school.Exams.Where(e => e.Date.Date >= DateTime.Today).OrderBy(e => e.Date).ToList();
-        SetCompactStatus($"{open.Count} offen");
-        var mood = SchoolMood(open.Count > 0 ? open[0].Due - DateTimeOffset.Now : null);
-        SetMoodColors(mood.Main, mood.Warmer, mood.Cooler);
-        if (open.Count > 0) _piSchoolSection.Children.Add(SchoolDeadline(open[0], hero: true));
-        else
-        {
-            var empty = new StackPanel { Margin = new Thickness(0, 6, 0, 12) };
-            empty.Children.Add(CompactText(Loc.Get("school.nothingDue"), 14.5, CompactInk));
-            if (exams.FirstOrDefault() is { } next)
-                empty.Children.Add(CompactText($"{ExamSubject(next)} · {next.Kind} · {next.Date:ddd d.M.}", 11.5, CompactLabel));
-            _piSchoolSection.Children.Add(empty);
-        }
-        var merged = open.Skip(1).Select(d => (At: d.Due, Deadline: (PiDeadline?)d, Exam: (PiExam?)null))
-            .Concat(exams.Select(e => (At: SchoolExamTime(e), Deadline: (PiDeadline?)null, Exam: (PiExam?)e)))
-            .OrderBy(e => e.At).Take(3);
-        _schoolExamsOnTop.Clear();
-        foreach (var item in merged)
-        {
-            if (item.Exam is { } exam) _schoolExamsOnTop.Add(exam);
-            _piSchoolSection.Children.Add(item.Deadline is { } deadline ? SchoolDeadline(deadline, hero: false) : SchoolExam(item.Exam!));
-        }
-        UpdateCountdownVisibility();
-    }
-
-    private FrameworkElement SchoolDeadline(PiDeadline deadline, bool hero)
-    {
-        string key = AssignmentKey(deadline);
-        var stack = new StackPanel();
-        FrameworkElement head;
-        if (hero)
-        {
-            var day = deadline.Due.LocalDateTime;
-            var wd = CompactText(day.ToString("ddd", CultureInfo.CurrentUICulture).ToUpperInvariant(), 9.5, Frozen("#281A18"));
-            wd.TextAlignment = TextAlignment.Center;
-            var date = CompactText(day.Day.ToString(CultureInfo.CurrentCulture), 19, CompactInk); date.TextAlignment = TextAlignment.Center;
-            var badge = new Border { Width = 42, CornerRadius = new CornerRadius(9), Background = Frozen("#1C1C1F"), ClipToBounds = true,
-                Child = new StackPanel { Children = { new Border { Background = Frozen("#C99790"), Child = wd, Padding = new Thickness(0, 2, 0, 1) }, date } } };
-            var title = CompactText(deadline.Name, 14.5, CompactInk); title.FontWeight = FontWeights.SemiBold;
-            var meta = CompactText(deadline.Course, 11.5, CompactLabel); meta.Margin = new Thickness(0, 2, 0, 0); meta.ToolTip = deadline.Course;
-            var labels = new StackPanel { Margin = new Thickness(12, 0, 10, 0), VerticalAlignment = VerticalAlignment.Center, Children = { title, meta } };
-            _countdownDigits = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-            _countdownDue = deadline.Due;
-            var due = CompactText("bis " + day.ToString("ddd HH:mm", CultureInfo.CurrentUICulture), 10.5, CompactLabel);
-            due.HorizontalAlignment = HorizontalAlignment.Right;
-            var countdown = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Children = { _countdownDigits, due } };
-            var grid = new Grid { Margin = new Thickness(0, 3, 0, 8), MinHeight = 48 };
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            grid.ColumnDefinitions.Add(new ColumnDefinition());
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            grid.Children.Add(badge); Grid.SetColumn(labels, 1); grid.Children.Add(labels);
-            Grid.SetColumn(countdown, 2); grid.Children.Add(countdown);
-            head = grid;
-            TickSchoolCountdown();
-            _countdownDigits.IsVisibleChanged += (_, _) => UpdateCountdownVisibility();
-        }
-        else head = SchoolEventLine(deadline.Name, deadline.Due.LocalDateTime.ToString("ddd HH:mm", CultureInfo.CurrentUICulture), SubjectColor(DeadlineSubject(deadline)));
-        var hit = new Border { Background = Brushes.Transparent, CornerRadius = new CornerRadius(9), Child = head, Cursor = Cursors.Hand };
-        Pressable(hit, () => Brushes.Transparent, Frozen("#0AFFFFFF"), gentle: true);
-        hit.MouseLeftButtonUp += (_, e) => { e.Handled = true; SelectAssignment(key); };
-        stack.Children.Add(hit);
-        var detail = AssignmentPanel(deadline);
-        var clip = new Border { Height = _selectedAssignment == key ? double.NaN : 0, ClipToBounds = true, Child = detail };
-        _assignmentPanels[key] = clip;
-        if (_selectedAssignment == key)
-        {
-            detail.Measure(new Size(Page == ControlCenterPage.School ? 390 : 520, double.PositiveInfinity));
-            clip.Height = detail.DesiredSize.Height;
-        }
-        stack.Children.Add(clip);
-        return stack;
-    }
 
     private FrameworkElement AssignmentPanel(PiDeadline deadline)
     {
-        var panel = new StackPanel { Margin = new Thickness(54, 1, 0, 10) };
-        var link = CompactPill("Aufgabe öffnen", async () =>
+        var panel = new StackPanel { Margin = new Thickness(18, 4, 0, 8) };
+        var link = CompactPill(Say("Aufgabe öffnen", "Open assignment"), async () =>
         {
             if (DeadlineLink(deadline) is { } url) Launch(await SignInToSchoolAsync(url));
         });
@@ -173,6 +75,8 @@ public partial class ControlCenterView
             foreach (var file in assignment.Attachments)
             {
                 var chip = CompactPill(file.Name, () => DownloadPiTask(deadline, assignment));
+                chip.MaxWidth = 360;
+                chip.ToolTip = file.Name;
                 chip.Margin = new Thickness(0, 0, 5, 4); attachments.Children.Add(chip);
             }
             panel.Children.Add(attachments);
@@ -187,12 +91,6 @@ public partial class ControlCenterView
 
     private static string AssignmentKey(PiDeadline deadline) => deadline.Cmid > 0 ? $"cmid:{deadline.Cmid}" :
         $"{deadline.Course}|{deadline.Name}|{deadline.Due.ToUnixTimeSeconds()}";
-
-    private void SelectAssignment(string key)
-    {
-        _selectedAssignment = _selectedAssignment == key ? null : key;
-        foreach (var (id, panel) in _assignmentPanels) FoldInline(panel, _selectedAssignment == id, animate: true);
-    }
 
     private Grid SchoolEventLine(string title, string when, Color color)
     {
@@ -220,12 +118,13 @@ public partial class ControlCenterView
     {
         _piExamSection.Children.Clear();
         if (_isLocalOnly() || _piSchool is not { } school) return;
-        // The tests the page already lists above the drawer are not repeated in it.
-        var later = school.Exams.Where(e => e.Date.Date >= DateTime.Today && !_schoolExamsOnTop.Contains(e)).OrderBy(e => e.Date).ToList();
+        // The face already shows tests within the next three weeks.
+        var later = school.Exams.Where(e => e.Date.Date >= DateTime.Today.AddDays(SchoolStripDays)).OrderBy(e => e.Date).ToList();
         var handedIn = school.Deadlines.Where(d => d.Submitted && (d.SubmittedAt ?? d.Due) >= DateTimeOffset.Now.AddDays(-7))
             .OrderByDescending(d => d.SubmittedAt ?? d.Due).Take(3).ToList();
         if (later.Count == 0 && handedIn.Count == 0) return;
-        _piExamSection.Children.Add(CompactText(_schoolExamsOnTop.Count > 0 ? "Weitere Tests" : "Tests", 11, CompactLabel));
+        if (later.Count > 0)
+            _piExamSection.Children.Add(CompactText(Say("Weitere Tests", "Later tests"), 11, CompactLabel));
         foreach (var exam in later)
             _piExamSection.Children.Add(SchoolExam(exam));
         foreach (var deadline in handedIn)
@@ -278,12 +177,8 @@ public partial class ControlCenterView
             var label = CompactText(day.ToString("ddd", CultureInfo.CurrentUICulture), 10, CompactLabel); label.TextAlignment = TextAlignment.Center;
             var number = CompactText(day.Day.ToString(CultureInfo.CurrentCulture), 12, i == 0 ? Frozen("#111111") : CompactInk); number.TextAlignment = TextAlignment.Center;
             var circle = new Border { Width = 24, Height = 24, CornerRadius = new CornerRadius(12), Background = i == 0 ? Brushes.White : Brushes.Transparent, Child = number };
-            var dots = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Height = 7 };
-            var colors = _piSchool.Deadlines.Where(d => !d.Submitted && d.Due.LocalDateTime.Date == day).Select(d => SubjectColor(DeadlineSubject(d)))
-                .Concat(_piSchool.Exams.Where(e => e.Date.Date == day).Select(e => SubjectColor(ExamSubject(e)))).Distinct();
-            foreach (var color in colors.Take(5)) dots.Children.Add(new Ellipse { Width = 4, Height = 4, Margin = new Thickness(1), Fill = new SolidColorBrush(color) });
             var button = new Border { Background = day == _schoolSelectedDay ? Frozen("#14FFFFFF") : Brushes.Transparent, CornerRadius = new CornerRadius(8), Padding = new Thickness(2), Cursor = Cursors.Hand,
-                Child = new StackPanel { Children = { label, circle, dots } } };
+                Child = new StackPanel { Children = { label, circle } } };
             button.ToolTip = day.ToString("D", CultureInfo.CurrentUICulture); Squish(button);
             button.MouseLeftButtonUp += (_, e) => { e.Handled = true; SelectSchoolDay(day); };
             _weekButtons[day] = button; Grid.SetColumn(button, i); week.Children.Add(button);
@@ -343,46 +238,5 @@ public partial class ControlCenterView
             Motion.To(rows, OpacityProperty, 1, Motion.Exit);
         }
         FoldInline(_weekLessons, true, animate);
-    }
-
-    internal static string SchoolCountdown(DateTimeOffset due, DateTimeOffset now)
-    {
-        long seconds = Math.Max(0, (long)(due - now).TotalSeconds);
-        return $"{seconds / 86400} T {seconds / 3600 % 24:00}:{seconds / 60 % 60:00}:{seconds % 60:00}";
-    }
-
-    private void TickSchoolCountdown()
-    {
-        if (_countdownDigits == null || _countdownDue is not { } due) return;
-        string value = SchoolCountdown(due, DateTimeOffset.Now);
-        // A running clock just ticks: the digits change in place. Rolling each digit every second read as flicker.
-        if (_countdownDigits.Children.Count != 1 || _countdownDigits.Children[0] is not TextBlock label)
-        {
-            _countdownDigits.Children.Clear();
-            label = CompactText(value, 15, CompactInk);
-            label.TextTrimming = TextTrimming.None;
-            System.Windows.Documents.Typography.SetNumeralAlignment(label, FontNumeralAlignment.Tabular);
-            _countdownDigits.Children.Add(label);
-        }
-        label.Text = value;
-        _countdownShown = value;
-        if (due <= DateTimeOffset.Now) _schoolCountdownTimer?.Stop();
-    }
-
-    private void UpdateCountdownVisibility()
-    {
-        if (_disposed || !IsVisible || _countdownDigits?.IsVisible != true || _countdownDue == null)
-        { _schoolCountdownTimer?.Stop(); return; }
-        _schoolCountdownTimer ??= new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(1) };
-        _schoolCountdownTimer.Tick -= OnSchoolCountdownTick;
-        _schoolCountdownTimer.Tick += OnSchoolCountdownTick;
-        TickSchoolCountdown();
-        if (_countdownDue > DateTimeOffset.Now) _schoolCountdownTimer.Start();
-    }
-
-    private void OnSchoolCountdownTick(object? sender, EventArgs e)
-    {
-        if (_countdownDigits?.IsVisible != true || !IsVisible || _disposed) { _schoolCountdownTimer?.Stop(); return; }
-        TickSchoolCountdown();
     }
 }

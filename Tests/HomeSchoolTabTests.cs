@@ -254,7 +254,7 @@ public sealed class HomeSchoolTabTests
             view.AttachPi(client, () => false, () => false, () => "", () => "");
             var lesson = new PiLesson("08:00", "08:50", "AM", "E58", false, "", 480, 530, "0AM");
             var school = new PiSchool(DateTime.Today.ToString("yyyy-MM-dd"), true, new[] { lesson },
-                new[] { new PiDeadline("Math task", "AM", DateTimeOffset.Now.AddDays(2), false) }, Array.Empty<PiExam>(), null)
+                new[] { new PiDeadline("Math task", "AM", DateTimeOffset.Now.AddHours(2), false) }, Array.Empty<PiExam>(), null)
                 { Days = new Dictionary<string, IReadOnlyList<PiLesson>> { [DateTime.Today.ToString("yyyy-MM-dd")] = new[] { lesson }, [DateTime.Today.AddDays(1).ToString("yyyy-MM-dd")] = Array.Empty<PiLesson>() } };
             SetField(view, "_piSchool", school); Invoke(view, "BuildPiPage"); window.Show(); view.UpdateLayout();
             view.SetDrawerOpen(true);
@@ -265,23 +265,22 @@ public sealed class HomeSchoolTabTests
             Assert.Contains(Descendants<TextBlock>(view), t => t.Text == "Kein Unterricht");
             Invoke(view, "SelectSchoolDay", DateTime.Today.AddDays(1));
             Assert.Equal(0, ((Border)Field(view, "_weekLessons")).Height);
-            var deadlines = (StackPanel)Field(view, "_piSchoolSection");
-            var hero = Assert.IsType<StackPanel>(deadlines.Children[0]);
-            ((Border)hero.Children[0]).RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left) { RoutedEvent = UIElement.MouseLeftButtonUpEvent });
-            Assert.True(((Border)hero.Children[1]).Height > 0);
-            ((Border)hero.Children[0]).RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left) { RoutedEvent = UIElement.MouseLeftButtonUpEvent });
-            Assert.Equal(0, ((Border)hero.Children[1]).Height);
+            var hero = (Grid)Field(view, "_schoolHero");
+            var detail = (Border)Field(view, "_schoolDetail");
+            hero.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left) { RoutedEvent = UIElement.MouseLeftButtonUpEvent });
+            Assert.True(detail.Height > 0);
+            hero.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left) { RoutedEvent = UIElement.MouseLeftButtonUpEvent });
+            Assert.Equal(0, detail.Height);
             var timer = (System.Windows.Threading.DispatcherTimer)Field(view, "_schoolCountdownTimer");
             Assert.True(timer.IsEnabled);
-            var digits = (StackPanel)Field(view, "_countdownDigits");
-            var clock = Assert.IsType<TextBlock>(Assert.Single(digits.Children.Cast<UIElement>()));
+            var clock = (TextBlock)Field(view, "_schoolCountdown");
             AnimationConfig.ClientAreaAnimationOverride = true;
             AnimationConfig.SetReduceMotion(false);
             string shownBefore = clock.Text;
-            SetField(view, "_countdownDue", school.Deadlines[0].Due.AddSeconds(-1));
+            SetField(view, "_countdownDue", school.Deadlines[0].Due.AddSeconds(-2));
             Invoke(view, "TickSchoolCountdown");
             // The clock ticks in place: same label, new text, nothing animating.
-            Assert.Same(clock, Assert.Single(digits.Children.Cast<UIElement>()));
+            Assert.Same(clock, Field(view, "_schoolCountdown"));
             Assert.NotEqual(shownBefore, clock.Text);
             Assert.False(clock.HasAnimatedProperties);
             SetField(view, "_countdownDue", DateTimeOffset.Now.AddSeconds(-1));
@@ -300,15 +299,7 @@ public sealed class HomeSchoolTabTests
     });
 
     [Fact]
-    public void SchoolCountdownHasRollingDigitsAndStopsAtZero()
-    {
-        var now = DateTimeOffset.Parse("2026-11-16T12:00:00+01:00");
-        Assert.Equal("2 T 04:12:09", ControlCenterView.SchoolCountdown(now.AddDays(2).AddHours(4).AddMinutes(12).AddSeconds(9), now));
-        Assert.Equal("0 T 00:00:00", ControlCenterView.SchoolCountdown(now.AddSeconds(-1), now));
-    }
-
-    [Fact]
-    public void SchoolOrdersExamsByTheirStartTimeAndRestoresTheSelectedDay() => SharedStaTestRunner.Run(() =>
+    public void SchoolRefreshRestoresTheSelectedTimetableDay() => SharedStaTestRunner.Run(() =>
     {
         bool before = AnimationConfig.ReduceMotion;
         AnimationConfig.SetReduceMotion(true);
@@ -325,9 +316,6 @@ public sealed class HomeSchoolTabTests
                 new PiDeadline("After exam", "AM", tomorrow.AddHours(10), false)
             }, new[] { new PiExam(tomorrow.Date, "08:00", "Test", "AM test", "0AM") }, null));
             Invoke(view, "BuildPiPage");
-            var labels = Descendants<TextBlock>((StackPanel)Field(view, "_piSchoolSection")).Select(t => t.Text).ToList();
-            Assert.True(labels.IndexOf("Before exam") < labels.IndexOf("AM · Test"));
-            Assert.True(labels.IndexOf("AM · Test") < labels.IndexOf("After exam"));
             view.SetDrawerOpen(true);
             Invoke(view, "SelectSchoolDay", DateTime.Today);
             SetField(view, "_piKey", ""); Invoke(view, "BuildPiPage");
