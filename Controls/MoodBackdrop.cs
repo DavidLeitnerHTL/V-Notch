@@ -163,7 +163,7 @@ public sealed class MoodBackdrop : Grid
         stop.BeginAnimation(GradientStop.ColorProperty, fade, HandoffBehavior.SnapshotAndReplace);
     }
 
-    private static Color WithAlpha(Color color, double alpha) => Color.FromArgb((byte)Math.Round(Math.Clamp(alpha, 0, 1) * 255), color.R, color.G, color.B);
+    private static Color WithAlpha(Color color, double alpha) => color.A == 0 ? color : Color.FromArgb((byte)Math.Round(Math.Clamp(alpha, 0, 1) * 255), color.R, color.G, color.B);
 
     /// <summary>
     /// Starts or stops the slow wander. Only while the tab is on screen: any running animation repaints the
