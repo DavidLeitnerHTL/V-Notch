@@ -93,7 +93,7 @@ public partial class MainWindow
 
         // Auto-sized content needs a finite initial value; subsequent changes retain the live spring.
         if (!double.IsFinite(content.Height)) content.Height = Math.Max(0, current - chrome);
-        var spring = ReferenceEquals(center, ClaudeCenter) ? Motion.Glide : Motion.Shift;
+        var spring = ReferenceEquals(center, ClaudeCenter) ? Motion.Exit : Motion.Shift;
         Motion.To(content, HeightProperty, Math.Max(0, target - chrome), spring);
         void Arrived()
         {
