@@ -44,7 +44,9 @@ public partial class ControlCenterView
         ControlScrollViewer.PreviewMouseWheel += (_, e) =>
         {
             if (_drawerClip == null || e.Handled) return;
-            for (var source = e.OriginalSource as DependencyObject; source != null && source != ControlScrollViewer; source = VisualTreeHelper.GetParent(source))
+            // The wheel can start on a Run inside a TextBlock, which is not a Visual: walk it by its logical parent.
+            for (var source = e.OriginalSource as DependencyObject; source != null && source != ControlScrollViewer;
+                 source = source is Visual ? VisualTreeHelper.GetParent(source) : LogicalTreeHelper.GetParent(source))
                 // Sliders (sideways and the tall capsules) take the wheel themselves.
                 if (source is FrameworkElement element && element.ReadLocalValue(CursorProperty) is Cursor cursor && (cursor == Cursors.SizeWE || cursor == Cursors.SizeNS)) return;
             // A long drawer keeps scrolling until it reaches its upper boundary.
