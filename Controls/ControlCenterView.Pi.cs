@@ -28,7 +28,6 @@ public partial class ControlCenterView
     private static readonly TimeSpan PiRefreshInterval = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan PiSchoolMaxAge = TimeSpan.FromMinutes(5);
     private static readonly Brush DueSoon = Frozen("#D2AE7C");
-    private static readonly Brush DueToday = Frozen("#D2857E");
 
     private PiDashboardClient? _pi;
     private DispatcherTimer? _piTimer;
@@ -63,7 +62,7 @@ public partial class ControlCenterView
         {
             MountCompactPage();
             _compactPage.Children.Add(_piSchoolSection);
-            SetMoodColors(SchoolCalm.Main, SchoolCalm.Warmer, SchoolCalm.Cooler);
+            MountSchoolFace();
         }
         else
         {
@@ -85,7 +84,7 @@ public partial class ControlCenterView
         else
         {
             _piTimer?.Stop();
-            _schoolCountdownTimer?.Stop();
+            if (IsSchoolPage) StopSchoolFaceMotion();
             _homeLoops.StopAll();
             if (_todoBox?.IsKeyboardFocusWithin == true) KeyboardInputRequested?.Invoke(false);
         }
@@ -147,16 +146,18 @@ public partial class ControlCenterView
             ContentHeightChanged?.Invoke();
             return;
         }
+        RefreshSchoolFace();
         // Typing a to-do: a rebuild would take the box away; the next refresh catches up.
         if (_todoBox?.IsKeyboardFocusWithin == true) return;
         string key = PiKey();
         if (key == _piKey) return;
         _piKey = key;
 
-        BuildPiSchool();
+        RefreshSchoolDetail();
         BuildPiExams();
         BuildPiTodos();
-        ComposeSchoolDrawer();
+        if (SchoolDataAvailable) ComposeSchoolDrawer();
+        else RemoveCompactDrawer();
         ContentHeightChanged?.Invoke();
     }
 
@@ -191,23 +192,6 @@ public partial class ControlCenterView
 
     #region School
 
-    // How soon things are due sets the colour: sage while there is time, sand within three days, rosé within a day.
-    private static readonly (Color Main, Color Warmer, Color Cooler) SchoolCalm =
-        (Color.FromRgb(0x86, 0xB6, 0xB0), Color.FromRgb(0x9B, 0xB0, 0xCC), Color.FromRgb(0x7F, 0xA6, 0xCC));
-    private static readonly (Color Main, Color Warmer, Color Cooler) SchoolSoon =
-        (Color.FromRgb(0xD2, 0xAE, 0x7C), Color.FromRgb(0xD2, 0x95, 0x7E), Color.FromRgb(0x86, 0xB6, 0xB0));
-    private static readonly (Color Main, Color Warmer, Color Cooler) SchoolNow =
-        (Color.FromRgb(0xD2, 0x85, 0x7E), Color.FromRgb(0xC9, 0x8A, 0xB0), Color.FromRgb(0xD2, 0xAE, 0x7C));
-
-    /// <summary>The colour for what is due next: a deadline or a test, whichever comes first.</summary>
-    internal static (Color Main, Color Warmer, Color Cooler) SchoolMood(TimeSpan? untilNext) => untilNext switch
-    {
-        { } left when left < TimeSpan.FromDays(1) => SchoolNow,
-        { } left when left < TimeSpan.FromDays(3) => SchoolSoon,
-        _ => SchoolCalm
-    };
-
-    // Parts of the school tab that follow each other in when the tab opens (see RevealSchoolDetails).
     /// <summary>"0D" → "D", "1WMC" → "WMC", "0POSETHI" → "POSE": like the dashboard's subject chips.</summary>
     internal static string ExamSubject(PiExam exam)
     {
