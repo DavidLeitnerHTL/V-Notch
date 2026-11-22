@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Windows;
@@ -32,6 +32,8 @@ internal static partial class Motion
     public static readonly SpringMotion Glide = Ms(420, 0.28);
     public static readonly SpringMotion Shift = Ms(380, 0.05);
     public static readonly SpringMotion Flick = Ms(480, 0.30);
+
+    public static readonly SpringMotion Breath = Ms(1850, 0);
 
     // Tile: content arriving, staggered by StaggerMs from TileFromScale.
     public static readonly SpringMotion Tile = Ms(450, 0.50);

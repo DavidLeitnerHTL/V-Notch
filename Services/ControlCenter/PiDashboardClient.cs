@@ -35,7 +35,7 @@ internal sealed record HomePi(double? Temp, long? UptimeSeconds, IReadOnlyList<H
 internal sealed record PiHome(IReadOnlyList<HomeLight> Lights, IReadOnlyList<HomeColor> StripColors, HomeClimate? Climate,
     IReadOnlyList<HomeAction> AirConditioner, IReadOnlyList<HomePlug> Plugs, IReadOnlyList<HomeAction> Scenes, HomePi? Pi);
 
-internal sealed record PiLesson(string Start, string End, string Subject, string Room, bool Cancelled, string Change, int StartMinutes, int EndMinutes, string SubjectKey = "");
+internal sealed record PiLesson(string Start, string End, string Subject, string Room, bool Cancelled, string Change, int StartMinutes, int EndMinutes, string SubjectKey = "", Color? Color = null, string OriginalRoom = "");
 
 /// <summary>
 /// A Moodle assignment; <paramref name="Cmid"/> is its course-module id (its page's "?id="). <paramref name="Kind"/>
@@ -53,11 +53,12 @@ internal sealed record PiAttachment(string Name, long Size);
 
 internal sealed record PiSubmitResult(bool Ok, string? SubmittedName, string? Error);
 
-internal sealed record PiExam(DateTime Date, string Start, string Kind, string Title, string Subject = "");
+internal sealed record PiExam(DateTime Date, string Start, string Kind, string Title, string Subject = "", Color? Color = null);
 
 internal sealed record PiSchool(string Date, bool IsToday, IReadOnlyList<PiLesson> Lessons, IReadOnlyList<PiDeadline> Deadlines,
     IReadOnlyList<PiExam> Exams, string? Break)
 {
+    public IReadOnlyDictionary<string, Color> SubjectColors { get; init; } = new Dictionary<string, Color>();
     public IReadOnlyDictionary<string, IReadOnlyList<PiLesson>> Days { get; init; } = new Dictionary<string, IReadOnlyList<PiLesson>>();
 }
 
@@ -140,6 +141,37 @@ internal sealed class PiDashboardClient : IDisposable
     public async Task<PiSchool?> GetSchoolAsync() =>
         await GetAsync("/api/school") is JsonObject school ? ParseSchool(school) : null;
 
+    internal static string UntisSubject(string value)
+    {
+        string raw = value.Trim().ToUpperInvariant();
+        if (raw.Contains("MATHEMATIK", StringComparison.Ordinal)) return "AM";
+        if (raw.StartsWith("DEUTSCH", StringComparison.Ordinal)) return "D";
+        if (raw.StartsWith("ENGLISCH", StringComparison.Ordinal)) return "E";
+        if (raw.StartsWith("RELIGION", StringComparison.Ordinal) || raw.StartsWith("REL ", StringComparison.Ordinal) || raw == "REL") return "RK";
+        if (raw.Contains("CLASSROOM", StringComparison.Ordinal)) return "WMC";
+        string word = new(raw.SkipWhile(char.IsDigit).TakeWhile(char.IsLetter).ToArray());
+        foreach (string prefix in new[] { "POSE", "NSCS", "SYP", "DBI", "WMC", "BWM" })
+            if (word.StartsWith(prefix, StringComparison.Ordinal)) return prefix;
+        return word.Length > 0 ? word : raw;
+    }
+
+    private static readonly IReadOnlyDictionary<string, Color> UntisColors = new Dictionary<string, Color>(StringComparer.Ordinal)
+    {
+        ["AM"] = Color.FromRgb(255, 0, 0), ["POSE"] = Color.FromRgb(255, 128, 128),
+        ["WMC"] = Color.FromRgb(128, 255, 255), ["DBI"] = Color.FromRgb(128, 255, 128),
+        ["SYP"] = Color.FromRgb(255, 255, 128), ["NSCS"] = Color.FromRgb(0, 128, 255),
+        ["D"] = Color.FromRgb(255, 198, 140), ["E"] = Color.FromRgb(202, 122, 2), ["RK"] = Color.FromRgb(221, 254, 175)
+    };
+
+    internal static Color UntisColor(string subject) => UntisColors.TryGetValue(subject, out var color) ? color : Color.FromRgb(127, 166, 204);
+
+    private static Color? ParseUntisColor(string text)
+    {
+        text = text.TrimStart('#');
+        return text.Length == 6 && uint.TryParse(text, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out uint rgb)
+            ? Color.FromRgb((byte)(rgb >> 16), (byte)(rgb >> 8 & 255), (byte)(rgb & 255)) : null;
+    }
+
     internal static PiSchool ParseSchool(JsonObject school)
     {
         static IReadOnlyList<PiLesson> Lessons(JsonNode? node)
@@ -150,7 +182,8 @@ internal sealed class PiDashboardClient : IDisposable
             {
                 if (item is not JsonObject l) continue;
                 lessons.Add(new PiLesson(Str(l, "startTime"), Str(l, "endTime"), Str(l, "subject"), Str(l, "room"),
-                    Bool(l, "cancelled"), Str(l, "change"), Int(l, "startMinutes"), Int(l, "endMinutes"), Str(l, "subjectShort")));
+                    Bool(l, "cancelled"), Str(l, "change"), Int(l, "startMinutes"), Int(l, "endMinutes"), Str(l, "subjectShort"),
+                    ParseUntisColor(Str(l, "color")), Str(l, "origRoom")));
             }
             return lessons;
         }
@@ -179,11 +212,20 @@ internal sealed class PiDashboardClient : IDisposable
             {
                 if (node is not JsonObject x) continue;
                 if (!DateTime.TryParseExact(Str(x, "date"), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)) continue;
-                exams.Add(new PiExam(date, Str(x, "startTime"), Str(x, "kind"), Str(x, "title"), Str(x, "subjectShort")));
+                exams.Add(new PiExam(date, Str(x, "startTime"), Str(x, "kind"), Str(x, "title"), Str(x, "subjectShort"), ParseUntisColor(Str(x, "color"))));
             }
         }
+        var subjectColors = new Dictionary<string, Color>(StringComparer.Ordinal);
+        if (school["subjectColors"] is JsonObject colors)
+            foreach (var (key, value) in colors)
+                if (value is JsonValue v && v.TryGetValue(out string? color) && color != null && ParseUntisColor(color) is { } parsed)
+                    subjectColors[UntisSubject(key)] = parsed;
+        foreach (var lesson in lessons.Concat(days.Values.SelectMany(day => day)))
+            if (lesson.Color is { } color) subjectColors.TryAdd(UntisSubject(lesson.SubjectKey.Length > 0 ? lesson.SubjectKey : lesson.Subject), color);
+        foreach (var exam in exams)
+            if (exam.Color is { } color) subjectColors.TryAdd(UntisSubject(exam.Subject), color);
         string? holiday = school["breaks"] is JsonObject b ? Str(b, "name") : null;
-        return new PiSchool(Str(school, "date"), Bool(school, "isToday"), lessons, deadlines, exams, holiday is { Length: > 0 } ? holiday : null) { Days = days };
+        return new PiSchool(Str(school, "date"), Bool(school, "isToday"), lessons, deadlines, exams, holiday is { Length: > 0 } ? holiday : null) { Days = days, SubjectColors = subjectColors };
     }
 
     public async Task<List<PiTodo>?> GetTodosAsync()
