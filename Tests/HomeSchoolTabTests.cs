@@ -102,7 +102,7 @@ public sealed class HomeSchoolTabTests
         Assert.Equal(expected, ControlCenterView.ExamSubject(new PiExam(DateTime.Today, "08:00", "Test", title, subject)));
 
     [Fact]
-    public void GermanLightStatesUseTheLocaleResources() => SharedStaTestRunner.Run(() =>
+    public void GermanThermostatUsesTheLocale() => SharedStaTestRunner.Run(() =>
     {
         string previous = Loc.CurrentLanguage;
         Loc.SetLanguage("de");
@@ -120,10 +120,10 @@ public sealed class HomeSchoolTabTests
             view.Arrange(new Rect(0, 0, 520, 120));
             view.UpdateLayout();
             var labels = Descendants<TextBlock>(view).Select(text => text.Text).ToArray();
-            Assert.Contains(Loc.Get("control.on"), labels);
-            Assert.Contains(Loc.Get("control.off"), labels);
-            Assert.DoesNotContain("On", labels);
-            Assert.DoesNotContain("Off", labels);
+            Assert.Contains("heizt", labels);
+            Assert.Contains("Ziel", labels);
+            Assert.DoesNotContain("Heating", labels);
+            Assert.DoesNotContain("Target", labels);
         }
         finally { Loc.SetLanguage(previous); }
     });
@@ -143,9 +143,10 @@ public sealed class HomeSchoolTabTests
             SetField(view, "_home", home);
             Invoke(view, "BuildHome");
             view.Measure(new Size(520, double.PositiveInfinity)); view.Arrange(new Rect(0, 0, 520, 120)); view.UpdateLayout();
-            var labels = Descendants<TextBlock>(view).Select(t => t.Text).ToList();
-            Assert.Contains("Farbe", labels); Assert.Contains("Musik", labels);
-            Assert.DoesNotContain("Gute Nacht", labels);
+            var compact = (StackPanel)Field(view, "_homeLightSection");
+            var labels = Descendants<TextBlock>(compact).Select(t => t.Text).ToList();
+            Assert.Contains("Gute Nacht", labels);
+            Assert.DoesNotContain("Farbe", labels); Assert.DoesNotContain("Musik", labels);
             Assert.False(view.DrawerOpen);
             view.SetDrawerOpen(true);
             var section = (StackPanel)Field(view, "_homePlugSection");
@@ -154,7 +155,6 @@ public sealed class HomeSchoolTabTests
             Assert.Equal("switch.pc", Field(view, "_guardArmed"));
             Assert.Contains(Descendants<TextBlock>(section), t => t.Text == "Wirklich aus?");
             Assert.Contains(Descendants<TextBlock>(section), t => t.Text == "Nein");
-            Assert.Equal(default(DateTime), Field(view, "_homeQuietUntilUtc"));
             Assert.True(view.DrawerOpen);
         }
         finally { AnimationConfig.SetReduceMotion(before); }
@@ -223,14 +223,13 @@ public sealed class HomeSchoolTabTests
             var compact = (StackPanel)Field(view, "_homeLightSection");
             Assert.Contains(Descendants<TextBlock>(compact), t => t.Text == extra.Name);
             Assert.DoesNotContain(Descendants<TextBlock>(compact), t => t.Text == "PC");
-            var lights = (System.Collections.IDictionary)Field(view, "_lightTiles");
-            var strip = lights["light.strip"]!;
-            var controls = (StackPanel)Field(strip, "Controls");
-            var colours = Assert.IsType<Border>(controls.Children[^1]); Assert.Equal(23, colours.Height);
-            SetField(view, "_musicSync", true); Invoke(view, "UpdateHome", home, true); Assert.Equal(0, colours.Height);
-            SetField(view, "_musicSync", false); Invoke(view, "UpdateHome", home, true); Assert.Equal(23, colours.Height);
+            var climate = (StackPanel)Field(view, "_homeClimateSection");
+            var controls = Assert.IsType<StackPanel>(climate.Children[0]);
+            var colours = Assert.IsType<WrapPanel>(controls.Children[^1]); Assert.Equal(Visibility.Visible, colours.Visibility);
+            SetField(view, "_musicSync", true); Invoke(view, "UpdateHome", home); Assert.Equal(Visibility.Collapsed, colours.Visibility);
+            SetField(view, "_musicSync", false); Invoke(view, "UpdateHome", home); Assert.Equal(Visibility.Visible, colours.Visibility);
             var off = home with { Lights = home.Lights.Select(l => l.Rgb ? l with { On = false } : l).ToList() };
-            Invoke(view, "UpdateHome", off, true); Assert.False(controls.IsEnabled); Assert.Equal(.4, controls.Opacity);
+            Invoke(view, "UpdateHome", off); Assert.False(controls.IsEnabled); Assert.Equal(.4, controls.Opacity);
             home = home with { Plugs = home.Plugs.Select(p => p.Id == extra.Id ? p with { Guard = true } : p).ToList() };
             SetField(view, "_home", home); Invoke(view, "BuildHome");
             Assert.DoesNotContain(Descendants<TextBlock>(compact), t => t.Text == extra.Name);

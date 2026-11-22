@@ -25,6 +25,7 @@ public sealed class MoodBackdrop : Grid
     private readonly Field[] _fields;
     private bool _drifting;
     private bool _driftWanted;
+    private bool _roomLights;
 
     private sealed class Field
     {
@@ -65,6 +66,18 @@ public sealed class MoodBackdrop : Grid
 
     internal double Intensity { get => _canvas.Opacity; set => _canvas.Opacity = Math.Clamp(value, 0, 1); }
 
+    /// <summary>Lets Home place individual lights in notch coordinates under the shared tab fade and glass suppression.</summary>
+    internal Canvas UseRoomLights()
+    {
+        _roomLights = true;
+        _canvas.Children.Clear();
+        _canvas.Width = _canvas.Height = double.NaN;
+        _canvas.HorizontalAlignment = HorizontalAlignment.Stretch;
+        _canvas.VerticalAlignment = VerticalAlignment.Stretch;
+        Intensity = 1;
+        return _canvas;
+    }
+
     private Field AddField(double x, double y, double w, double h, double strength, double dx, double dy, double ds, double seconds)
     {
         var core = new GradientStop(Colors.Transparent, 0);
@@ -96,6 +109,7 @@ public sealed class MoodBackdrop : Grid
     /// </summary>
     public void SetMood(Color main, Color warmer, Color cooler, double ms)
     {
+        if (_roomLights) return;
         (_main, _warmer, _cooler) = (main, warmer, cooler);
         Paint(_fields[0], main, ms);
         Paint(_fields[1], warmer, ms);

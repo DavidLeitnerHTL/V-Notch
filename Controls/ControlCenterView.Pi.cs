@@ -107,7 +107,7 @@ public partial class ControlCenterView
             {
                 var home = await _pi.GetHomeAsync();
                 await RefreshMusicSyncAsync();
-                if (_disposed) return;
+                if (_disposed || _homeRefreshQueued) return;
                 _piReachable = home != null;
                 if (home != null) _home = home;
                 BuildPiPage();
@@ -130,6 +130,11 @@ public partial class ControlCenterView
         finally
         {
             _piRefreshing = false;
+            if (_homeRefreshQueued)
+            {
+                _homeRefreshQueued = false;
+                RefreshPi();
+            }
         }
     }
 
