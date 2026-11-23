@@ -674,7 +674,7 @@ public partial class ControlCenterView
 
     private void UpdateHomeRendering()
     {
-        bool audio = !_disposed && IsVisible && _homeFace != null && _homeStripHasMeter && !AnimationConfig.ReduceMotion;
+        bool audio = !_disposed && _homeFace?.IsVisible == true && _homeStripHasMeter && !AnimationConfig.ReduceMotion;
         bool want = audio || !_disposed && IsVisible && _homeHeatStrength > .001 && !AnimationConfig.ReduceMotion;
         if (!audio)
         {
@@ -704,7 +704,7 @@ public partial class ControlCenterView
             _homeHeatPhase = (_homeHeatPhase + seconds * 2 * Math.PI / Motion.HomeHeatCycle.TotalSeconds) % (2 * Math.PI);
             PaintHomeHeat();
         }
-        if (!IsVisible || !_homeStripHasMeter) return;
+        if (_homeFace?.IsVisible != true || !_homeStripHasMeter) return;
         if (frame.RenderingTime >= _homeAudioRefreshAt)
         {
             _homeAudioRefreshAt = frame.RenderingTime + Motion.HomePeakRefresh;
@@ -731,7 +731,7 @@ public partial class ControlCenterView
         try
         {
             var sessions = await Task.Run(WindowsMediaAudioSessions.Read);
-            if (_disposed || !IsVisible || !_homeStripHasMeter || AnimationConfig.ReduceMotion)
+            if (_disposed || _homeFace?.IsVisible != true || !_homeStripHasMeter || AnimationConfig.ReduceMotion)
             {
                 sessions.Dispose();
                 return;

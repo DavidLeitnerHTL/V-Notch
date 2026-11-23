@@ -145,6 +145,50 @@ public sealed class HomeStudioFaderTests
     }
 
     [Fact]
+    public void TheHomeMusicMeterStopsWhileTheFaceOrTabIsHidden() => SharedStaTestRunner.RunAsync(async ct =>
+    {
+        bool reduced = AnimationConfig.ReduceMotion;
+        bool? animations = AnimationConfig.ClientAreaAnimationOverride;
+        AnimationConfig.ClientAreaAnimationOverride = true;
+        AnimationConfig.SetReduceMotion(false);
+        using var client = new PiDashboardClient(() => "http://127.0.0.1:1");
+        using var view = HomeView(client);
+        var home = (PiHome)HomeSchoolTabTests.Field(view, "_home");
+        HomeSchoolTabTests.SetField(view, "_home", home with { Climate = null });
+        HomeSchoolTabTests.SetField(view, "_musicSync", true);
+        HomeSchoolTabTests.SetField(view, "_homeAudioRefreshAt", TimeSpan.MaxValue);
+        var window = Host(view);
+        try
+        {
+            window.Show();
+            Assert.True((bool)HomeSchoolTabTests.Field(view, "_homeStripHasMeter"));
+            await WpfFrameWaiter.UntilAsync(() => HomeSchoolTabTests.Field(view, "_homeFrame") != null, "music meter starts", ct);
+
+            view.SetDrawerOpen(true);
+            await WpfFrameWaiter.UntilAsync(() => !view.IsLayoutFollowing, "home details open", ct);
+            AssertStopped();
+
+            view.SetDrawerOpen(false);
+            await WpfFrameWaiter.UntilAsync(() => HomeSchoolTabTests.Field(view, "_homeFrame") != null, "music meter resumes", ct);
+            view.Visibility = Visibility.Collapsed;
+            AssertStopped();
+        }
+        finally
+        {
+            window.Close();
+            AnimationConfig.SetReduceMotion(reduced);
+            AnimationConfig.ClientAreaAnimationOverride = animations;
+        }
+
+        void AssertStopped()
+        {
+            Assert.False((bool)HomeSchoolTabTests.Field(view, "_homeRendering"));
+            Assert.Null(HomeSchoolTabTests.Field(view, "_homeFrame"));
+            Assert.Null(HomeSchoolTabTests.Field(view, "_homeAudioSessions"));
+        }
+    });
+
+    [Fact]
     public void SeenStartsAChangedValueOnceAndSkipsHiddenUpdates() => SharedStaTestRunner.RunAsync(async ct =>
     {
         bool reduced = AnimationConfig.ReduceMotion;

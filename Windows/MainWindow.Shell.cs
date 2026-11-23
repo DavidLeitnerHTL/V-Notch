@@ -384,7 +384,7 @@ public partial class MainWindow
         _shellAttachment.Detach(true);
         FrameworkElement host = ReferenceEquals(center, PiCenter) ? PiContent : ReferenceEquals(center, SchoolCenter) ? SchoolContent : TimerContent;
         double height = ReferenceEquals(center, PiCenter) ? MeasureHomeViewHeight() :
-            _shellDragStartHeight + center.DrawerHeight - _shellDrawerStartHeight;
+            Math.Min(CenterViewMaxHeight, _shellDragStartHeight + center.DrawerHeight - _shellDrawerStartHeight);
         Motion.Stop(NotchBorder, HeightProperty, height);
         Motion.Stop(host, HeightProperty, Math.Max(0, height - host.Margin.Top - host.Margin.Bottom));
     }

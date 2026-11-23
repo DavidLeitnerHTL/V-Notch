@@ -287,6 +287,7 @@ public partial class ControlCenterView
         StopDrawerWheel();
         IsLayoutFollowing = false;
         ContentHeightChanged?.Invoke();
+        if (Page == ControlCenterPage.System) RefitDrawer();
     }
 
     private void StepDrawerWheel(double seconds)
