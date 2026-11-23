@@ -215,13 +215,14 @@ public partial class ControlCenterView : UserControl, IDisposable
         if (_displayApi is IDisposable displayApi) displayApi.Dispose();
         _piTimer?.Stop();
         _schoolCountdownTimer?.Stop();
+        StopDrawerWheel();
         if (_drawerHeight != null) Motion.Stop(_drawerHeight, WeatherTween.ValueProperty);
         StopLiveTexts();
         DetachOutput();
         CoverColorsFile.Changed -= OnCoverColorsChanged;
         _legionTimer?.Stop();
         _legionLoops.StopAll();
-        _homeLoops.StopAll();
+        UpdateHomeRendering();
         _targetSend?.Stop();
         _wifiLoops.StopAll();
         _bluetoothLoops.StopAll();
@@ -1313,7 +1314,8 @@ public partial class ControlCenterView : UserControl, IDisposable
         var padding = ControlScrollViewer.Padding;
         var bleed = ControlRoot.Margin;
         ControlRoot.Measure(new Size(Math.Max(0, width - padding.Left - padding.Right + bleed.Left + bleed.Right), double.PositiveInfinity));
-        return Math.Ceiling(Math.Max(0, ControlRoot.DesiredSize.Height - bleed.Top - bleed.Bottom));
+        double height = Math.Max(0, ControlRoot.DesiredSize.Height - bleed.Top - bleed.Bottom);
+        return IsLayoutFollowing ? height : Math.Ceiling(height);
     }
 
     private Func<bool>? _soundsOn;

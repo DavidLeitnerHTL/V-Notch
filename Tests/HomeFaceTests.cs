@@ -37,18 +37,17 @@ public sealed class HomeFaceTests
     public void FaceFitsAndShowsThePiStates() => SharedStaTestRunner.RunAsync(async ct =>
     {
         using var scene = new Fixture(Sample(lit: true));
-        await WpfFrameWaiter.UntilAsync(() => Descendants<Ellipse>(scene.Backdrop).Count() == 4, "room light layout", ct);
+        await WpfFrameWaiter.UntilAsync(() => Descendants<Ellipse>(scene.Backdrop).Count() == 5, "room light layout", ct);
         var face = scene.Face;
         var lamps = new[] { Device("Hauptlicht"), Device("Seitenlicht") };
         var sockets = new[] { Device("Mikrofon"), Device("Steckdose 1"), Device("Steckdose 4") };
-        Assert.All(lamps, lamp => Assert.Single(Descendants<Border>(lamp), disc => disc.Width == 60 && disc.Height == 60));
-        Assert.All(sockets, socket => Assert.Single(Descendants<Border>(socket), disc => disc.Width == 36 && disc.Height == 36));
-        Assert.Equal(1, Descendants<Ellipse>(sockets[0]).Single().Opacity);
-        Assert.Equal(0, Descendants<Ellipse>(sockets[2]).Single().Opacity);
-        var devices = lamps.Append(Device("Govee Strip")).Concat(sockets).ToArray();
-        var names = devices.Select(d => (TextBlock)((StackPanel)d.Child).Children[1]).ToArray();
-        Assert.All(names, name => Assert.Equal(names[0].TranslatePoint(new Point(), face).Y, name.TranslatePoint(new Point(), face).Y, 4));
-        Assert.Contains(names, n => n.Text == "Govee 70 %");
+        Assert.All(lamps, lamp => Assert.Single(Descendants<Border>(lamp), disc => disc.Width == 39 && disc.Height == 39));
+        Assert.All(sockets, socket => Assert.Single(Descendants<Border>(socket), disc => disc.Width == 37 && disc.Height == 37));
+        Assert.Equal(Color.FromRgb(245, 245, 247), Assert.IsType<SolidColorBrush>(Descendants<Ellipse>(sockets[0]).Single().Fill).Color);
+        Assert.Equal(Color.FromRgb(16, 16, 18), Assert.IsType<SolidColorBrush>(Descendants<Ellipse>(sockets[2]).Single().Fill).Color);
+        var fader = Descendants<Border>(face).Single(border => border.Name == "HomeGoveeCapsule");
+        var devices = lamps.Append(fader).Concat(sockets).ToArray();
+        Assert.Contains(Descendants<TextBlock>(face), t => t.Text == "70");
         foreach (var item in devices)
         {
             Point origin = item.TranslatePoint(new Point(), face);
@@ -56,10 +55,11 @@ public sealed class HomeFaceTests
         }
         Assert.All(Sample().Scenes, s => Assert.NotNull(Device(s.Name)));
         Assert.DoesNotContain(Descendants<TextBlock>(face), t => t.Text is "On" or "Off" or "PC" or "Pi");
-        Assert.Contains(Descendants<TextBlock>(face), t => t.Text == "Heating");
+        var heat = Assert.IsType<Ellipse>(Field(scene.View, "_homeHeatingGlow"));
+        Assert.True(heat.Opacity > 0);
         scene.Update(Sample());
-        Assert.DoesNotContain(Descendants<TextBlock>(face), t => t.Text == "Heating");
-        Assert.Contains(Descendants<TextBlock>(face), t => t.Text == "Target");
+        await WpfFrameWaiter.UntilAsync(() => heat.Opacity == 0, "heater settles", ct);
+        Assert.Contains(Descendants<TextBlock>(face), t => t.Text == "21.2°");
 
         Border Device(string name) => Descendants<Border>(face).Single(b => AutomationProperties.GetName(b) == name);
     });
@@ -91,7 +91,7 @@ public sealed class HomeFaceTests
     {
         using var scene = new Fixture(Sample());
         var glow = scene.LampGlow;
-        var temperature = Descendants<TextBlock>(scene.Face).Single(t => t.FontSize == 20 && t.Text.EndsWith('°'));
+        var temperature = Descendants<TextBlock>(scene.Face).Single(t => t.FontSize == 18 && t.Text.EndsWith('°'));
         var warmer = Sample(lit: true) with { Climate = Sample().Climate! with { Current = 25 } };
         scene.Update(warmer);
         await WpfFrameWaiter.UntilAsync(() => glow.Opacity is > 0 and < 1 && temperature.Text is not ("21.2°" or "25.0°"),
@@ -119,9 +119,8 @@ public sealed class HomeFaceTests
         internal readonly ControlCenterView View = new() { Page = ControlCenterPage.Pi };
         internal readonly MoodBackdrop Backdrop = new();
         internal DateTime Now = DateTime.UtcNow;
-        internal StackPanel Face => (StackPanel)Field(View, "_homeFace");
-        internal Ellipse LampGlow => Descendants<Ellipse>(Descendants<Border>(Face)
-            .Single(b => AutomationProperties.GetName(b) == "Hauptlicht")).Single();
+        internal Grid Face => (Grid)Field(View, "_homeFace");
+        internal Ellipse LampGlow => ((List<Ellipse>)Field(View, "_homeLampGlows"))[0];
 
         internal Fixture(PiHome home)
         {

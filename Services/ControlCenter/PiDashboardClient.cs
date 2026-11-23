@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -33,7 +34,12 @@ internal sealed record HomePi(double? Temp, long? UptimeSeconds, IReadOnlyList<H
 
 /// <summary>Everything the home tab shows, in one read of the dashboard's /api/notch/zuhause.</summary>
 internal sealed record PiHome(IReadOnlyList<HomeLight> Lights, IReadOnlyList<HomeColor> StripColors, HomeClimate? Climate,
-    IReadOnlyList<HomeAction> AirConditioner, IReadOnlyList<HomePlug> Plugs, IReadOnlyList<HomeAction> Scenes, HomePi? Pi);
+    IReadOnlyList<HomeAction> AirConditioner, IReadOnlyList<HomePlug> Plugs, IReadOnlyList<HomeAction> Scenes, HomePi? Pi)
+{
+    public bool? AirConditionerOn { get; init; }
+}
+
+internal enum HomeCommandResult { Accepted, Rejected, Unconfirmed }
 
 internal sealed record PiLesson(string Start, string End, string Subject, string Room, bool Cancelled, string Change, int StartMinutes, int EndMinutes, string SubjectKey = "", Color? Color = null, string OriginalRoom = "");
 
@@ -121,7 +127,11 @@ internal sealed class PiDashboardClient : IDisposable
                     Str(i, "fixId") is { Length: > 0 } fix ? fix : null, Str(i, "fixLabel") is { Length: > 0 } label ? label : null));
             pi = new HomePi(Num(piNode, "temp"), Num(piNode, "uptimeS") is { } up ? (long)up : null, issues);
         }
-        return new PiHome(lights, colors, climate, Actions(home["ac"]), plugs, Actions(home["scenes"]), pi);
+        return new PiHome(lights, colors, climate, Actions(home["ac"]), plugs, Actions(home["scenes"]), pi)
+        {
+            // The IR remote currently publishes command buttons alone. Use a state only if the Pi provides one.
+            AirConditionerOn = home["acOn"] is JsonValue acOn && acOn.TryGetValue<bool>(out var on) ? on : null
+        };
 
         static List<HomeAction> Actions(JsonNode? node)
         {
@@ -133,10 +143,10 @@ internal sealed class PiDashboardClient : IDisposable
 
     /// <summary>
     /// Switches something in the room through the dashboard (which only takes what its list allows): "light"
-    /// (on/off, or the strip's colour), "temp", "ac", "plug", "scene" or "fix".
+    /// (on/off, or the strip's colour or brightness), "temp", "ac", "plug", "scene" or "fix".
     /// </summary>
-    public Task<bool> SendHomeAsync(string action, string? id, JsonNode? value = null) =>
-        PostAsync("/api/notch/zuhause", new JsonObject { ["action"] = action, ["id"] = id, ["value"] = value });
+    public Task<HomeCommandResult> SendHomeAsync(string action, string? id, JsonNode? value = null) =>
+        PostResultAsync("/api/notch/zuhause", new JsonObject { ["action"] = action, ["id"] = id, ["value"] = value });
 
     public async Task<PiSchool?> GetSchoolAsync() =>
         await GetAsync("/api/school") is JsonObject school ? ParseSchool(school) : null;
@@ -409,19 +419,24 @@ internal sealed class PiDashboardClient : IDisposable
         }
     }
 
-    private async Task<bool> PostAsync(string path, JsonObject body)
+    private async Task<bool> PostAsync(string path, JsonObject body) =>
+        await PostResultAsync(path, body).ConfigureAwait(false) == HomeCommandResult.Accepted;
+
+    private async Task<HomeCommandResult> PostResultAsync(string path, JsonObject body)
     {
-        if (!IsConfigured) return false;
+        if (!IsConfigured) return HomeCommandResult.Rejected;
         try
         {
             using var content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
             using var response = await _http.PostAsync(Url(path), content).ConfigureAwait(false);
-            return response.IsSuccessStatusCode;
+            if (response.IsSuccessStatusCode) return HomeCommandResult.Accepted;
+            return response.StatusCode is HttpStatusCode.RequestTimeout or HttpStatusCode.GatewayTimeout
+                ? HomeCommandResult.Unconfirmed : HomeCommandResult.Rejected;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidOperationException)
         {
             RuntimeLog.Warn(LogTag, $"POST {path} failed: {ex.Message}");
-            return false;
+            return HomeCommandResult.Unconfirmed;
         }
     }
 
