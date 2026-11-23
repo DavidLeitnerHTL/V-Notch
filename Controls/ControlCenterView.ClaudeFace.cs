@@ -98,7 +98,8 @@ public partial class ControlCenterView
         chrome.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(BackgroundProperty));
         chrome.SetValue(Border.BorderBrushProperty, new TemplateBindingExtension(BorderBrushProperty));
         chrome.SetValue(Border.BorderThicknessProperty, new Thickness(1));
-        chrome.SetValue(Border.CornerRadiusProperty, new CornerRadius(radius));
+        // Never past half the shorter side: WPF would draw an oval where the design (CSS) has a capsule.
+        chrome.SetValue(Border.CornerRadiusProperty, new CornerRadius(Math.Min(radius, Math.Min(width, height) / 2)));
         chrome.SetValue(ClipToBoundsProperty, true);
         var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
         chrome.AppendChild(presenter);
@@ -137,7 +138,7 @@ public partial class ControlCenterView
         _accountTitle.MaxWidth = 420;
         _accountTitle.RenderTransform = new ScaleTransform(.94, 1);
         PlaceAccount(_accountFront, _accountTitle, 80, 20, height: 27);
-        _accountStatusDot = new Border { Width = 5, Height = 5, CornerRadius = new CornerRadius(3), Background = AccountClay };
+        _accountStatusDot = new Border { Width = 5, Height = 5, CornerRadius = new CornerRadius(2.5), Background = AccountClay };
         PlaceAccount(_accountFront, _accountStatusDot, 80, 58.5);
         _accountStatus = AccountText("", 12, AccountLabel);
         _accountStatus.TextTrimming = TextTrimming.CharacterEllipsis;

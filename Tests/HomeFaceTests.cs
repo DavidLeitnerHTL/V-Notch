@@ -107,6 +107,13 @@ public sealed class HomeFaceTests
         Assert.Equal("21.2°", temperature.Text);
     });
 
+    [Fact]
+    public void RoundedPartsKeepTheirShape() => SharedStaTestRunner.Run(() =>
+    {
+        using var scene = new Fixture(Sample(lit: true));
+        CornerShapes.AssertNoneStretched(scene.Face);
+    });
+
     private sealed class Fixture : IDisposable
     {
         private readonly bool _reduced = AnimationConfig.ReduceMotion;

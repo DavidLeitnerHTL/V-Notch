@@ -300,10 +300,10 @@ public partial class ControlCenterView
         const double width = 43;
         var ink = new LinearGradientBrush(Mix(Color.FromRgb(20, 20, 22), RoomMist, .35), RoomMist,
             new Point(.5, 1), new Point(.5, 0));
-        var fill = new Border { Background = ink, Height = 0, CornerRadius = new CornerRadius(19), VerticalAlignment = VerticalAlignment.Bottom };
+        var fill = Capsule(new Border { Background = ink, Height = 0, VerticalAlignment = VerticalAlignment.Bottom }, 19);
         var track = new Grid
         {
-            Width = 35, Height = 176, Clip = new RectangleGeometry(new Rect(0, 0, 35, 176), 18, 18),
+            Width = 35, Height = 176, Clip = new RectangleGeometry(new Rect(0, 0, 35, 176), 17.5, 17.5),
             IsHitTestVisible = false, Children = { fill }
         };
         var ticks = new Canvas { Width = 8, Height = 164, Opacity = .42, IsHitTestVisible = false };
@@ -315,14 +315,14 @@ public partial class ControlCenterView
         }
         var thumb = new Border
         {
-            Width = 19, Height = 5, Background = CompactInk, CornerRadius = new CornerRadius(3),
+            Width = 19, Height = 5, Background = CompactInk, CornerRadius = new CornerRadius(2.5),
             HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, IsHitTestVisible = false
         };
         var thumbMove = new TranslateTransform();
         thumb.RenderTransform = thumbMove;
         var fader = new Border
         {
-            Name = "HomeGoveeCapsule", Width = width, Height = HomeFaderHeight, CornerRadius = new CornerRadius(24),
+            Name = "HomeGoveeCapsule", Width = width, Height = HomeFaderHeight, CornerRadius = new CornerRadius(width / 2),
             Background = Frozen("#19191B"), BorderBrush = Frozen("#24FFFFFF"), BorderThickness = new Thickness(1),
             Cursor = Cursors.SizeNS, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top,
             Margin = new Thickness(1, 5, 0, 0), Child = new Grid { Children = { track, ticks, thumb } }
@@ -815,13 +815,26 @@ public partial class ControlCenterView
         HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center
     };
 
+    /// <summary>
+    /// WPF draws a radius above half a side as an ellipse quarter, so a 24 px chip with radius 24 came out oval. CSS,
+    /// where these designs come from, shrinks it to a capsule instead: a border sized by its content keeps at most
+    /// half its shorter side.
+    /// </summary>
+    private static Border Capsule(Border border, double radius)
+    {
+        border.CornerRadius = new CornerRadius(radius);
+        border.SizeChanged += (_, _) =>
+            border.CornerRadius = new CornerRadius(Math.Min(radius, Math.Min(border.ActualWidth, border.ActualHeight) / 2));
+        return border;
+    }
+
     private Border HomeChip(UIElement content, Thickness padding)
     {
-        var chip = new Border
+        var chip = Capsule(new Border
         {
-            CornerRadius = new CornerRadius(24), Padding = padding, BorderThickness = new Thickness(1), BorderBrush = RoomBorder,
+            Padding = padding, BorderThickness = new Thickness(1), BorderBrush = RoomBorder,
             Background = RoomTrack, Cursor = Cursors.Hand, VerticalAlignment = VerticalAlignment.Center, Child = content
-        };
+        }, 24);
         Pressable(chip, () => RoomTrack, CardHover);
         return chip;
     }

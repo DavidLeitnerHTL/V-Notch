@@ -52,6 +52,16 @@ public sealed class ClaudeFaceTests
     });
 
     [Fact]
+    public void RoundedButtonsKeepTheirShape() => SharedStaTestRunner.Run(() =>
+    {
+        using var fixture = new Fixture(2);
+        var face = Get<Grid>(fixture.View, "_claudeFace");
+        CornerShapes.AssertNoneStretched(face);
+        fixture.Open();
+        CornerShapes.AssertNoneStretched(face);
+    });
+
+    [Fact]
     public void ChangedUsageMovesOnceAndHiddenUpdatesStayStill() => SharedStaTestRunner.RunAsync(async ct =>
     {
         bool previousMotion = AnimationConfig.ReduceMotion;
