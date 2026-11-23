@@ -14,7 +14,7 @@ namespace VNotch;
 /// </summary>
 public partial class MainWindow
 {
-    private const double HomeViewWidth = 640;
+    private const double HomeViewWidth = 600;
     private const double SchoolViewWidth = 520;
     private const double CenterViewMinHeight = 82;
     // As tall as the Claude tab may grow, so an open drawer fits instead of scrolling.
@@ -29,7 +29,8 @@ public partial class MainWindow
     {
         var margin = host.Margin;
         double content = center.MeasureContentHeight(width - margin.Left - margin.Right);
-        return Math.Clamp(Math.Ceiling(content + margin.Top + margin.Bottom), min, max);
+        double height = content + margin.Top + margin.Bottom;
+        return Math.Clamp(center.IsLayoutFollowing ? height : Math.Ceiling(height), min, max);
     }
 
     private double MeasureHomeViewHeight() =>

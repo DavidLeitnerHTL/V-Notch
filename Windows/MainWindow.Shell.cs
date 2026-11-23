@@ -382,9 +382,10 @@ public partial class MainWindow
         if (ActiveDrawer is not { } center || !center.MoveDrawer(deltaY)) return;
         handled = true;
         _shellAttachment.Detach(true);
-        double height = _shellDragStartHeight + center.DrawerHeight - _shellDrawerStartHeight;
-        Motion.Stop(NotchBorder, HeightProperty, height);
         FrameworkElement host = ReferenceEquals(center, PiCenter) ? PiContent : ReferenceEquals(center, SchoolCenter) ? SchoolContent : TimerContent;
+        double height = ReferenceEquals(center, PiCenter) ? MeasureHomeViewHeight() :
+            _shellDragStartHeight + center.DrawerHeight - _shellDrawerStartHeight;
+        Motion.Stop(NotchBorder, HeightProperty, height);
         Motion.Stop(host, HeightProperty, Math.Max(0, height - host.Margin.Top - host.Margin.Bottom));
     }
 

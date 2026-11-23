@@ -146,15 +146,16 @@ public sealed class HomeSchoolTabTests
             var compact = (StackPanel)Field(view, "_homeLightSection");
             var labels = Descendants<TextBlock>(compact).Select(t => t.Text).ToList();
             Assert.Contains("Gute Nacht", labels);
-            Assert.DoesNotContain("Farbe", labels); Assert.DoesNotContain("Musik", labels);
+            Assert.Contains(labels, label => label is "Farbe" or "Colour");
+            Assert.Contains(labels, label => label is "Musik" or "Music");
             Assert.False(view.DrawerOpen);
             view.SetDrawerOpen(true);
             var section = (StackPanel)Field(view, "_homePlugSection");
-            var toggle = Descendants<Border>(section).Single(b => b.Width == 34 && b.Height == 20);
-            toggle.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left) { RoutedEvent = UIElement.MouseLeftButtonUpEvent });
+            var row = section.Children.OfType<Border>().Single(b => Equals(b.Tag, "drawer-row"));
+            row.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left) { RoutedEvent = UIElement.MouseLeftButtonUpEvent });
             Assert.Equal("switch.pc", Field(view, "_guardArmed"));
-            Assert.Contains(Descendants<TextBlock>(section), t => t.Text == "Wirklich aus?");
-            Assert.Contains(Descendants<TextBlock>(section), t => t.Text == "Nein");
+            Assert.Contains(Descendants<TextBlock>(section), t => t.Text is "Wirklich aus?" or "Turn off?");
+            Assert.Contains(Descendants<TextBlock>(section), t => t.Text is "Nein" or "Cancel");
             Assert.True(view.DrawerOpen);
         }
         finally { AnimationConfig.SetReduceMotion(before); }
@@ -206,7 +207,7 @@ public sealed class HomeSchoolTabTests
     }
 
     [Fact]
-    public void HomeKeepsOnlyNonGuardSocketsInTheCompactRowAndFoldsColoursForMusic() => SharedStaTestRunner.Run(() =>
+    public void HomeKeepsOnlyNonGuardSocketsAndPlacesTheColourPickerOnTheFace() => SharedStaTestRunner.Run(() =>
     {
         bool before = AnimationConfig.ReduceMotion; AnimationConfig.SetReduceMotion(true);
         using var client = new PiDashboardClient(() => "http://127.0.0.1:1");
@@ -223,13 +224,10 @@ public sealed class HomeSchoolTabTests
             var compact = (StackPanel)Field(view, "_homeLightSection");
             Assert.Contains(Descendants<TextBlock>(compact), t => t.Text == extra.Name);
             Assert.DoesNotContain(Descendants<TextBlock>(compact), t => t.Text == "PC");
-            var climate = (StackPanel)Field(view, "_homeClimateSection");
-            var controls = Assert.IsType<StackPanel>(climate.Children[0]);
-            var colours = Assert.IsType<WrapPanel>(controls.Children[^1]); Assert.Equal(Visibility.Visible, colours.Visibility);
-            SetField(view, "_musicSync", true); Invoke(view, "UpdateHome", home); Assert.Equal(Visibility.Collapsed, colours.Visibility);
-            SetField(view, "_musicSync", false); Invoke(view, "UpdateHome", home); Assert.Equal(Visibility.Visible, colours.Visibility);
-            var off = home with { Lights = home.Lights.Select(l => l.Rgb ? l with { On = false } : l).ToList() };
-            Invoke(view, "UpdateHome", off); Assert.False(controls.IsEnabled); Assert.Equal(.4, controls.Opacity);
+            var hue = Descendants<Border>(compact).Single(b => b.ToolTip is "Farbe wählen" or "Choose strip colour");
+            Assert.True(hue.IsEnabled);
+            Assert.DoesNotContain(Descendants<TextBlock>((StackPanel)Field(view, "_homeClimateSection")),
+                label => label.Text is "Musik" or "Music");
             home = home with { Plugs = home.Plugs.Select(p => p.Id == extra.Id ? p with { Guard = true } : p).ToList() };
             SetField(view, "_home", home); Invoke(view, "BuildHome");
             Assert.DoesNotContain(Descendants<TextBlock>(compact), t => t.Text == extra.Name);
@@ -344,8 +342,11 @@ public sealed class HomeSchoolTabTests
             Invoke(view, "BuildHome"); window.Show(); view.SetDrawerOpen(true);
             var previous = (WeatherTween)Field(view, "_drawerHeight");
             await WpfFrameWaiter.UntilAsync(() => previous.Value > 5, "drawer starts opening", ct);
+            Assert.True(Motion.IsRunning(previous, WeatherTween.ValueProperty));
             Invoke(view, "RedrawHome");
             Assert.False(Motion.IsRunning(previous, WeatherTween.ValueProperty));
+            Assert.False(previous.HasAnimatedProperties);
+            Assert.False(((WeatherTween)Field(view, "_drawerHeight")).HasAnimatedProperties);
             Assert.True(view.DrawerOpen);
             Assert.False(view.IsLayoutFollowing);
             double height = view.DrawerHeight;
@@ -364,7 +365,7 @@ public sealed class HomeSchoolTabTests
         try
         {
             Invoke(view, "MountCompactPage");
-            Invoke(view, "AddDrawer", new Border { Height = 100 });
+            Invoke(view, "AddDrawer", new Border { Height = 100 }, false);
             view.SetDrawerOpen(true);
             var height = (WeatherTween)Field(view, "_drawerHeight");
             Assert.True(view.DrawerHeight >= 100);

@@ -82,6 +82,11 @@ public partial class MainWindow
     }
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (e.Key == Key.Escape && ActiveDrawer?.DismissDrawer() == true)
+        {
+            e.Handled = true;
+            return;
+        }
         if (e.Key == Key.Escape && !_isAnimating)
         {
             e.Handled = true;

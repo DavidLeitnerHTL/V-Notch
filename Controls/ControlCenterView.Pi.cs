@@ -85,7 +85,7 @@ public partial class ControlCenterView
         {
             _piTimer?.Stop();
             if (IsSchoolPage) StopSchoolFaceMotion();
-            _homeLoops.StopAll();
+            if (!IsSchoolPage) UpdateHomeRendering();
             if (_todoBox?.IsKeyboardFocusWithin == true) KeyboardInputRequested?.Invoke(false);
         }
     }

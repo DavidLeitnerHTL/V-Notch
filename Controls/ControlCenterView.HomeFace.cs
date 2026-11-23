@@ -1,13 +1,9 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Text.Json.Nodes;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
@@ -22,10 +18,24 @@ public partial class ControlCenterView
     private static readonly Color RoomSand = Color.FromRgb(0xD2, 0xAE, 0x7C);
     private static readonly Color RoomMist = Color.FromRgb(0x7F, 0xA6, 0xCC);
     private static readonly Color RoomLilac = Color.FromRgb(0xA1, 0x9B, 0xD2);
-    private static readonly Brush RoomLabel = Frozen("#8CFFFFFF");
-    private static Brush RoomTrack => CompactTrack;
+    private static readonly Color RoomRose = Color.FromRgb(0xD2, 0x85, 0x7E);
+    private static readonly Color RoomSage = Color.FromRgb(0x9D, 0xBD, 0xB1);
+    private static readonly FontFamily HomeFont = new("Segoe UI Variable Text, Segoe UI");
+    private static readonly Brush RoomLabel = Frozen("#94FFFFFF");
+    private static readonly Brush RoomSub = Frozen("#BAFFFFFF");
+    private static readonly Brush RoomLine = Frozen("#1AFFFFFF");
+    private static readonly Brush RoomTrack = Frozen("#0FFFFFFF");
+    private static readonly Brush RoomBorder = Frozen("#14FFFFFF");
+    private const double HomeFaceHeight = 191;
+    private const double HomeFaderHeight = 184;
+    private const string HomeThermometer = "M10 14 V5 A2 2 0 0 1 14 5 V14 A4.5 4.5 0 1 1 10 14 Z M12 9 V17";
+    private const string HomePlugIcon = "M8 3 V8 M16 3 V8 M6 8 H18 V11 A6 6 0 0 1 6 11 Z M12 17 V22";
+    private const string HomeMicIcon = "M9 5 A3 3 0 0 1 15 5 V11 A3 3 0 0 1 9 11 Z M5 10 V11 A7 7 0 0 0 19 11 V10 M12 18 V22 M9 22 H15";
+    private const string HomeLockIcon = "M6 10 H18 V21 H6 Z M8 10 V7 A4 4 0 0 1 16 7 V10";
+    private const string HomePalette = "M13 3 A9 9 0 1 0 13 21 C16 21 13 18 15 16 S21 17 21 12 A9 9 0 0 0 13 3 Z M7 11 H7.2 M10 7 H10.2 M15 7.8 H15.2 M17 11.8 H17.2";
+    private const string HomeNote = "M10 17 V6 L19 4 V15 M10 17 A3 2.5 0 1 1 7 14.5 H10 M19 15 A3 2.5 0 1 1 16 12.5 H19";
 
-    private StackPanel? _homeFace;
+    private Grid? _homeFace;
     private string _homeFaceKey = "";
     private Canvas? _homeLightLayer;
     private readonly List<Action<PiHome>> _homeFaceUpdates = new();
@@ -34,13 +44,40 @@ public partial class ControlCenterView
     private readonly Dictionary<string, double?> _homeFaceLastSeen = new(StringComparer.Ordinal);
     private readonly Dictionary<string, bool> _homeSwitchDrafts = new(StringComparer.Ordinal);
     private bool _placeHomeLightsQueued;
+    private FrameworkElement? _homeDrawerThermostat;
+    private StackPanel? _homeDetailsLabel;
+    private Border? _homeDetailsButton;
+    private double _homeHeatStrength;
+    private Ellipse? _homeHeatingGlow, _homeDrawerHeatingGlow;
+    private double _homeReveal;
+    private Action? _retireHomeHeatingMotion;
+    private Action? _paintHomePeak;
+    private readonly List<Ellipse> _homeLampGlows = new();
+
+    private bool _homeRendering;
+    private TimeSpan? _homeFrame;
+    private double _homeHeatPhase, _homeAudioLevel, _homeAudioTarget;
+    private TimeSpan _homePeakAt, _homeAudioRefreshAt;
+    private bool _homeOpeningPeaks;
+    private MediaAudioSessions? _homeAudioSessions;
+    private bool _homeStripHasMeter;
+
+    private sealed record BrightnessDraft(string Id, int Level)
+    {
+        public bool CanConfirm { get; set; }
+    }
+
+    private BrightnessDraft? _homeBrightnessDraft;
+    private Task _homeBrightnessSend = Task.CompletedTask;
+    private bool _homeModeSending;
 
     private void UpdateHomeFace(PiHome home)
     {
         var plugs = home.Plugs.Where(p => !p.Guard).Take(3).ToArray();
         string key = string.Join("|", home.Lights.Select(l => $"{l.Id}:{l.Name}:{l.Rgb}")) + "/" +
             string.Join("|", plugs.Select(p => $"{p.Id}:{p.Name}")) + "/" +
-            string.Join("|", home.Scenes.Select(s => $"{s.Id}:{s.Name}:{s.Icon}")) +
+            string.Join("|", home.Scenes.Select(s => $"{s.Id}:{s.Name}:{s.Icon}")) + "/" +
+            string.Join("|", home.StripColors.Select(c => $"{c.Name}:{c.Color}")) +
             $"/{home.Climate != null}/{Loc.CurrentLanguage}";
         if (_homeFace == null || _homeFaceKey != key)
         {
@@ -60,445 +97,801 @@ public partial class ControlCenterView
 
     private void ClearHomeFace()
     {
+        _retireHomeHeatingMotion?.Invoke();
+        _retireHomeHeatingMotion = null;
         foreach (var placeholder in _homeLightSection.Children.OfType<SkeletonPlaceholder>()) placeholder.Dispose();
         _homeLightSection.Children.Clear();
+        _homeLightSection.Height = double.NaN;
+        _homeLightSection.Visibility = Visibility.Visible;
         _homeFace = null;
         _homeFaceUpdates.Clear();
         _homeFaceValues.Clear();
         _homeLightPlacements.Clear();
+        _homeLampGlows.Clear();
         _homeLightLayer?.Children.Clear();
+        _homeHeatingGlow = _homeDrawerHeatingGlow = null;
+        _homeHeatStrength = 0;
+        _homeStripHasMeter = false;
+        _paintHomePeak = null;
+        UpdateHomeRendering();
     }
 
     private void BuildHomeFace(PiHome home, HomePlug[] plugs)
     {
-        var face = _homeFace = new StackPanel { Name = "HomeFace", Margin = new Thickness(0, 5, 0, 0) };
-        var row = new Grid();
-        var lamps = HomeDeviceGroup(home.Lights.Count, 72);
-        var sockets = HomeDeviceGroup(plugs.Length, 76);
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(1, home.Lights.Count * 72), GridUnitType.Star) });
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(1, plugs.Length * 76), GridUnitType.Star) });
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        if (home.Lights.Count > 0 && plugs.Length > 0) sockets.Margin = new Thickness(18, 0, 0, 0);
-        Grid.SetColumn(sockets, 1);
-        row.Children.Add(lamps);
-        row.Children.Add(sockets);
-        face.Children.Add(row);
+        var face = _homeFace = new Grid { Name = "HomeFace", Height = HomeFaceHeight };
+        var strip = home.Lights.FirstOrDefault(l => l.Rgb);
+        var lamps = home.Lights.Where(l => !l.Rgb).ToArray();
+        if (strip != null)
+        {
+            face.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(160) });
+            face.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(22) });
+            face.ColumnDefinitions.Add(new ColumnDefinition());
+            face.Children.Add(BuildHomeStrip(strip, home.StripColors));
+        }
+
+        var bank = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        var devices = new Grid();
+        for (int i = 0; i < 6; i++) devices.ColumnDefinitions.Add(new ColumnDefinition());
+        if (lamps.Length > 0) devices.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        if (plugs.Length > 0) devices.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        for (int i = 0; i < lamps.Length; i++)
+        {
+            int row = i / 2;
+            if (row > 0 && row == devices.RowDefinitions.Count)
+                devices.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            PlaceDevice(BuildHomeDevice(lamps[i].Id, lamps[i].Name, true, i == 0), row, (i % 2) * 3, 3);
+        }
+        for (int i = 0; i < plugs.Length; i++)
+            PlaceDevice(BuildHomeDevice(plugs[i].Id, plugs[i].Name, false), (lamps.Length + 1) / 2, i * 2, 2);
+        bank.Children.Add(devices);
+
+        var footer = new StackPanel { Margin = new Thickness(0, 7, 0, 0) };
         if (home.Climate != null)
         {
             var thermostat = BuildHomeThermostat();
-            Grid.SetColumn(thermostat, 2);
-            row.Children.Add(thermostat);
+            thermostat.HorizontalAlignment = HorizontalAlignment.Left;
+            thermostat.Margin = new Thickness(0, 0, 0, 9);
+            footer.Children.Add(thermostat);
         }
-
-        var night = AddHomeLight(RoomMist, .46);
-        PlaceHomeLight(night, () => new Point(Math.Min(132, _homeLightLayer!.ActualWidth / 3), -64), 460, 270);
-        var showNight = TrackHomeValue(face, "night", value => night.Opacity = value ?? 0);
-        _homeFaceUpdates.Add(data => showNight(data.Lights.Any(l => l.Available && HomeSwitchShown(l.Id, l.On)) ? 0 : 1));
-        for (int i = 0; i < home.Lights.Count; i++)
-        {
-            HomeLight light = home.Lights[i];
-            lamps.Children.Add(light.Rgb ? BuildHomeStrip(light) : BuildHomeLamp(light, i == 0));
-        }
-        foreach (var plug in plugs) sockets.Children.Add(BuildHomeSocket(plug));
-
-        if (home.Scenes.Count > 0)
-        {
-            var scenes = new WrapPanel { Margin = new Thickness(0, 9, 0, 0) };
-            foreach (var scene in home.Scenes) scenes.Children.Add(BuildHomeScene(scene));
-            face.Children.Add(scenes);
-        }
-        face.SizeChanged += (_, _) => QueueHomeLightPlacement();
-        face.IsVisibleChanged += (_, _) => { if (face.IsVisible) QueueHomeLightPlacement(); };
-        _homeLightSection.Children.Add(face);
-        QueueHomeLightPlacement();
-    }
-
-    private static UniformGrid HomeDeviceGroup(int count, double width) => new()
-    {
-        Columns = Math.Max(1, count), Rows = 1, MaxWidth = Math.Max(1, count * width),
-        VerticalAlignment = VerticalAlignment.Top
-    };
-
-    private FrameworkElement BuildHomeLamp(HomeLight light, bool overhead)
-    {
-        var restingInk = ((SolidColorBrush)RoomLabel).Color;
-        var restingFill = ((SolidColorBrush)RoomTrack).Color;
-        var ink = new SolidColorBrush(restingInk);
-        var fill = new SolidColorBrush(restingFill);
-        var icon = CompactGlyph(0xE82F, ink);
-        icon.Width = 28;
-        icon.FontSize = 25;
-        var glow = new Ellipse { Width = 88, Height = 88, Opacity = 0, Fill = HomeLightBrush(RoomSand, .56) };
-        var disc = HomeDisc(60, icon);
-        disc.Background = fill;
-        var halo = new Canvas { Width = 0, HorizontalAlignment = HorizontalAlignment.Center, IsHitTestVisible = false, Children = { glow } };
-        Canvas.SetLeft(glow, -44);
-        Canvas.SetTop(glow, 14);
-        var body = new Grid { Height = 88, Children = { halo, disc } };
-        var lamp = HomeDevice(light.Name, body);
-        string id = light.Id;
-        var room = AddHomeLight(RoomSand, overhead ? .62 : .50);
-        PlaceHomeLight(room, () =>
-        {
-            Point center = disc.TranslatePoint(new Point(30, 30), _homeLightLayer);
-            return overhead ? new Point(center.X + 31, center.Y - 95) : new Point(center.X - 72, center.Y - 15);
-        }, overhead ? 370 : 310, overhead ? 285 : 195);
-        var grow = new ScaleTransform(.7, .7);
-        room.RenderTransformOrigin = new Point(.5, .5);
-        room.RenderTransform = grow;
-        var show = TrackHomeValue(lamp, "light:" + id, value =>
-        {
-            double level = Math.Clamp(value ?? 0, 0, 1);
-            glow.Opacity = room.Opacity = level;
-            fill.Color = Mix(restingFill, RoomSand, level);
-            ink.Color = Mix(restingInk, Color.FromRgb(0x30, 0x26, 0x19), level);
-            grow.ScaleX = grow.ScaleY = .7 + .3 * level;
-        });
-        _homeFaceUpdates.Add(home =>
-        {
-            var state = home.Lights.First(l => l.Id == id);
-            UpdateHomeSwitch(lamp, state.Available);
-            show(state.Available && HomeSwitchShown(id, state.On) ? 1 : 0);
-        });
-        HookHomeSwitch(lamp, "light", id, () => _home?.Lights.FirstOrDefault(l => l.Id == id)?.On);
-        return lamp;
-    }
-
-    private FrameworkElement BuildHomeStrip(HomeLight light)
-    {
-        const double width = 48, height = 88;
-        var fillInk = new SolidColorBrush(RoomLilac);
-        var fill = new Border { Background = fillInk, Height = 0, VerticalAlignment = VerticalAlignment.Bottom };
-        var hint = new Border
-        {
-            Background = fillInk, Height = 3, Width = 24, CornerRadius = new CornerRadius(2),
-            VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 0, 5), Opacity = .45
-        };
-        var glyphClip = new RectangleGeometry();
-        var dark = new Grid { Width = width, Height = height, Clip = glyphClip, Children = { StripGlyph(Frozen("#232124")) } };
-        var capsule = new Grid
-        {
-            Name = "HomeGoveeCapsule", Width = width, Height = height, HorizontalAlignment = HorizontalAlignment.Center,
-            Background = RoomTrack, Clip = new RectangleGeometry(new Rect(0, 0, width, height), 24, 24),
-            Children = { StripGlyph(CompactInk), fill, dark, hint }
-        };
-        var strip = HomeDevice(light.Name, capsule);
-        var label = (TextBlock)((StackPanel)strip.Child).Children[1];
-        var glowBrush = HomeLightBrush(RoomLilac, .77);
-        var glow = AddHomeLight(glowBrush);
-        PlaceHomeLight(glow, () => new Point(_homeLightLayer!.ActualWidth / 2, _homeLightLayer.ActualHeight + 42), 820, 208);
-        string id = light.Id;
-        Color? lastColor = null;
-        var show = TrackHomeValue(strip, "light:" + id + ":level", value =>
-        {
-            double level = Math.Clamp(value ?? 0, 0, 1);
-            glow.Opacity = level;
-            fill.Height = height * level;
-            glyphClip.Rect = new Rect(0, height - fill.Height, width, fill.Height);
-        }, smooth: true);
-        _homeFaceUpdates.Add(home =>
-        {
-            var state = home.Lights.First(l => l.Id == id);
-            bool on = state.Available && HomeSwitchShown(id, state.On);
-            Color? color = on ? AsShown(state).Color : lastColor ?? state.Color;
-            if (color is { } rgb && lastColor != rgb)
+        var scenes = new WrapPanel();
+        foreach (var scene in home.Scenes) scenes.Children.Add(BuildHomeScene(scene));
+        footer.Children.Add(scenes);
+        if (home.Climate != null || home.Scenes.Count > 0)
+            bank.Children.Add(new Border
             {
-                lastColor = rgb;
-                fillInk.Color = Calm(rgb, .27, .66);
-                PaintHomeLight(glowBrush, fillInk.Color, .77);
-            }
-            hint.Visibility = on ? Visibility.Collapsed : Visibility.Visible;
-            int? percent = state.Brightness is { } brightness ? Math.Clamp(brightness, 0, 100) : null;
-            label.Text = on && percent is { } value ? $"Govee {value} %" : "Govee";
-            UpdateHomeSwitch(strip, state.Available);
-            if (state.Available)
-                strip.ToolTip = light.Name + " · " + Say("Klicken zum Umschalten", "Click to toggle");
-            show(on && percent is { } level ? level / 100.0 : 0);
-        });
-        HookHomeSwitch(strip, "light", id, () => _home?.Lights.FirstOrDefault(l => l.Id == id)?.On);
-        return strip;
-
-        TextBlock StripGlyph(Brush ink)
+                Margin = new Thickness(0, 10, 0, 0), BorderThickness = new Thickness(0, 1, 0, 0),
+                BorderBrush = RoomLine, Child = footer
+            });
+        var separator = new Border
         {
-            var glyph = CompactGlyph(0xE790, ink);
-            glyph.FontSize = 20;
-            glyph.Width = 24;
-            glyph.HorizontalAlignment = HorizontalAlignment.Center;
-            glyph.VerticalAlignment = VerticalAlignment.Bottom;
-            glyph.Margin = new Thickness(0, 0, 0, 12);
-            return glyph;
+            BorderBrush = RoomLine, BorderThickness = strip != null ? new Thickness(1, 0, 0, 0) : new Thickness(),
+            Padding = strip != null ? new Thickness(17, 0, 0, 0) : new Thickness(), Child = bank
+        };
+        if (strip != null) Grid.SetColumn(separator, 2);
+        face.Children.Add(separator);
+        face.SizeChanged += (_, _) => QueueHomeLightPlacement();
+        face.IsVisibleChanged += (_, _) =>
+        {
+            if (face.IsVisible)
+            {
+                if (_home is { } data)
+                    foreach (var update in _homeFaceUpdates) update(data);
+                QueueHomeLightPlacement();
+            }
+            UpdateHomeRendering();
+        };
+        _homeLightSection.Children.Add(face);
+        RevealHomeDetails(_homeReveal);
+        QueueHomeLightPlacement();
+
+        void PlaceDevice(FrameworkElement item, int row, int column, int span)
+        {
+            Grid.SetRow(item, row);
+            Grid.SetColumn(item, column);
+            Grid.SetColumnSpan(item, span);
+            devices.Children.Add(item);
         }
     }
 
-    private FrameworkElement BuildHomeSocket(HomePlug plug)
+    private void RevealHomeDetails(double progress)
     {
-        string id = plug.Id;
-        bool mic = plug.Name.Contains("Mikrofon", StringComparison.OrdinalIgnoreCase);
-        var icon = HomeOutline(mic ? "M9 6 A3 3 0 0 1 15 6 V11 A3 3 0 0 1 9 11 Z M5.5 11 A6.5 6.5 0 0 0 18.5 11 M12 17.5 V21"
-            : "M9 2.5 V7 M15 2.5 V7 M6.5 7 H17.5 V10.5 A5.5 5.5 0 0 1 6.5 10.5 Z M12 16 V21.5", 16);
-        var disc = HomeDisc(36, icon);
-        disc.Margin = new Thickness(0, 0, 0, 12);
+        if (_homeFace == null) return;
+        // Most of the face stays in view as details emerge below it. It clears the drawer at full exposure.
+        double height = HomeFaceHeight * (1 - progress * progress * progress);
+        _homeLightSection.ClipToBounds = true;
+        _homeLightSection.Height = height;
+        _homeLightSection.Visibility = height > .05 ? Visibility.Visible : Visibility.Collapsed;
+        _homeLightSection.IsHitTestVisible = progress < .05;
+        bool changed = (_homeReveal >= .5) != (progress >= .5);
+        _homeReveal = progress;
+        foreach (var glow in _homeLampGlows) glow.Opacity = (double)glow.Tag * (1 - progress);
+        PaintHomeHeat();
+        if (changed || progress is > 0 and < 1) QueueHomeLightPlacement();
+    }
+
+    private FrameworkElement BuildHomeDevice(string id, string name, bool lamp, bool overhead = false)
+    {
+        string outline = lamp ? overhead
+            ? "M8.5 15 C8.5 12.5 5.5 11.9 5.5 8 A6.5 6.5 0 0 1 18.5 8 C18.5 11.9 15.5 12.5 15.5 15 Z M9 18 H15 M10.5 21 H13.5"
+            : "M7 4 H17 L20 14 H4 Z M12 14 V20 M8 21 H16"
+            : IsHomeMic(id, name) ? HomeMicIcon : HomePlugIcon;
+        var icon = HomeOutline(outline, 18);
+        var disc = HomeDisc(lamp ? 39 : 37, icon);
+        disc.Background = Frozen("#161617");
+        var discFrame = new Grid { HorizontalAlignment = HorizontalAlignment.Center, Children = { disc } };
         var dot = new Ellipse
         {
-            Width = 4, Height = 4, Fill = CompactInk, Opacity = 0,
-            HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom,
-            Margin = new Thickness(0, 0, 0, 4)
+            Width = 6, Height = 6, Fill = Frozen("#101012"), Stroke = Frozen("#97979B"), StrokeThickness = 1,
+            HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = new Thickness(0, 0, 0, 1)
         };
-        var socket = HomeDevice(plug.Name, new Grid { Height = 88, Children = { disc, dot } });
-        var show = TrackHomeValue(socket, "plug:" + id, value => dot.Opacity = value ?? 0);
+        if (!lamp) discFrame.Children.Add(dot);
+        var label = HomeText(name, 12, RoomLabel);
+        var content = new StackPanel
+        {
+            Orientation = lamp ? Orientation.Horizontal : Orientation.Vertical,
+            HorizontalAlignment = lamp ? HorizontalAlignment.Left : HorizontalAlignment.Center,
+            Children = { discFrame, label }
+        };
+        label.Margin = lamp ? new Thickness(9, 1, 0, 0) : new Thickness(0, 5, 0, 0);
+        if (lamp) label.VerticalAlignment = VerticalAlignment.Top;
+        var button = new Border
+        {
+            Background = Brushes.Transparent, Cursor = Cursors.Hand, CornerRadius = new CornerRadius(12),
+            Padding = new Thickness(4, 2, 4, 2), Margin = lamp ? new Thickness() : new Thickness(0, 9, 0, 0),
+            Child = content, ToolTip = name
+        };
+        if (lamp && !overhead) button.Margin = new Thickness(4, 0, 0, 0);
+        AutomationProperties.SetName(button, name);
+        Pressable(button, () => Brushes.Transparent, CardHover);
+
+        Ellipse? light = null;
+        if (lamp)
+        {
+            light = AddHomeLight(RoomSand, .19);
+            light.Tag = 0.0;
+            _homeLampGlows.Add(light);
+            PlaceHomeLight(light, () => HomeCenter(disc), 94, 94);
+        }
+        var fill = new SolidColorBrush(Color.FromRgb(22, 22, 23));
+        disc.Background = fill;
+        var show = TrackHomeValue(button, (lamp ? "light:" : "plug:") + id, value =>
+        {
+            double level = Math.Clamp(value ?? 0, 0, 1);
+            fill.Color = Mix(Color.FromRgb(22, 22, 23), Color.FromRgb(36, 36, 38), level);
+            if (light != null)
+            {
+                light.Tag = level;
+                light.Opacity = level * (1 - _homeReveal);
+                disc.BorderBrush = new SolidColorBrush(Mix(Color.FromArgb(0x14, 255, 255, 255), Alpha(RoomSand, .63), level));
+            }
+        });
+        bool? Reported() => lamp ? _home?.Lights.FirstOrDefault(l => l.Id == id)?.On : _home?.Plugs.FirstOrDefault(p => p.Id == id)?.On;
         _homeFaceUpdates.Add(home =>
         {
-            var state = home.Plugs.First(p => p.Id == id);
-            bool on = state.Available && HomeSwitchShown(id, state.On);
-            UpdateHomeSwitch(socket, state.Available);
-            icon.Stroke = on ? CompactInk : RoomLabel;
+            var lightState = lamp ? home.Lights.First(l => l.Id == id) : null;
+            var plugState = lamp ? null : home.Plugs.First(p => p.Id == id);
+            bool available = lightState?.Available ?? plugState!.Available;
+            bool on = available && _homeSwitchDrafts.GetValueOrDefault(id, lightState?.On ?? plugState!.On);
+            button.IsEnabled = available;
+            button.Opacity = available ? 1 : .4;
+            HomeIconPath(icon).Stroke = label.Foreground = on ? CompactInk : RoomLabel;
+            dot.Fill = on ? CompactInk : Frozen("#101012");
+            dot.Stroke = on ? CompactInk : Frozen("#97979B");
             show(on ? 1 : 0);
         });
-        HookHomeSwitch(socket, "plug", id, () => _home?.Plugs.FirstOrDefault(p => p.Id == id && !p.Guard)?.On);
-        return socket;
-    }
-
-    private static Border HomeDisc(double size, UIElement child) => new()
-    {
-        Width = size, Height = size, CornerRadius = new CornerRadius(size / 2), Background = RoomTrack, Child = child,
-        HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom
-    };
-
-    private Border HomeDevice(string name, UIElement body)
-    {
-        var label = CompactText(name, 11, RoomLabel);
-        label.TextAlignment = TextAlignment.Center;
-        label.TextWrapping = TextWrapping.Wrap;
-        label.Margin = new Thickness(2, 7, 2, 0);
-        var device = new Border
-        {
-            Background = Brushes.Transparent, Cursor = Cursors.Hand, ToolTip = name, VerticalAlignment = VerticalAlignment.Top,
-            Child = new StackPanel { Children = { body, label } }
-        };
-        AutomationProperties.SetName(device, name);
-        Squish(device, () => device.IsEnabled);
-        return device;
-    }
-
-    private static void UpdateHomeSwitch(Border device, bool available)
-    {
-        device.IsEnabled = available;
-        device.Opacity = available ? 1 : .4;
-        string name = AutomationProperties.GetName(device);
-        device.ToolTip = available ? name : $"{name} · {Say("Offline", "Offline")}";
-        ToolTipService.SetShowOnDisabled(device, true);
-    }
-
-    private bool HomeSwitchShown(string id, bool reported) => _homeSwitchDrafts.GetValueOrDefault(id, reported);
-
-    private void HookHomeSwitch(Border button, string action, string id, Func<bool?> on)
-    {
         button.MouseLeftButtonUp += async (_, e) =>
         {
             e.Handled = true;
-            if (!button.IsEnabled || on() is not { } current || !_homeSwitchDrafts.TryAdd(id, !current)) return;
-            if (_home is { } home) UpdateHomeFace(home);
-            try { await PostHome(action, id, JsonValue.Create(!current)); }
+            if (!button.IsEnabled || Reported() is not { } current || !_homeSwitchDrafts.TryAdd(id, !current)) return;
+            if (_home is { } data) UpdateHomeFace(data);
+            try { await PostHome(lamp ? "light" : "plug", id, JsonValue.Create(!current)); }
             finally
             {
                 _homeSwitchDrafts.Remove(id);
                 RefreshHomeAfterCommand();
             }
         };
+        return button;
+    }
+
+    private FrameworkElement BuildHomeStrip(HomeLight light, IReadOnlyList<HomeColor> colors)
+    {
+        const double width = 43;
+        var ink = new LinearGradientBrush(Mix(Color.FromRgb(20, 20, 22), RoomMist, .35), RoomMist,
+            new Point(.5, 1), new Point(.5, 0));
+        var fill = new Border { Background = ink, Height = 0, CornerRadius = new CornerRadius(19), VerticalAlignment = VerticalAlignment.Bottom };
+        var track = new Grid
+        {
+            Width = 35, Height = 176, Clip = new RectangleGeometry(new Rect(0, 0, 35, 176), 18, 18),
+            IsHitTestVisible = false, Children = { fill }
+        };
+        var ticks = new Canvas { Width = 8, Height = 164, Opacity = .42, IsHitTestVisible = false };
+        for (int y = 8; y < 164; y += 11)
+        {
+            var tick = new Rectangle { Width = 8, Height = 1, Fill = Frozen("#59FFFFFF") };
+            Canvas.SetTop(tick, y);
+            ticks.Children.Add(tick);
+        }
+        var thumb = new Border
+        {
+            Width = 19, Height = 5, Background = CompactInk, CornerRadius = new CornerRadius(3),
+            HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, IsHitTestVisible = false
+        };
+        var thumbMove = new TranslateTransform();
+        thumb.RenderTransform = thumbMove;
+        var fader = new Border
+        {
+            Name = "HomeGoveeCapsule", Width = width, Height = HomeFaderHeight, CornerRadius = new CornerRadius(24),
+            Background = Frozen("#19191B"), BorderBrush = Frozen("#24FFFFFF"), BorderThickness = new Thickness(1),
+            Cursor = Cursors.SizeNS, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(1, 5, 0, 0), Child = new Grid { Children = { track, ticks, thumb } }
+        };
+        fader.ToolTip = Say("Govee-Helligkeit", "Govee brightness");
+        AutomationProperties.SetName(fader, (string)fader.ToolTip);
+
+        var group = new Grid { Children = { fader } };
+        var number = HomeText("–", 41, CompactInk, 500);
+        number.LineHeight = 41;
+        number.RenderTransform = new TranslateTransform(0, 4);
+        var percentage = HomeText("%", 20.5, RoomSub, 500);
+        percentage.RenderTransform = new TranslateTransform(0, 4);
+        percentage.Margin = new Thickness(2, 0, 0, 1);
+        percentage.VerticalAlignment = number.VerticalAlignment = VerticalAlignment.Bottom;
+        var reading = new StackPanel
+        {
+            Height = 41, Margin = new Thickness(0, 9, 0, 9), Orientation = Orientation.Horizontal,
+            Children = { number, percentage }
+        };
+        var mode = new Grid { Width = 72, Height = 51 };
+        mode.RowDefinitions.Add(new RowDefinition());
+        mode.RowDefinitions.Add(new RowDefinition());
+        var selectionShift = new TranslateTransform();
+        var selection = new Border
+        {
+            Height = 25, CornerRadius = new CornerRadius(11), Background = Frozen("#303033"),
+            VerticalAlignment = VerticalAlignment.Top, IsHitTestVisible = false, RenderTransform = selectionShift
+        };
+        Grid.SetRowSpan(selection, 2);
+        mode.Children.Add(selection);
+        var colour = HomeModeOption(Say("Farbe", "Colour"), HomePalette);
+        var music = HomeModeOption(Say("Musik", "Music"), HomeNote);
+        mode.Children.Add(colour);
+        mode.Children.Add(music);
+        Grid.SetRow(music, 1);
+        var segment = new Border
+        {
+            CornerRadius = new CornerRadius(14), BorderThickness = new Thickness(1), BorderBrush = RoomBorder,
+            Background = RoomTrack, Padding = new Thickness(2), Child = mode, Margin = new Thickness(0, 0, 8, 0)
+        };
+        var dotBrush = new SolidColorBrush(RoomMist);
+        var hue = HomeDisc(30, new Ellipse { Width = 14, Height = 14, Fill = dotBrush });
+        hue.Cursor = Cursors.Hand;
+        hue.ToolTip = Say("Farbe wählen", "Choose strip colour");
+        var controls = new WrapPanel { Children = { segment, hue } };
+        hue.Margin = new Thickness(0, 8, 0, 0);
+        var readout = new StackPanel
+        {
+            Margin = new Thickness(57, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center,
+            Children = { HomeText("Govee", 21, CompactInk, 560), reading, controls }
+        };
+        group.Children.Add(readout);
+
+        var swatches = new StackPanel { Orientation = Orientation.Horizontal };
+        var swatchPopup = new Border
+        {
+            Background = Frozen("#18181A"), BorderBrush = Frozen("#2BFFFFFF"), BorderThickness = new Thickness(1),
+            Padding = new Thickness(3), CornerRadius = new CornerRadius(20), Child = swatches, Visibility = Visibility.Collapsed
+        };
+        var popupLayer = new Canvas { Children = { swatchPopup }, IsHitTestVisible = true };
+        Canvas.SetLeft(swatchPopup, 49);
+        Canvas.SetBottom(swatchPopup, 0);
+        Panel.SetZIndex(popupLayer, 10);
+        group.Children.Add(popupLayer);
+        Pressable(hue, () => RoomTrack, CardHover);
+        hue.MouseLeftButtonUp += (_, e) =>
+        {
+            e.Handled = true;
+            swatchPopup.Visibility = swatchPopup.IsVisible ? Visibility.Collapsed : Visibility.Visible;
+        };
+        foreach (var color in colors)
+        {
+            var swatch = HomeDisc(30, new Ellipse { Width = 14, Height = 14, Fill = new SolidColorBrush(HomeStripColor(color.Color)) });
+            swatch.Background = Brushes.Transparent;
+            swatch.ToolTip = color.Name;
+            swatch.Cursor = Cursors.Hand;
+            Pressable(swatch, () => Brushes.Transparent, CardHover);
+            swatch.MouseLeftButtonUp += async (_, e) =>
+            {
+                e.Handled = true;
+                swatchPopup.Visibility = Visibility.Collapsed;
+                if (_musicSync == true && !await SetHomeMusic(false)) return;
+                SendHome("light", light.Id, new JsonObject { ["rgb"] = new JsonArray(color.Color.R, color.Color.G, color.Color.B) });
+            };
+            swatches.Children.Add(swatch);
+        }
+
+        var glowBrush = HomeLightBrush(RoomMist, .68);
+        var glow = AddHomeLight(glowBrush);
+        double edgeX = 43.5;
+        PlaceHomeLight(glow, () =>
+        {
+            if (fader.IsVisible) edgeX = HomeCenter(fader).X;
+            return new Point(edgeX, _homeLightLayer!.ActualHeight - 1);
+        }, 336, 36);
+        bool dragging = false, meter = false, acceptingGesture = false;
+        double dragValue = 0, solidLevel = 0, musicMix = 0;
+        double? paintedLevel = null;
+        var rubber = new WeatherTween();
+        var returnToMeter = new WeatherTween { Value = 1 };
+        void Paint()
+        {
+            double mix = musicMix * Math.Clamp(returnToMeter.Value, 0, 1);
+            double level = Math.Clamp(dragging ? dragValue : solidLevel * (1 - mix) + _homeAudioLevel * mix, 0, 1);
+            fill.Height = track.Height * level;
+            glow.Opacity = level / 1.2;
+            double clamped = Math.Clamp(HomeFaderHeight * (1 - level), 12, HomeFaderHeight - 12);
+            thumbMove.Y = clamped - 3.5 + rubber.Value;
+        }
+        rubber.Step = _ => Paint();
+        returnToMeter.Step = _ => Paint();
+        _paintHomePeak = Paint;
+        var showLevel = TrackHomeValue(fader, "light:" + light.Id + ":level", value =>
+        {
+            solidLevel = value ?? 0;
+            if (!dragging) PaintNumber(value.HasValue && paintedLevel.HasValue ? value : paintedLevel);
+            Paint();
+        }, smooth: true, canAnimate: () => !acceptingGesture);
+        var showMode = TrackHomeValue(fader, "light:" + light.Id + ":music", value =>
+        {
+            selectionShift.Y = 26 * (value ?? 0);
+        }, smooth: true);
+        var showMeter = TrackHomeValue(fader, "light:" + light.Id + ":meter", value =>
+        {
+            musicMix = Math.Clamp(value ?? 0, 0, 1);
+            Paint();
+            _homeStripHasMeter = meter || musicMix > .001;
+            UpdateHomeRendering();
+        }, smooth: true);
+
+        void ReadGesture(MouseEventArgs e)
+        {
+            double raw = 1 - e.GetPosition(fader).Y / HomeFaderHeight;
+            dragValue = Math.Clamp(raw, 0, 1);
+            double overflow = (dragValue - raw) * HomeFaderHeight;
+            Motion.Stop(rubber, WeatherTween.ValueProperty, Math.Sign(overflow) * (1 - 1 / (1 + Math.Abs(overflow) * .55 / 18)) * 18);
+            number.Text = Math.Round(dragValue * 100).ToString(CultureInfo.CurrentCulture);
+            percentage.Visibility = Visibility.Visible;
+            Paint();
+        }
+        fader.MouseLeftButtonDown += (_, e) =>
+        {
+            if (!fader.CaptureMouse()) return;
+            swatchPopup.Visibility = Visibility.Collapsed;
+            dragging = true;
+            ReadGesture(e);
+            e.Handled = true;
+        };
+        fader.MouseMove += (_, e) => { if (dragging) { ReadGesture(e); e.Handled = true; } };
+        fader.MouseLeftButtonUp += (_, e) =>
+        {
+            if (!dragging) return;
+            ReadGesture(e);
+            dragging = false;
+            fader.ReleaseMouseCapture();
+            int percent = (int)Math.Round(dragValue * 100);
+            var draft = _homeBrightnessDraft = new BrightnessDraft(light.Id, percent);
+            paintedLevel = percent / 100.0;
+            acceptingGesture = true;
+            if (musicMix > .001)
+                Motion.To(returnToMeter, WeatherTween.ValueProperty, 1, Motion.Shift, from: 0);
+            showLevel(percent / 100.0);
+            acceptingGesture = false;
+            _homeBrightnessSend = SendHomeBrightnessAsync(_homeBrightnessSend, draft);
+            Motion.To(rubber, WeatherTween.ValueProperty, 0, Motion.Shift);
+            e.Handled = true;
+        };
+        fader.LostMouseCapture += (_, _) =>
+        {
+            if (!dragging) return;
+            dragging = false;
+            Motion.Stop(rubber, WeatherTween.ValueProperty, 0);
+            PaintNumber(paintedLevel);
+            Paint();
+        };
+        fader.IsVisibleChanged += (_, _) =>
+        {
+            if (!fader.IsVisible)
+            {
+                if (fader.IsMouseCaptured) fader.ReleaseMouseCapture();
+                swatchPopup.Visibility = Visibility.Collapsed;
+                Motion.Stop(rubber, WeatherTween.ValueProperty, 0);
+                Motion.Stop(returnToMeter, WeatherTween.ValueProperty, 1);
+            }
+            Paint();
+            UpdateHomeRendering();
+        };
+        colour.MouseLeftButtonUp += async (_, e) => { e.Handled = true; await SetHomeMusic(false); };
+        music.MouseLeftButtonUp += async (_, e) => { e.Handled = true; await SetHomeMusic(true); };
+        Color last = RoomMist, from = RoomMist, paintedColor = RoomMist;
+        string colourKey = "home.face.light:" + light.Id + ":colour";
+        _homeFaceValues.Add(colourKey);
+        var tint = new WeatherTween { Step = value => PaintColour(Mix(from, last, Math.Clamp(value, 0, 1))) };
+        fader.IsVisibleChanged += (_, _) => { if (!fader.IsVisible) Motion.Stop(tint, WeatherTween.ValueProperty, 1); };
+        _homeFaceUpdates.Add(data =>
+        {
+            var state = data.Lights.First(l => l.Id == light.Id);
+            int? level = state switch
+            {
+                { Available: false } => null,
+                { On: false } => 0,
+                { Brightness: { } percent } => Math.Clamp(percent, 0, 100),
+                _ => null
+            };
+            if (_homeBrightnessDraft is { } draft && draft.Id == state.Id)
+            {
+                if (draft.CanConfirm && level == draft.Level) _homeBrightnessDraft = null;
+                else level = draft.Level;
+            }
+            fader.IsEnabled = state.Available;
+            fader.Opacity = state.Available ? 1 : .4;
+            bool musicOn = _musicSync == true;
+            music.IsEnabled = state.Available && _musicSync.HasValue;
+            hue.IsEnabled = state.Available && colors.Count > 0;
+            colour.IsEnabled = state.Available;
+            ToolTipService.SetShowOnDisabled(music, true);
+            music.ToolTip = _musicSync.HasValue ? null : Say("Musik-Sync ist auf diesem PC nicht eingerichtet", "Music sync is unavailable on this PC");
+
+            var shown = AsShown(state);
+            if (shown.Color is { } rgb)
+            {
+                Color muted = HomeStripColor(rgb);
+                bool changed = HomeValuesVisible(drawer: false) && Seen.Changed(colourKey, muted.ToString());
+                if (last != muted)
+                {
+                    from = paintedColor;
+                    last = muted;
+                    if (changed && !AnimationConfig.ReduceMotion) Motion.To(tint, WeatherTween.ValueProperty, 1, Motion.Shift, from: 0);
+                    else { Motion.Stop(tint, WeatherTween.ValueProperty, 1); PaintColour(last); }
+                }
+            }
+            meter = musicOn && state.Available && level > 0;
+            showMode(musicOn ? 1 : 0);
+            showMeter(meter ? 1 : 0);
+            ((TextBlock)((StackPanel)colour.Child).Children[1]).Foreground = musicOn ? RoomLabel : CompactInk;
+            ((TextBlock)((StackPanel)music.Child).Children[1]).Foreground = musicOn ? CompactInk : RoomLabel;
+            paintedLevel = level / 100.0;
+            if (!dragging)
+            {
+                showLevel(paintedLevel);
+            }
+        });
+        return group;
+
+        void PaintColour(Color color)
+        {
+            paintedColor = color;
+            dotBrush.Color = color;
+            ink.GradientStops[0].Color = Mix(Color.FromRgb(20, 20, 22), color, .35);
+            ink.GradientStops[1].Color = color;
+            PaintHomeLight(glowBrush, color, .68);
+        }
+
+        void PaintNumber(double? level)
+        {
+            number.Text = level is { } shown ? Math.Round(shown * 100).ToString(CultureInfo.CurrentCulture) : "–";
+            percentage.Visibility = level.HasValue ? Visibility.Visible : Visibility.Collapsed;
+        }
+    }
+
+    private Border HomeModeOption(string text, string outline)
+    {
+        var icon = HomeOutline(outline, 14);
+        HomeIconPath(icon).Stroke = RoomLabel;
+        icon.Margin = new Thickness(0, 0, 5, 0);
+        var option = new Border
+        {
+            Background = Brushes.Transparent, CornerRadius = new CornerRadius(12), Padding = new Thickness(9, 0, 5, 0),
+            Cursor = Cursors.Hand, Child = new StackPanel { Orientation = Orientation.Horizontal, Children = { icon, HomeText(text, 12, RoomLabel) } }
+        };
+        Pressable(option, () => Brushes.Transparent, CardHover);
+        return option;
+    }
+
+    private async Task<bool> SetHomeMusic(bool music)
+    {
+        if (_musicSync == music || _musicSync == null) return !music || _musicSync == true;
+        if (_homeModeSending) return false;
+        _homeModeSending = true;
+        try
+        {
+            if (!await GoveeSync.SetRunningAsync(music) || _disposed) return false;
+            _musicSync = music;
+            if (_home is { } home) UpdateHomeFace(home);
+            return true;
+        }
+        finally { _homeModeSending = false; }
+    }
+
+    private async Task SendHomeBrightnessAsync(Task previous, BrightnessDraft draft)
+    {
+        await previous;
+        if (_pi == null || _disposed) return;
+        var result = await _pi.SendHomeAsync("light", draft.Id, new JsonObject { ["brightness_pct"] = draft.Level });
+        if (_disposed || !ReferenceEquals(_homeBrightnessDraft, draft)) return;
+        if (result == HomeCommandResult.Rejected)
+        {
+            _homeBrightnessDraft = null;
+            if (_home is { } data) UpdateHomeFace(data);
+        }
+        else
+        {
+            draft.CanConfirm = true;
+        }
+        RefreshHomeAfterCommand();
     }
 
     private FrameworkElement BuildHomeThermostat()
     {
-        var ring = new Grid { Width = 76, Height = 76, HorizontalAlignment = HorizontalAlignment.Center };
-        var track = new Ellipse { Width = 68, Height = 68, StrokeThickness = 4, Stroke = RoomTrack };
-        var arc = new Path { StrokeThickness = 4, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round };
-        var marker = new Ellipse { Width = 7, Height = 7, Fill = CompactInk };
-        var drawing = new Canvas { IsHitTestVisible = false, Children = { arc, marker } };
-        var current = CompactText("", 20, CompactInk);
-        current.FontWeight = FontWeights.SemiBold;
-        current.HorizontalAlignment = HorizontalAlignment.Center;
-        ring.Children.Add(track);
-        ring.Children.Add(drawing);
-        ring.Children.Add(current);
-
-        var target = CompactText("", 12, CompactInk);
-        target.FontWeight = FontWeights.SemiBold;
-        var targetLabel = CompactText(Say("Ziel", "Target"), 11, RoomLabel);
-        target.TextAlignment = targetLabel.TextAlignment = TextAlignment.Center;
-        var targetReadout = new StackPanel { MinWidth = 52, Children = { target, targetLabel } };
-        var minus = StepButton("−", -.5);
-        var plus = StepButton("+", .5);
-        var stepper = new StackPanel
+        var icon = HomeOutline(HomeThermometer, 18);
+        HomeIconPath(icon).Stroke = RoomLabel;
+        var number = HomeText("–", 18, CompactInk, 540);
+        number.Margin = new Thickness(5, 0, 0, 0);
+        var thermostat = new StackPanel
         {
-            Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center,
-            Margin = new Thickness(0, 4, 0, 0), Children = { minus, targetReadout, plus }
+            Name = "HomeThermostat", Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center,
+            Children = { icon, number }, ToolTip = Say("Raumtemperatur", "Room temperature")
         };
-        var heat = CompactText("", 11, RoomLabel);
-        heat.Height = 15;
-        heat.TextAlignment = TextAlignment.Center;
-        heat.Margin = new Thickness(0, 3, 0, 0);
-        var thermostat = new StackPanel { Name = "HomeThermostat", Width = 120, Children = { ring, stepper, heat } };
-        double min = 5, max = 30;
-        double Fraction(double value) => Math.Clamp((value - min) / (max - min), 0, 1);
-        var showCurrent = TrackHomeValue(thermostat, "temperature:room", value =>
+        var glow = _homeHeatingGlow = AddHomeLight(RoomRose, .53);
+        var drawerGlow = _homeDrawerHeatingGlow = AddHomeLight(RoomRose, .53);
+        PlaceHomeLight(glow, () => HomeCenter(thermostat), 190, 124);
+        PlaceHomeLight(drawerGlow, () => _homeDrawerThermostat is { } source ? HomeCenter(source) : new Point(), 190, 124);
+        var showHeat = TrackHomeValue(this, "heating", value =>
         {
-            current.Text = Temperature(value);
-            double fraction = value is { } degrees ? Fraction(degrees) : 0;
-            arc.Data = fraction switch
-            {
-                <= 0 => null,
-                >= 1 => new EllipseGeometry(new Point(38, 38), 32, 32),
-                _ => new PathGeometry(new[] { new PathFigure(new Point(38, 6),
-                    new[] { new ArcSegment(RingPoint(fraction), new Size(32, 32), 0, fraction > .5, SweepDirection.Clockwise, true) }, false) })
-            };
+            _homeHeatStrength = Math.Clamp(value ?? 0, 0, 1);
+            PaintHomeHeat();
+            UpdateHomeRendering();
         }, smooth: true);
-        var showTarget = TrackHomeValue(thermostat, "temperature:target", value =>
+        var showCurrent = TrackHomeValue(thermostat, "temperature:room", value => number.Text = HomeTemperature(value), smooth: true);
+        _homeFaceUpdates.Add(data =>
         {
-            target.Text = Temperature(value);
-            marker.Visibility = value.HasValue ? Visibility.Visible : Visibility.Collapsed;
-            if (value is not { } degrees) return;
-            var point = RingPoint(Fraction(degrees));
-            Canvas.SetLeft(marker, point.X - marker.Width / 2);
-            Canvas.SetTop(marker, point.Y - marker.Height / 2);
-        }, smooth: true);
-        _homeFaceUpdates.Add(home =>
-        {
-            var climate = home.Climate!;
-            double low = Math.Max(5, climate.Min), high = Math.Min(30, climate.Max);
-            bool validRange = high > low;
-            (min, max) = validRange ? (low, high) : (5, 30);
-            double? setpoint = _targetDraft ?? climate.Target;
-            minus.IsEnabled = validRange && setpoint > min;
-            plus.IsEnabled = validRange && setpoint < max;
-            minus.Opacity = minus.IsEnabled ? 1 : .4;
-            plus.Opacity = plus.IsEnabled ? 1 : .4;
+            var climate = data.Climate!;
             showCurrent(climate.Current);
-            showTarget(setpoint);
-            heat.Text = climate.IsHeating ? Say("heizt", "Heating") : "";
-            arc.Stroke = climate.IsHeating ? new SolidColorBrush(RoomSand) : RoomLabel;
+            showHeat(climate.IsHeating && climate.Target is { } target && climate.Current is { } current
+                ? Math.Clamp(target - current, 0, 3) / 3 : 0);
         });
         return thermostat;
+    }
 
-        Border StepButton(string sign, double step)
+    private void PaintHomeHeat()
+    {
+        if (_homeHeatingGlow == null) return;
+        double wave = AnimationConfig.ReduceMotion ? 1 : .93 + .07 * Math.Cos(_homeHeatPhase);
+        _homeHeatingGlow.Opacity = _homeHeatStrength * wave * (1 - _homeReveal);
+        if (_homeDrawerHeatingGlow != null)
+            _homeDrawerHeatingGlow.Opacity = _homeHeatStrength * wave * _homeReveal;
+    }
+
+    private void UpdateHomeRendering()
+    {
+        bool audio = !_disposed && IsVisible && _homeFace != null && _homeStripHasMeter && !AnimationConfig.ReduceMotion;
+        bool want = audio || !_disposed && IsVisible && _homeHeatStrength > .001 && !AnimationConfig.ReduceMotion;
+        if (!audio)
         {
-            var label = CompactText(sign, 15, CompactInk);
-            label.TextAlignment = TextAlignment.Center;
-            var button = HomeDisc(24, label);
-            button.VerticalAlignment = VerticalAlignment.Center;
-            button.Cursor = Cursors.Hand;
-            button.ToolTip = Say($"Ziel {sign}0,5°", $"Target {sign}0.5°");
-            AutomationProperties.SetName(button, (string)button.ToolTip);
-            Pressable(button, () => RoomTrack, CardHover);
-            button.MouseLeftButtonUp += (_, e) =>
+            _homeAudioSessions?.Dispose();
+            _homeAudioSessions = null;
+            _homeAudioLevel = _homeAudioTarget = 0;
+            _homeAudioRefreshAt = _homePeakAt = TimeSpan.Zero;
+        }
+        if (want == _homeRendering) return;
+        _homeRendering = want;
+        if (want) CompositionTarget.Rendering += RenderHome;
+        else
+        {
+            CompositionTarget.Rendering -= RenderHome;
+            _homeFrame = null;
+        }
+    }
+
+    private void RenderHome(object? sender, EventArgs e)
+    {
+        if (e is not RenderingEventArgs frame || frame.RenderingTime == _homeFrame) return;
+        double seconds = _homeFrame is { } previous ? Math.Min(.05, (frame.RenderingTime - previous).TotalSeconds) : 0;
+        _homeFrame = frame.RenderingTime;
+        if (AnimationConfig.ReduceMotion) { UpdateHomeRendering(); PaintHomeHeat(); _paintHomePeak?.Invoke(); return; }
+        if (_homeHeatStrength > 0)
+        {
+            _homeHeatPhase = (_homeHeatPhase + seconds * 2 * Math.PI / Motion.HomeHeatCycle.TotalSeconds) % (2 * Math.PI);
+            PaintHomeHeat();
+        }
+        if (!IsVisible || !_homeStripHasMeter) return;
+        if (frame.RenderingTime >= _homeAudioRefreshAt)
+        {
+            _homeAudioRefreshAt = frame.RenderingTime + Motion.HomePeakRefresh;
+            OpenHomePeakSessions();
+        }
+        if (frame.RenderingTime >= _homePeakAt)
+        {
+            _homePeakAt = frame.RenderingTime + Motion.HomePeakSample;
+            float peak = 0;
+            if (_homeAudioSessions is { } sessions)
+                foreach (var session in sessions.Sessions) peak = Math.Max(peak, session.ReadPeak());
+            _homeAudioTarget = Math.Sqrt(Math.Clamp(peak, 0, 1));
+        }
+        // The mixer has a fast attack and a slower release. Apply the same envelope at any refresh rate.
+        double retention = _homeAudioTarget > _homeAudioLevel ? .40 : .82;
+        _homeAudioLevel += (_homeAudioTarget - _homeAudioLevel) * (1 - Math.Pow(retention, seconds / Motion.HomePeakSample.TotalSeconds));
+        _paintHomePeak?.Invoke();
+    }
+
+    private async void OpenHomePeakSessions()
+    {
+        if (_homeOpeningPeaks) return;
+        _homeOpeningPeaks = true;
+        try
+        {
+            var sessions = await Task.Run(WindowsMediaAudioSessions.Read);
+            if (_disposed || !IsVisible || !_homeStripHasMeter || AnimationConfig.ReduceMotion)
             {
-                e.Handled = true;
-                if (button.IsEnabled) StepHomeTarget(step);
-            };
-            return button;
+                sessions.Dispose();
+                return;
+            }
+            _homeAudioSessions?.Dispose();
+            _homeAudioSessions = sessions;
         }
-
-        static string Temperature(double? value) => value is { } degrees ? degrees.ToString("0.0", CultureInfo.CurrentCulture) + "°" : "–";
-        static Point RingPoint(double fraction)
+        catch (Exception ex)
         {
-            double radians = fraction * 2 * Math.PI;
-            return new Point(38 + 32 * Math.Sin(radians), 38 - 32 * Math.Cos(radians));
+            RuntimeLog.Warn("GOVEE", $"Peak meters not read: {ex.GetType().Name}: {ex.Message}");
         }
+        finally { _homeOpeningPeaks = false; }
     }
 
     private Border BuildHomeScene(HomeAction scene)
     {
         string outline = scene.Icon switch
         {
-            "moon" => "M19.5 14.5 A8 8 0 0 1 9.5 4.5 A8 8 0 1 0 19.5 14.5 Z",
-            "game" => "M7 8 H17 A4 4 0 0 1 21 12.5 L20.4 15.7 A2.4 2.4 0 0 1 16.2 16.7 L14.8 15 H9.2 L7.8 16.7 A2.4 2.4 0 0 1 3.6 15.7 L3 12.5 A4 4 0 0 1 7 8 Z M7.5 10.5 V13.5 M6 12 H9 M16.5 12 H17",
-            "book" => "M4 5.5 A2.5 2.5 0 0 1 6.5 3 H20 V18 H6.5 A2.5 2.5 0 0 0 4 20.5 Z M4 20.5 A2.5 2.5 0 0 0 6.5 23 H20",
-            "wind" => "M3 9 H14 A3 3 0 1 0 11 6 M3 15 H18 A3 3 0 1 1 15 18 M3 12 H10",
+            "moon" => "M19 16 A8 8 0 0 1 8 5 A8.5 8.5 0 1 0 19 16 Z",
+            "game" => "M7 7 H17 C20 7 22 15 21 17 S17 17 15 15 H9 C7 17 4 19 3 17 S4 7 7 7 Z M6 11 H10 M8 9 V13 M15 10 H15.1 M17 12 H17.1",
+            "book" => "M5 4 H19 V20 H6 A2 2 0 0 1 4 18 V6 A2 2 0 0 1 5 4 Z M5 16 H19",
+            "wind" => "M2 8 H15 A3 3 0 1 0 12 5 M3 12 H19 A2 2 0 1 1 17 14 M4 16 H11 A3 3 0 1 1 8 19",
             _ => "M12 3 V7 M12 17 V21 M3 12 H7 M17 12 H21"
         };
         var icon = HomeOutline(outline, 14);
-        var original = icon.Data;
-        var check = Geometry.Parse("M5 12.5 L9.5 17 L19 7.5");
-        icon.Margin = new Thickness(0, 0, 7, 0);
-        var name = CompactText(scene.Name, 12, CompactInk);
-        var pill = new Border
+        icon.Margin = new Thickness(0, 0, 5, 0);
+        var pill = HomeChip(new StackPanel
         {
-            CornerRadius = new CornerRadius(15), Padding = new Thickness(9, 6, 13, 6), Margin = new Thickness(0, 0, 8, 2),
-            Background = RoomTrack, Cursor = Cursors.Hand,
-            Child = new StackPanel { Orientation = Orientation.Horizontal, Children = { icon, name } }
-        };
+            Orientation = Orientation.Horizontal, Children = { icon, HomeText(scene.Name, 11, CompactInk) }
+        }, new Thickness(7, 4, 7, 4));
+        pill.Margin = new Thickness(0, 0, 5, 0);
         AutomationProperties.SetName(pill, scene.Name);
-        Pressable(pill, () => RoomTrack, CardHover);
         bool pending = false;
-        int visibility = 0;
-        pill.IsVisibleChanged += (_, _) =>
-        {
-            if (pill.IsVisible) return;
-            visibility++;
-            icon.Data = original;
-        };
         pill.MouseLeftButtonUp += async (_, e) =>
         {
             e.Handled = true;
             if (pending) return;
             pending = true;
-            int visit = visibility;
-            try
-            {
-                await PostHome("scene", scene.Id, null, ok =>
-                {
-                    if (ok && pill.IsVisible && visit == visibility) icon.Data = check;
-                });
-            }
-            finally
-            {
-                icon.Data = original;
-                pending = false;
-                RefreshHomeAfterCommand();
-            }
+            try { await PostHome("scene", scene.Id, null); }
+            finally { pending = false; RefreshHomeAfterCommand(); }
         };
         return pill;
     }
 
-    private static Path HomeOutline(string geometry, double size) => new()
+    private static bool IsHomeMic(string id, string name) => id == "switch.mikrofon" ||
+        name.Contains("Mikrofon", StringComparison.OrdinalIgnoreCase) || name.Contains("Microphone", StringComparison.OrdinalIgnoreCase);
+
+    private static CultureInfo HomeCulture => CultureInfo.GetCultureInfo(Loc.CurrentLanguage);
+
+    private static string HomeTemperature(double? value) =>
+        value is { } degrees ? degrees.ToString("0.0", HomeCulture) + "°" : "–";
+
+    private static Color HomeStripColor(Color color)
     {
-        Data = Geometry.Parse(geometry), Width = size, Height = size, Stretch = Stretch.Uniform, Stroke = CompactInk,
-        StrokeThickness = 1.35, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round, StrokeLineJoin = PenLineJoin.Round,
+        if (color == RoomMist || color == RoomLilac || color == RoomSand || color == RoomRose || color == RoomSage)
+            return color;
+        if (color.R == color.G && color.G == color.B) return RoomLilac;
+        if (color.G >= color.R && color.G >= color.B) return RoomSage;
+        if (color.B > color.R) return color.R > color.G ? RoomLilac : RoomMist;
+        if (color.B > color.G && color.R - color.B < color.B - color.G) return RoomLilac;
+        return color.G - color.B > (color.R - color.B) / 4 ? RoomSand : RoomRose;
+    }
+
+    private TextBlock HomeText(string text, double size, Brush foreground, int weight = 400)
+    {
+        var label = CompactText(text, size, foreground);
+        label.FontFamily = HomeFont;
+        label.FontWeight = FontWeight.FromOpenTypeWeight(weight);
+        label.LineHeight = size * 1.2;
+        label.LineStackingStrategy = LineStackingStrategy.BlockLineHeight;
+        if (size >= 18)
+            label.LayoutTransform = new ScaleTransform(size >= 27 ? .87 : .94, 1);
+        Typography.SetNumeralAlignment(label, FontNumeralAlignment.Tabular);
+        return label;
+    }
+
+    private static Border HomeDisc(double size, UIElement child) => new()
+    {
+        Width = size, Height = size, CornerRadius = new CornerRadius(size / 2), Background = RoomTrack, Child = child,
+        BorderThickness = new Thickness(1), BorderBrush = RoomBorder,
         HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center
     };
 
-    private Action<double?> TrackHomeValue(FrameworkElement owner, string key, Action<double?> paint, bool smooth = false)
+    private Border HomeChip(UIElement content, Thickness padding)
     {
-        key = "home.face." + key;
-        _homeFaceValues.Add(key);
+        var chip = new Border
+        {
+            CornerRadius = new CornerRadius(24), Padding = padding, BorderThickness = new Thickness(1), BorderBrush = RoomBorder,
+            Background = RoomTrack, Cursor = Cursors.Hand, VerticalAlignment = VerticalAlignment.Center, Child = content
+        };
+        Pressable(chip, () => RoomTrack, CardHover);
+        return chip;
+    }
+
+    private static Viewbox HomeOutline(string geometry, double size) => new Viewbox
+    {
+        Width = size, Height = size, Stretch = Stretch.Uniform,
+        HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+        Child = new Canvas { Width = 24, Height = 24, Children =
+        {
+            new Path
+            {
+                Data = Geometry.Parse(geometry), Stroke = CompactInk, StrokeThickness = 1.6,
+                StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round, StrokeLineJoin = PenLineJoin.Round
+            }
+        } }
+    };
+
+    private static Path HomeIconPath(Viewbox icon) => (Path)((Canvas)icon.Child).Children[0];
+
+    private bool HomeValuesVisible(bool drawer) =>
+        IsVisible && (drawer ? _drawerBody.Visibility : _homeLightSection.Visibility) == Visibility.Visible;
+
+    private Action<double?> TrackHomeValue(FrameworkElement owner, string key, Action<double?> paint, bool smooth = false,
+        bool drawer = false, Func<bool>? canAnimate = null)
+    {
+        key = (drawer ? "home.details." : "home.face.") + key;
+        (drawer ? _homeDrawerValues : _homeFaceValues).Add(key);
         double? target = null;
         bool initialized = false;
         var tween = new WeatherTween { Step = value => paint(value) };
-        owner.IsVisibleChanged += (_, _) =>
+        DependencyPropertyChangedEventHandler stopWhenHidden = (_, _) =>
         {
             if (!owner.IsVisible && target is { } rest) Motion.Stop(tween, WeatherTween.ValueProperty, rest);
         };
+        owner.IsVisibleChanged += stopWhenHidden;
+        if (ReferenceEquals(owner, this) && key == "home.face.heating")
+            _retireHomeHeatingMotion = () =>
+            {
+                owner.IsVisibleChanged -= stopWhenHidden;
+                Motion.Stop(tween, WeatherTween.ValueProperty, 0);
+            };
         return value =>
         {
-            bool changed = value is { } number ? Seen.Changed(key, number, "0.###") : Seen.Changed(key, "");
-            if (changed && !AnimationConfig.ReduceMotion && _homeFaceLastSeen.GetValueOrDefault(key) is { } before && value is { } next)
+            // The tab's IsVisibleChanged refresh can precede WPF's propagation of IsVisible to its children.
+            bool showing = ReferenceEquals(owner, this) ? IsVisible : HomeValuesVisible(drawer);
+            bool changed = showing && (value is { } number ? Seen.Changed(key, number, "0.###") : Seen.Changed(key, ""));
+            if (changed && !AnimationConfig.ReduceMotion && canAnimate?.Invoke() != false &&
+                _homeFaceLastSeen.GetValueOrDefault(key) is { } before && value is { } next)
             {
                 double? from = !initialized || target == value ? before : null;
                 Motion.To(tween, WeatherTween.ValueProperty, next, smooth || next > before ? Motion.Shift : Motion.Exit, from: from);
             }
-            else if (!initialized || target != value || !IsVisible || AnimationConfig.ReduceMotion)
+            else if (!initialized || target != value || !showing || AnimationConfig.ReduceMotion)
             {
                 Motion.Stop(tween, WeatherTween.ValueProperty, value ?? 0);
                 paint(value);
             }
             initialized = true;
             target = value;
-            if (IsVisible) _homeFaceLastSeen[key] = value;
+            if (showing) _homeFaceLastSeen[key] = value;
         };
     }
 
+    private Point HomeCenter(FrameworkElement source) =>
+        source.TranslatePoint(new Point(source.ActualWidth / 2, source.ActualHeight / 2), _homeLightLayer);
+
     private Ellipse AddHomeLight(Color color, double strength) => AddHomeLight(HomeLightBrush(color, strength));
 
-    private Ellipse AddHomeLight(Brush brush) => new() { Fill = brush, Opacity = 0 };
+    private static Ellipse AddHomeLight(Brush brush) => new() { Fill = brush, Opacity = 0 };
 
     private static RadialGradientBrush HomeLightBrush(Color color, double strength)
     {

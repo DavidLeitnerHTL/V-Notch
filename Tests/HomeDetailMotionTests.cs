@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
@@ -30,7 +29,7 @@ public sealed class HomeDetailMotionTests
         await TestWait.UntilStableAsync(() => !Motion.IsRunning(watts, WeatherTween.ValueProperty), "latest wattage settles", cancellationToken: ct);
         Assert.Equal(90, watts.Value);
         Assert.Contains("90 W", scene.Plug.Text);
-        Assert.Matches("1[.,]20", scene.Plug.Text);
+        Assert.Matches("1[.,]20 kWh", scene.Energy.Text);
         Assert.Contains("46°", scene.Pi.Text);
     });
 
@@ -46,6 +45,7 @@ public sealed class HomeDetailMotionTests
         scene.Update(80, 1.1, 42);
         await WpfFrameWaiter.UntilAsync(() => scene.Watts.Value < 210, "wattage roll starts", ct);
         scene.Root.Visibility = Visibility.Collapsed;
+        Assert.False(scene.Watts.HasAnimatedProperties);
         scene.Update(120, 1.4, 51);
         Assert.Contains("120 W", scene.Plug.Text);
         Assert.Contains("51°", scene.Pi.Text);
@@ -58,7 +58,7 @@ public sealed class HomeDetailMotionTests
         private readonly string _language = Loc.CurrentLanguage;
         private readonly CultureInfo _culture = CultureInfo.CurrentCulture;
         private readonly bool? _clientAnimations = AnimationConfig.ClientAreaAnimationOverride;
-        private readonly object _plugReadout, _piReadout;
+        private readonly PiDashboardClient _client = new(() => "http://127.0.0.1:1");
         private readonly DetailMotionFrames _frames;
         private readonly ControlCenterView _view = new() { Page = ControlCenterPage.Pi };
         private readonly BackgroundWindow _window;
@@ -66,44 +66,57 @@ public sealed class HomeDetailMotionTests
         private readonly HomePi _computer = new(55, 7200, []);
         internal Border Root { get; }
         internal TextBlock Plug { get; }
+        internal TextBlock Energy { get; }
         internal TextBlock Pi { get; }
-        internal WeatherTween Watts => (WeatherTween)Field(Field(_plugReadout, "_wattsRoll"), "_tween");
+        internal WeatherTween Watts { get; }
 
         internal Scene()
         {
             Loc.SetLanguage("en");
             CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
             AnimationConfig.ClientAreaAnimationOverride = true;
-            AnimationConfig.SetReduceMotion(false);
+            AnimationConfig.SetReduceMotion(true);
             var home = new PiHome([], [], null, [], [_socket], [], _computer);
-            Invoke(_view, "BuildPlugs", home);
-            Invoke(_view, "BuildPiLine", home);
-            _plugReadout = ((IDictionary)Field(_view, "_plugReadouts"))[_socket.Id]!;
-            _piReadout = Field(_view, "_piReadout");
-            Plug = ((Dictionary<string, TextBlock>)Field(_view, "_plugStatus"))[_socket.Id];
-            Pi = (TextBlock)Field(_view, "_piLine");
-            var body = new StackPanel { Children = { (StackPanel)Field(_view, "_homePlugSection"), (StackPanel)Field(_view, "_homePiSection") } };
-            Root = new Border { Width = 320, Height = 160, Background = Brushes.Black, Child = body };
-            _window = new BackgroundWindow { Content = Root, Width = 320, Height = 160, Left = -20000, Top = -20000 };
+            SetField(_view, "_piRefreshing", true);
+            SetField(_view, "_home", home);
+            _view.AttachPi(_client, () => false, () => false, () => "", () => "");
+            Root = new Border { Background = Brushes.Black, Child = _view };
+            _window = new BackgroundWindow { Content = Root, Width = 568, Height = 420, Left = -20000, Top = -20000 };
             _window.Show();
+            _view.SetDrawerOpen(true);
             Root.UpdateLayout();
             _frames = new DetailMotionFrames(Root);
+
+            var plugs = (StackPanel)Field(_view, "_homePlugSection");
+            Plug = Descendants<TextBlock>(plugs).Single(label => label.Text == "140 W");
+            Energy = Descendants<TextBlock>(plugs).Single(label => label.Text == "1.50 kWh");
+            Pi = Descendants<TextBlock>((StackPanel)Field(_view, "_homePiSection")).Single();
+            // Inspect the actual wattage clock to check continuity below the label's rounding precision.
+            var updates = (List<Action<PiHome>>)Field(_view, "_homeDrawerUpdates");
+            var updatePlug = updates.Single(update => update.Target!.GetType().GetField("showWatts") != null);
+            var showWatts = (Action<double?>)Field(updatePlug.Target!, "showWatts");
+            Watts = (WeatherTween)Field(showWatts.Target!, "tween");
+            AnimationConfig.SetReduceMotion(false);
         }
 
         internal void Update(double watts, double energy, double temperature)
         {
-            InvokeReadout(_plugReadout, _socket with { Watts = watts, TodayKwh = energy });
-            InvokeReadout(_piReadout, _computer with { Temp = temperature, UptimeSeconds = 7260 });
+            var home = (PiHome)Field(_view, "_home");
+            home = home with
+            {
+                Plugs = [_socket with { Watts = watts, TodayKwh = energy }],
+                Pi = _computer with { Temp = temperature, UptimeSeconds = 7260 }
+            };
+            SetField(_view, "_home", home);
+            Invoke(_view, "UpdateHome", home);
         }
-
-        private static void InvokeReadout(object target, object value) =>
-            target.GetType().GetMethod("Show")!.Invoke(target, [value]);
 
         public void Dispose()
         {
             _frames.Dispose();
             _window.Close();
             _view.Dispose();
+            _client.Dispose();
             Loc.SetLanguage(_language);
             CultureInfo.CurrentCulture = _culture;
             AnimationConfig.ClientAreaAnimationOverride = _clientAnimations;
