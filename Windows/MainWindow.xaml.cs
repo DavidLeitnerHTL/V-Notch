@@ -226,8 +226,10 @@ public partial class MainWindow : Window
         SystemMonitorModule systemMonitorModule,
         ISpotlightController spotlightController,
         VNotch.Controllers.NotchTransitionCoordinator? transitionCoordinator = null,
-        VNotch.Services.Clipboard.ClipboardHistoryStore? clipboardHistoryStore = null)
+        VNotch.Services.Clipboard.ClipboardHistoryStore? clipboardHistoryStore = null,
+        string? scriptJobsDirectory = null)
     {
+        _scriptJobsDirectory = scriptJobsDirectory;
         InitializeComponent();
         InitializeTransparency(settingsService);
         SettingsButton.AddHandler(Mouse.PreviewMouseDownEvent, new MouseButtonEventHandler((sender, e) =>
@@ -479,7 +481,7 @@ public partial class MainWindow : Window
         _hoverThumbnailDelayTimer.Tick += (s, e) =>
         {
             _hoverThumbnailDelayTimer.Stop();
-            if (_isGestureActive || IsCodexJobPillShown || _askSheet != null) return;
+            if (_isGestureActive || IsJobPillShown || _askSheet != null) return;
 
             if (IsScreenCaptureActive) return;
             if (IsCountdownCompletionVisualActive || _isVolumeIndicatorActive) return;
@@ -1219,6 +1221,7 @@ public partial class MainWindow : Window
         if (ScreenCaptureActivityProbe == null) _screenCaptureActivity.IsActive(hwnd);
 
         UpdateFullscreenAutoHideState(hwnd, force: true);
+        QueueScriptJobPill();
         if (_askSheet != null && FullscreenDetector.IsForegroundWindowFullscreen(hwnd, _hwnd)) HideAskSheet();
         ScheduleFullscreenRecheck();
 
@@ -1958,7 +1961,7 @@ public partial class MainWindow : Window
 
     private void QueueHoverExpand()
     {
-        if (_isGestureActive || IsCodexJobPillShown || _askSheet != null) return;
+        if (_isGestureActive || IsJobPillShown || _askSheet != null) return;
         if (IsScreenCaptureActive) return;
         if (IsCountdownCompletionVisualActive || IsAppNotificationBannerActive) return;
 

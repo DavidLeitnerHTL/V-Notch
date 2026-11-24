@@ -1340,5 +1340,12 @@
   "settings.autoDismissNotify.hint": "Schließt das Benachrichtigungsbanner nach Ablauf der Zeit automatisch.",
   "settings.notificationDuration": "Anzeigedauer der Benachrichtigung",
   "settings.notificationDuration.hint": "Wie lange jede Benachrichtigung in der Notch sichtbar bleibt.",
-  "tooltip.autoDismissNotify": "Benachrichtigungen nach der festgelegten Zeit automatisch ausblenden."
+  "tooltip.autoDismissNotify": "Benachrichtigungen nach der festgelegten Zeit automatisch ausblenden.",
+  "settings.showScriptJobsInNotch": "Skriptjobs in der Notch anzeigen",
+  "scriptJobs.done": "{0} abgeschlossen",
+  "scriptJobs.warning": "{0} abgeschlossen",
+  "scriptJobs.failed": "{0} fehlgeschlagen",
+  "scriptJobs.stopped": "Gestoppt",
+  "scriptJobs.percent": "{0:0} %",
+  "scriptJobs.elapsed": "{0} Min."
 }

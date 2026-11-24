@@ -61,6 +61,7 @@ public partial class MainWindow
         NotchWrapper.PreviewMouseRightButtonUp += NotchWrapper_DismissClaudeDone;
         ClaudeCenter.AttachSoundSwitch(() => _settings?.PlayClaudeSounds ?? false, SetClaudeSounds);
         InitializeCodexJobs();
+        InitializeScriptJobs();
 
         _claudeSweepTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = ClaudeSweepInterval };
         _claudeSweepTimer.Tick += (_, _) =>
@@ -89,6 +90,7 @@ public partial class MainWindow
         _claudeNotificationTimer?.Stop();
         _claudeAttentionRetry?.Stop();
         DisposeCodexJobs();
+        DisposeScriptJobs();
         DisposeAppNotifications();
         DisposePi();
         DisposeWeather();
@@ -276,6 +278,11 @@ public partial class MainWindow
     private bool TryHandleNotificationTap()
     {
         if (!_isClaudeNotificationVisible) return false;
+        if (IsScriptJobPillShown)
+        {
+            DismissScriptJobPill(openLog: _scriptJobPill?.State == ScriptJobState.Failed);
+            return true;
+        }
         if (IsCodexJobPillShown)
         {
             _transitionCoordinator.RequestView(NotchView.Claude, "CodexJobPill");
@@ -303,19 +310,21 @@ public partial class MainWindow
         => ShowCompactNotification(title, status, appIcon, isClaude, tap, doneSessionId, glyph, duration, accent);
 
     private bool ShowCompactNotification(string title, string status, ImageSource? appIcon, bool isClaude, Func<bool>? tap,
-        string? doneSessionId, string? glyph, TimeSpan? duration, Brush? accent, string? jobId = null)
+        string? doneSessionId, string? glyph, TimeSpan? duration, Brush? accent, string? jobId = null,
+        ScriptJobStatus? scriptJob = null)
     {
         if (_allowancePill || _cleanedUp || _isGreetingActive || _isAnimating || _isExpanded || _isMusicExpanded || !CanShowClaudeAttention) return false;
         bool replacing = _isClaudeNotificationVisible &&
             (ClaudeNotificationTitle.Text != title || ClaudeNotificationStatus.Text != status ||
              NotificationAppIcon.Source != appIcon || _isClaudePill != isClaude || NotificationBellIcon.Text != (glyph ?? NotificationBellGlyph) ||
-             _codexPillId != jobId);
+             _codexPillId != jobId || _scriptJobPill != scriptJob);
         ResetAskSheet();
         _askSettledTimer?.Stop();
         if (ClaudeNotificationStatus.Foreground == AskAllowBrush || ClaudeNotificationStatus.Foreground == AskDenyBrush)
             ClaudeNotificationStatus.Foreground = DefaultPillStatus;
         if (replacing) KeepCompactDeparture(ClaudeNotification);
         if (jobId == null && IsCodexJobPillShown) ClearCodexPill();
+        _scriptJobPill = scriptJob;
         _isClaudePeek = false;
         _isCopiedPillShown = false;
         _askRequest = null;
@@ -326,7 +335,7 @@ public partial class MainWindow
             ToolTipService.SetIsEnabled(ClaudeNotificationStatus, false);
         }
         ClaudeNotificationTitle.Text = title;
-        ClaudeNotificationTitle.Foreground = jobId != null ? AllowanceWhite : accent ?? UiPalette.PrimaryBrush;
+        ClaudeNotificationTitle.Foreground = jobId != null || scriptJob != null ? AllowanceWhite : accent ?? UiPalette.PrimaryBrush;
         NotificationBellIcon.Foreground = accent ?? UiPalette.PrimaryBrush;
         ClaudeNotificationStatus.Text = status;
         NotificationClaudeIcon.Visibility = isClaude ? Visibility.Visible : Visibility.Collapsed;
@@ -341,6 +350,7 @@ public partial class MainWindow
             if (!TryAcquireCompactSlot(CompactPillSlot.Claude, out int token))
             {
                 if (jobId != null) ClearCodexPill();
+                _scriptJobPill = null;
                 return false;
             }
             _claudeNotificationToken = token;
@@ -353,7 +363,7 @@ public partial class MainWindow
 
         _claudeNotificationTimer ??= CreateClaudeNotificationTimer();
         _claudeNotificationTimer.Stop();
-        if (jobId != null && duration == null) return true;
+        if ((jobId != null || scriptJob != null) && duration == null) return true;
         _claudeNotificationTimer.Interval = duration ?? (isClaude ? ClaudeNotificationDuration : AppNotificationDuration);
         _claudeNotificationTimer.Start();
         return true;
@@ -410,7 +420,7 @@ public partial class MainWindow
         Motion.Stop(ClaudeNotification, OpacityProperty, 1);
         Motion.Stop(ClaudeNotificationTranslate, TranslateTransform.YProperty, 0);
 
-        if (!IsCodexJobPillShown)
+        if (!IsJobPillShown)
         {
             Motion.To(ClaudeNotificationIconScale, ScaleTransform.ScaleXProperty, 1, Motion.TileScale, from: Motion.TileFromScale);
             Motion.To(ClaudeNotificationIconScale, ScaleTransform.ScaleYProperty, 1, Motion.TileScale, from: Motion.TileFromScale);
@@ -423,6 +433,7 @@ public partial class MainWindow
         ResetAskSheet();
         _askSettledTimer?.Stop();
         ClearCodexPill();
+        _scriptJobPill = null;
         int token = _claudeNotificationToken;
         _isClaudePeek = false;
         _isCopiedPillShown = false;
@@ -457,6 +468,7 @@ public partial class MainWindow
         ResetAskSheet();
         _askSettledTimer?.Stop();
         ClearCodexPill();
+        _scriptJobPill = null;
         _claudeNotificationTimer?.Stop();
         _claudeDoneShownId = null;
         _isCopiedPillShown = false;

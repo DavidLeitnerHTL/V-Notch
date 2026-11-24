@@ -244,6 +244,8 @@ public partial class MainWindow
     {
         if (oldSettings == null || oldSettings.ShowCodexJobsInNotch != _settings.ShowCodexJobsInNotch)
             SyncCodexJobs();
+        if (oldSettings == null || oldSettings.ShowScriptJobsInNotch != _settings.ShowScriptJobsInNotch)
+            ApplyScriptJobSetting();
         QuickLookBridge.Shared.SetEnabled(_settings.PreviewFilesWithQuickLook);
         UpdateMicRestGlyph();
         AccentTheme.Apply(_settings.AccentColor);

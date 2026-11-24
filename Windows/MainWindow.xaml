@@ -625,6 +625,21 @@
                                 </Path>
                             </Canvas>
                         </Viewbox>
+                        <Viewbox x:Name="BubbleJobFace" Visibility="Collapsed">
+                            <Canvas Width="100" Height="100">
+                                <Ellipse Width="84" Height="84" Canvas.Left="8" Canvas.Top="8"
+                                         Stroke="#407FA6CC" StrokeThickness="12"/>
+                                <Path x:Name="BubbleJobArc" Stroke="#7FA6CC" StrokeThickness="12"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                <Grid Width="100" Height="100">
+                                    <TextBlock x:Name="BubbleJobGlyph" FontFamily="Segoe MDL2 Assets" FontSize="53"
+                                               Foreground="#E0FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="BubbleJobUploadGlyph" Text="&#xE74A;" FontFamily="Segoe MDL2 Assets"
+                                               FontSize="25" Foreground="#E0FFFFFF" Margin="0,7,0,0"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
+                                </Grid>
+                            </Canvas>
+                        </Viewbox>
                         <!-- Charging: a ring that fills with the battery around a bolt; a light leaves it towards the cable.
                              Fills the whole orb, so its colours are set in MainWindow.ChargeOrb. -->
                         <Viewbox x:Name="BubbleChargeFace" Visibility="Collapsed">
