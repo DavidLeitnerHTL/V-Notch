@@ -157,7 +157,8 @@ public partial class MainWindow
     /// </summary>
     private void HideBubbleForSpotlight()
     {
-        if (!_bubbleShown) return;
+        // Also when it is already sliding back in on its own: that slide would still show for a moment.
+        if (!_bubbleShown && ActivityBubble.Visibility != Visibility.Visible) return;
         _bubbleShown = false;
         RetractBubble(instant: true);
         ChargeCable.Visibility = Visibility.Collapsed;
