@@ -89,7 +89,9 @@ public partial class ControlCenterView
 
     #region Building
 
-    private void BuildClaudeSection()
+    private void BuildClaudeSection() => UpdateClaudeSection(entering: false);
+
+    private void UpdateClaudeSection(bool entering)
     {
         _accent = _mood;
         if (_disposed || _claude == null || (!IsVisible && _claudeWasShown)) return;
@@ -158,7 +160,8 @@ public partial class ControlCenterView
             else _heroSessionId = null;
 
             bool animateRows = _claudeWasShown && IsVisible && !AnimationConfig.ReduceMotion;
-            if (!animateRows) leaving.Clear();
+            // Rows removed while the tab was away are already offscreen.
+            if (!animateRows || entering) leaving.Clear();
             bool exitingChips = _claudeSessionExits.Concat(leaving).Any(exit => exit.Chip);
             var chips = order.Count > 1 || _codexSessions.Count > 0 || exitingChips ? Chips(order) : null;
             if (chips != null) _claudeSection.Children.Add(chips);

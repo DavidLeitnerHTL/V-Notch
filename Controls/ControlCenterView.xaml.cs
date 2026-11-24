@@ -269,7 +269,8 @@ public partial class ControlCenterView : UserControl, IDisposable
                 if (IsExpanded("displays")) BuildDisplaysSection();
                 if (_compactSystemReady) RefreshCompactDisplays();
             }
-            Refresh();
+            if (Page == ControlCenterPage.Claude) UpdateClaudeSection(entering: true);
+            else Refresh();
             StartLiveTexts();
             if (Page == ControlCenterPage.Claude)
             {
