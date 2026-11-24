@@ -479,7 +479,7 @@ public partial class MainWindow : Window
         _hoverThumbnailDelayTimer.Tick += (s, e) =>
         {
             _hoverThumbnailDelayTimer.Stop();
-            if (_isGestureActive || IsCodexJobPillShown) return;
+            if (_isGestureActive || IsCodexJobPillShown || _askSheet != null) return;
 
             if (IsScreenCaptureActive) return;
             if (IsCountdownCompletionVisualActive || _isVolumeIndicatorActive) return;
@@ -1041,6 +1041,7 @@ public partial class MainWindow : Window
         if (NotchContainer == null) return;
 
         bool shouldBeVisible = IsEffectivelyNotchVisible;
+        if (!shouldBeVisible) HideAskSheet();
         _transitionCoordinator.SetEffectivelyVisible(shouldBeVisible, "ApplyNotchVisibilityState");
 
         if (shouldBeVisible == _fullscreenSlideVisible && !_isFullscreenSlideAnimating) return;
@@ -1218,6 +1219,7 @@ public partial class MainWindow : Window
         if (ScreenCaptureActivityProbe == null) _screenCaptureActivity.IsActive(hwnd);
 
         UpdateFullscreenAutoHideState(hwnd, force: true);
+        if (_askSheet != null && FullscreenDetector.IsForegroundWindowFullscreen(hwnd, _hwnd)) HideAskSheet();
         ScheduleFullscreenRecheck();
 
         if (!IsEffectivelyNotchVisible) return;
@@ -1875,6 +1877,11 @@ public partial class MainWindow : Window
     {
         if (_isDebugViewLocked) return;
         if (IsCountdownCompletionVisualActive || IsAppNotificationBannerActive) return;
+        if (_askSheet != null)
+        {
+            FoldAskSheet(() => ToggleNotchFromClick(clickCount));
+            return;
+        }
         if (_isExpanded)
         {
             if (_isSecondaryView)
@@ -1951,7 +1958,7 @@ public partial class MainWindow : Window
 
     private void QueueHoverExpand()
     {
-        if (_isGestureActive || IsCodexJobPillShown) return;
+        if (_isGestureActive || IsCodexJobPillShown || _askSheet != null) return;
         if (IsScreenCaptureActive) return;
         if (IsCountdownCompletionVisualActive || IsAppNotificationBannerActive) return;
 

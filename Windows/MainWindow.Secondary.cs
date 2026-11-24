@@ -82,6 +82,12 @@ public partial class MainWindow
     }
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (e.Key == Key.Escape && _askSheetOpen)
+        {
+            FoldAskSheet();
+            e.Handled = true;
+            return;
+        }
         if (e.Key == Key.Escape && (SchoolCenter?.CloseSchoolPreview() == true || ActiveDrawer?.DismissDrawer() == true))
         {
             e.Handled = true;

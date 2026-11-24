@@ -67,7 +67,7 @@ public partial class ControlCenterView : UserControl, IDisposable
     private readonly List<(TextBlock Label, DateTime StartedUtc)> _elapsedLabels = new();
     private readonly List<WifiNetwork> _wifiScratch = new();
     // Picks on a question card, by request id, kept while other sessions redraw the list.
-    private readonly Dictionary<string, Dictionary<string, List<string>>> _questionPicks = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, ClaudeQuestionAnswers> _questionPicks = new(StringComparer.Ordinal);
     // Session and request cards on the page, so only new ones animate in on a rebuild.
     // The session a message is being typed for, and what is typed so far (kept across rebuilds).
     private string? _composingSessionId;
@@ -1888,7 +1888,7 @@ public partial class ControlCenterView : UserControl, IDisposable
     private FrameworkElement QuestionCard(ClaudePermissionRequest request, IReadOnlyList<ClaudeQuestion> questions)
     {
         if (!_questionPicks.TryGetValue(request.Id, out var picks))
-            _questionPicks[request.Id] = picks = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+            _questionPicks[request.Id] = picks = new ClaudeQuestionAnswers(questions);
         // A single single-choice question goes out on the first tap; anything else waits for Send.
         bool sendOnPick = questions.Count == 1 && !questions[0].MultiSelect;
 
@@ -1914,12 +1914,11 @@ public partial class ControlCenterView : UserControl, IDisposable
                 Margin = new Thickness(0, question.Header.Length > 0 || i == 0 ? 0 : 10, 0, 8)
             });
 
-            picks.TryGetValue(question.Text, out var chosen);
             var options = new WrapPanel();
             foreach (var option in question.Options)
             {
                 string label = option.Label;
-                var button = TextButton(label, accent: chosen?.Contains(label) == true,
+                var button = TextButton(label, accent: picks.IsPicked(question, label),
                     () => Pick(request, question, label, sendOnPick));
                 button.HorizontalAlignment = HorizontalAlignment.Left;
                 button.Margin = new Thickness(0, 0, 6, 6);
@@ -1931,9 +1930,9 @@ public partial class ControlCenterView : UserControl, IDisposable
 
         if (!sendOnPick)
         {
-            var send = TextButton(Loc.Get("control.claude.submit"), accent: AllAnswered(questions, picks), () =>
+            var send = TextButton(Loc.Get("control.claude.submit"), accent: picks.AllAnswered, () =>
             {
-                if (AllAnswered(questions, picks)) SendAnswers(request, questions);
+                if (picks.AllAnswered) SendAnswers(request);
             });
             send.Margin = new Thickness(0, 4, 0, 0);
             stack.Children.Add(send);
@@ -1946,40 +1945,21 @@ public partial class ControlCenterView : UserControl, IDisposable
     private void Pick(ClaudePermissionRequest request, ClaudeQuestion question, string label, bool sendNow)
     {
         if (!_questionPicks.TryGetValue(request.Id, out var picks)) return;
-        if (!picks.TryGetValue(question.Text, out var chosen)) picks[question.Text] = chosen = new List<string>();
-        if (!question.MultiSelect) chosen.Clear();
-        if (!chosen.Remove(label)) chosen.Add(label);
+        picks.Pick(question, label);
 
         if (sendNow)
         {
-            SendAnswers(request, request.Questions!);
+            SendAnswers(request);
             return;
         }
         _claudeKey = "";
         BuildClaudeSection();
     }
 
-    private void SendAnswers(ClaudePermissionRequest request, IReadOnlyList<ClaudeQuestion> questions)
+    private void SendAnswers(ClaudePermissionRequest request)
     {
         if (!_questionPicks.Remove(request.Id, out var picks)) return;
-        var answers = new Dictionary<string, string>(questions.Count, StringComparer.Ordinal);
-        foreach (var question in questions)
-        {
-            if (!picks.TryGetValue(question.Text, out var chosen) || chosen.Count == 0) continue;
-            // Several labels go back in the order Claude listed them.
-            var labels = new List<string>(chosen.Count);
-            foreach (var option in question.Options)
-                if (chosen.Contains(option.Label)) labels.Add(option.Label);
-            answers[question.Text] = string.Join(", ", labels);
-        }
-        Settle(request.Id, () => _claude?.Answer(request.Id, answers));
-    }
-
-    private static bool AllAnswered(IReadOnlyList<ClaudeQuestion> questions, Dictionary<string, List<string>> picks)
-    {
-        foreach (var question in questions)
-            if (!picks.TryGetValue(question.Text, out var chosen) || chosen.Count == 0) return false;
-        return true;
+        Settle(request.Id, () => picks.TrySubmit(answers => _claude?.Answer(request.Id, answers) == true));
     }
 
     private void ForgetAnsweredQuestions(List<ClaudePermissionRequest> pending)
