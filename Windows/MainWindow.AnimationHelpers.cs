@@ -22,7 +22,7 @@ public partial class MainWindow
 
     private void AnimateNotchHover(bool isHovered)
     {
-        if (_shellDragActive) return;
+        if (_shellDragActive || _askSheet != null) return;
         if (_isExpanded || _isAnimating || _isGreetingActive || _isVolumeIndicatorActive || _spotlightMorphSessionActive || _spotlightMorphOwnsNotchVisibility) return;
 
         if (!isHovered && _isGestureActive) return;

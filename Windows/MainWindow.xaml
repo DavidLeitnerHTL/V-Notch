@@ -27,6 +27,14 @@
     <!-- Grayscale filtering softens glyph edges on transparent surfaces. -->
     <Window.Resources>
 
+        <ControlTemplate x:Key="AskChipTemplate" TargetType="Button">
+            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="1" CornerRadius="14" Padding="11,0"
+                    TextElement.Foreground="{TemplateBinding Foreground}">
+                <ContentPresenter VerticalAlignment="Center"/>
+            </Border>
+        </ControlTemplate>
+
         <!-- A microphone struck through (24×24, drawn as strokes). -->
         <StreamGeometry x:Key="MicMutedGeometry" po:Freeze="True">M12,3 A3,3 0 0 0 9,6 V11 A3,3 0 0 0 15,11 V6 A3,3 0 0 0 12,3 Z M6,11 A6,6 0 0 0 18,11 M12,17 V21 M8.5,21 H15.5 M4,4 L20,20</StreamGeometry>
 
