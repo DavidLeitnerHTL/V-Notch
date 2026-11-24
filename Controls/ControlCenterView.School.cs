@@ -366,9 +366,14 @@ public partial class ControlCenterView
 
     private Grid SchoolListRow(string subject, string title, string when, Color color, Action open, StackPanel actions)
     {
-        var mark = new StackPanel { Orientation = Orientation.Horizontal, Children =
+        // Moodle can send a full course name instead of a code; it must end before the title column.
+        var course = SchoolText(subject, 12, Frozen("#CDCDCF"));
+        course.TextTrimming = TextTrimming.CharacterEllipsis;
+        course.MaxWidth = 46;
+        course.ToolTip = subject;
+        var mark = new StackPanel { Orientation = Orientation.Horizontal, ClipToBounds = true, Children =
         {
-            SchoolDot(color, 6), SchoolText(subject, 12, Frozen("#CDCDCF"))
+            SchoolDot(color, 6), course
         } };
         var text = SchoolText(title, 15, CompactInk, FontWeight.FromOpenTypeWeight(530));
         var info = new StackPanel { Orientation = Orientation.Horizontal, Children = { SchoolText(when, 13), SchoolIcon("right", 15) } };
