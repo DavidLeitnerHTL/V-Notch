@@ -231,6 +231,7 @@ public partial class ControlCenterView : UserControl, IDisposable
         StopCodexClock();
         DisposeCodexAccounts();
         StopClaudeFaceMotion();
+        StopClaudeDetailsMotion();
         HideAccountNotice();
         StopResetFeedback();
         SetGpuSampling(false);
@@ -273,8 +274,7 @@ public partial class ControlCenterView : UserControl, IDisposable
             if (Page == ControlCenterPage.Claude)
             {
                 RefreshUsage(UsageViewMinAge);
-                _clockTimer.Start();
-                StartTokenClock();
+                RefreshTokens();
                 StartCodexClock();
                 if (_resetStates.Count > 0) StartResetFeedback();
             }
@@ -302,7 +302,8 @@ public partial class ControlCenterView : UserControl, IDisposable
             StopTokenClock();
             StopCodexClock();
             StopResetFeedback();
-            StopClaudeFaceMotion();
+            StopClaudeFaceMotion(rememberValues: true);
+            StopClaudeDetailsMotion();
             HideAccountNotice();
             if (_accountsOpen) SetAccountsOpen(false, animate: false);
             SetGpuSampling(false);
@@ -1650,19 +1651,17 @@ public partial class ControlCenterView : UserControl, IDisposable
             done: () => Motion.To(shift, TranslateTransform.XProperty, 0, Motion.Press));
     }
 
-    private static Border RequestCard()
+    private static Border RequestCard(Border? card = null)
     {
-        var card = new Border
-        {
-            Background = ComboBg,
-            BorderBrush = ComboBorder,
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(10),
-            Padding = new Thickness(12, 9, 10, 9),
-            Margin = new Thickness(0, 0, 0, 6),
-            // Inside a session card, whose hand says "opens the terminal".
-            Cursor = Cursors.Arrow
-        };
+        card ??= new Border();
+        card.Background = ComboBg;
+        card.BorderBrush = ComboBorder;
+        card.BorderThickness = new Thickness(1);
+        card.CornerRadius = new CornerRadius(10);
+        card.Padding = new Thickness(12, 9, 10, 9);
+        card.Margin = new Thickness(0, 0, 0, 6);
+        // Inside a session card, whose hand says "opens the terminal".
+        card.Cursor = Cursors.Arrow;
         // A tap next to the buttons while reading must neither open the session nor close the notch.
         card.MouseLeftButtonDown += (_, e) => e.Handled = true;
         return card;
@@ -1670,7 +1669,8 @@ public partial class ControlCenterView : UserControl, IDisposable
 
     private FrameworkElement PermissionCard(ClaudePermissionRequest request)
     {
-        var card = RequestCard();
+        var card = new PermissionSwipeCard(this, request.Id);
+        RequestCard(card);
         var grid = new Grid();
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -1729,10 +1729,10 @@ public partial class ControlCenterView : UserControl, IDisposable
         // Big buttons under the request, the answer you most likely want first.
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 1) };
         string id = request.Id;
-        var allow = TextButton(Loc.Get("control.claude.allow"), accent: true, () => Settle(id, () => _claude?.Decide(id, ClaudeDecision.Allow)));
-        var always = TextButton(Loc.Get("control.claude.always"), accent: false, () => Settle(id, () => _claude?.Decide(id, ClaudeDecision.Always)));
+        var allow = TextButton(Loc.Get("control.claude.allow"), accent: true, () => Settle(id, () => _claude?.Decide(id, ClaudeDecision.Allow) == true));
+        var always = TextButton(Loc.Get("control.claude.always"), accent: false, () => Settle(id, () => _claude?.Decide(id, ClaudeDecision.Always) == true));
         if (request.AlwaysLabel is { Length: > 0 } rule) always.ToolTip = rule;
-        var deny = TextButton(Loc.Get("control.claude.deny"), accent: false, () => Settle(id, () => _claude?.Decide(id, ClaudeDecision.Deny)));
+        var deny = TextButton(Loc.Get("control.claude.deny"), accent: false, () => Settle(id, () => _claude?.Decide(id, ClaudeDecision.Deny) == true));
         foreach (var button in new[] { allow, always, deny })
         {
             button.Height = 30;
@@ -1744,7 +1744,7 @@ public partial class ControlCenterView : UserControl, IDisposable
         Grid.SetColumnSpan(buttons, 2);
         grid.Children.Add(buttons);
 
-        card.Child = grid;
+        card.SetContent(grid);
         return card;
     }
 
@@ -1860,12 +1860,12 @@ public partial class ControlCenterView : UserControl, IDisposable
 
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
         string id = request.Id;
-        var keepPlanning = TextButton(Loc.Get("control.claude.keepPlanning"), accent: false, () => Settle(id, () => _claude?.Decide(id, ClaudeDecision.Deny)));
+        var keepPlanning = TextButton(Loc.Get("control.claude.keepPlanning"), accent: false, () => Settle(id, () => _claude?.Decide(id, ClaudeDecision.Deny) == true));
         buttons.Children.Add(keepPlanning);
         // Claude Code offers "auto-accept edits" as the mode to switch to; the Always answer applies it.
         if (request.AlwaysLabel?.Contains("acceptEdits", StringComparison.OrdinalIgnoreCase) == true)
-            buttons.Children.Add(TextButton(Loc.Get("control.claude.autoEdits"), accent: false, () => Settle(id, () => _claude?.Decide(id, ClaudeDecision.Always))));
-        var approve = TextButton(Loc.Get("control.claude.approvePlan"), accent: true, () => Settle(id, () => _claude?.Decide(id, ClaudeDecision.Allow)));
+            buttons.Children.Add(TextButton(Loc.Get("control.claude.autoEdits"), accent: false, () => Settle(id, () => _claude?.Decide(id, ClaudeDecision.Always) == true)));
+        var approve = TextButton(Loc.Get("control.claude.approvePlan"), accent: true, () => Settle(id, () => _claude?.Decide(id, ClaudeDecision.Allow) == true));
         approve.Margin = new Thickness(0);
         buttons.Children.Add(approve);
         stack.Children.Add(buttons);
@@ -1983,8 +1983,20 @@ public partial class ControlCenterView : UserControl, IDisposable
     private void UpdateElapsedLabels()
     {
         DateTime now = DateTime.UtcNow;
-        foreach (var (label, started) in _elapsedLabels) label.Text = FormatElapsed(now - started);
+        foreach (var (label, started) in _elapsedLabels) SetRollingDetailText(label, FormatElapsed(now - started));
         UpdateAccountElapsed();
+    }
+
+    private void UpdateClaudeClock()
+    {
+        if (!IsVisible) return;
+        if (_elapsedLabels.Count > 0 || (!_accountsOpen && _accountTurnStarted.HasValue) ||
+            (_accountsOpen && _runningCodexJobs.Count > 0))
+        {
+            UpdateElapsedLabels();
+            if (!_clockTimer.IsEnabled) _clockTimer.Start();
+        }
+        else _clockTimer.Stop();
     }
 
     internal static string FormatElapsed(TimeSpan span)
