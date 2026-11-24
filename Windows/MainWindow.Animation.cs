@@ -1475,7 +1475,7 @@ public partial class MainWindow
     private VNotch.Models.NotchView DetermineTargetExpandedView()
     {
         // Tapping a Claude alert, or the closed notch while Claude works, opens what it is about.
-        if (_isClaudeNotificationVisible && _isClaudePill) return VNotch.Models.NotchView.Claude;
+        if (_isClaudeNotificationVisible && (_isClaudePill || IsCodexJobPillShown)) return VNotch.Models.NotchView.Claude;
         if (_claudeLiveSession != null && ClaudeLive.IsVisible) return VNotch.Models.NotchView.Claude;
 
         if (_settings.ReopenLastViewOnExpand)
