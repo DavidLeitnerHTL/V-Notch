@@ -243,6 +243,7 @@ public partial class MainWindow
 
     private void ApplySettings(NotchSettings? oldSettings, bool animatePulse = false)
     {
+        QuickLookBridge.Shared.SetEnabled(_settings.PreviewFilesWithQuickLook);
         UpdateMicRestGlyph();
         AccentTheme.Apply(_settings.AccentColor);
         InteractionSounds.Configure(_settings.EnableInteractionSounds, _settings.InteractionSoundVolume);

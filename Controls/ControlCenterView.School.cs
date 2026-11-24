@@ -211,11 +211,15 @@ public partial class ControlCenterView
         body.Children.Add(new Border { BorderBrush = SchoolRim, BorderThickness = new Thickness(0, 0, 0, 1),
             Padding = new Thickness(0, 0, 0, 10), Margin = new Thickness(0, 0, 0, 12), Child = header });
 
+        var selectedTask = _schoolTab == SchoolDrawerTab.Work
+            ? deadlines.FirstOrDefault(d => AssignmentKey(d) == _schoolSelectedTask) : null;
+        if (selectedTask == null) ForgetPiAttachmentRows();
+
         if (_schoolTab == SchoolDrawerTab.Day) BuildSchoolDay(body, now);
         else if (_schoolTab == SchoolDrawerTab.Tests && exams.FirstOrDefault(e => ExamKey(e) == _schoolSelectedExam) is { } exam)
             BuildStudyPanel(body, exam);
-        else if (_schoolTab == SchoolDrawerTab.Work && deadlines.FirstOrDefault(d => AssignmentKey(d) == _schoolSelectedTask) is { } task)
-            BuildTaskPanel(body, task);
+        else if (selectedTask != null)
+            BuildTaskPanel(body, selectedTask);
         else
         {
             if (_schoolTab == SchoolDrawerTab.Work)
