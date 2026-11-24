@@ -10,7 +10,8 @@ internal enum LiveActivity
     Claude,
     Countdown,
     Download,
-    Charging
+    Charging,
+    Job
 }
 
 /// <summary>
@@ -26,7 +27,7 @@ internal static class LiveActivities
     /// <param name="charging">The laptop is charging: it only ever takes a free orb (plugging in and out push in
     /// front for a moment, see MainWindow.ChargeOrb).</param>
     public static (LiveActivity Main, LiveActivity Bubble) Arrange(bool music, ClaudeSessionStatus? claude, bool countdown, bool moreClaude = false,
-        bool download = false, bool charging = false)
+        bool download = false, bool charging = false, bool job = false)
     {
         // Highest first.
         var ranked = new LiveActivity[4];
@@ -53,6 +54,7 @@ internal static class LiveActivities
         }
         if (bubble == LiveActivity.None && main == LiveActivity.Claude && moreClaude) bubble = LiveActivity.Claude;
         if (bubble == LiveActivity.None && charging) bubble = LiveActivity.Charging;
+        if (bubble == LiveActivity.None && job) bubble = LiveActivity.Job;
         return (main, bubble);
     }
 }

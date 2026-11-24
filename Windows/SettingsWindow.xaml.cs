@@ -308,6 +308,7 @@ public partial class SettingsWindow : Window
 
         HoverExpandCheck.IsChecked = _settings.EnableHoverExpand;
         ShowCodexJobsInNotchCheck.IsChecked = _settings.ShowCodexJobsInNotch;
+        ShowScriptJobsInNotchCheck.IsChecked = _settings.ShowScriptJobsInNotch;
         HoverDelaySlider.Value = _settings.HoverExpandDelay;
         HoverDelaySlider.IsEnabled = _settings.EnableHoverExpand;
         HoverDelaySlider.Opacity = _settings.EnableHoverExpand ? 1.0 : 0.4;
@@ -1220,6 +1221,7 @@ public partial class SettingsWindow : Window
 
     private void ApplySupplementalLocalization()
     {
+        ShowScriptJobsInNotchCheck.Content = Loc.Get("settings.showScriptJobsInNotch");
         Language = System.Windows.Markup.XmlLanguage.GetLanguage(Loc.GetCulture().IetfLanguageTag);
         Title = Loc.Get("settings.windowTitle");
         ApplyTooltips();

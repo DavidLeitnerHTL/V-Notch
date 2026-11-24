@@ -58,7 +58,7 @@ public partial class MainWindow
         bool music = MediaDisplayController.ShouldBeCompactMode(info);
         var live = _claudeLiveSessions;
         var (main, bubble) = LiveActivities.Arrange(music, _claudeLiveSession?.Status, IsCountdownLive, moreClaude: live.Count > 1,
-            download: _downloads.Count > 0, charging: WantsChargingOrb);
+            download: _downloads.Count > 0, charging: WantsChargingOrb, job: RunningScriptJob != null);
         // Plugging in or out (or a full battery) pushes in front of whatever has the orb, for a moment.
         if (_chargeMoment != ChargeMoment.None) bubble = LiveActivity.Charging;
         _mainActivity = main;
@@ -87,6 +87,7 @@ public partial class MainWindow
     private void UpdateActivityBubble()
     {
         HookActivityBubble();
+        QueueScriptJobPill();
         bool surface = MusicCompactContent.IsVisible || CollapsedContent.IsVisible;
         LiveActivity want = !_cleanedUp && surface && !_isExpanded && !_isMusicExpanded && !_isAnimating
                 && !_spotlightMorphOwnsNotchVisibility
@@ -124,7 +125,12 @@ public partial class MainWindow
     {
         if (_bubbleHooked) return;
         _bubbleHooked = true;
-        ActivityBubble.IsVisibleChanged += (_, _) => { ApplyBubbleMusicSpin(); RefreshChargePulse(); };
+        ActivityBubble.IsVisibleChanged += (_, _) =>
+        {
+            ApplyBubbleMusicSpin();
+            RefreshChargePulse();
+            UpdateScriptJobDetailClock();
+        };
         MusicCompactContent.IsVisibleChanged += (_, _) => UpdateActivityBubble();
         CollapsedContent.IsVisibleChanged += (_, _) => UpdateActivityBubble();
         NotchBorder.SizeChanged += (_, _) => PositionBubble();
@@ -189,7 +195,7 @@ public partial class MainWindow
     private double FaceSize(LiveActivity activity, bool open) => activity switch
     {
         LiveActivity.Music => open ? 30 : 24,
-        LiveActivity.Countdown or LiveActivity.Download => open ? 26 : 21,
+        LiveActivity.Countdown or LiveActivity.Download or LiveActivity.Job => open ? 26 : 21,
         // The charging ring fills the whole orb.
         LiveActivity.Charging => open ? BubbleOpenHeight : BubbleSize,
         _ => open ? 19 : 16
@@ -210,6 +216,7 @@ public partial class MainWindow
         BubbleMusicFace.Visibility = activity == LiveActivity.Music ? Visibility.Visible : Visibility.Collapsed;
         BubbleTimerFace.Visibility = activity == LiveActivity.Countdown ? Visibility.Visible : Visibility.Collapsed;
         BubbleDownloadFace.Visibility = activity == LiveActivity.Download ? Visibility.Visible : Visibility.Collapsed;
+        BubbleJobFace.Visibility = activity == LiveActivity.Job ? Visibility.Visible : Visibility.Collapsed;
         BubbleChargeFace.Visibility = activity == LiveActivity.Charging ? Visibility.Visible : Visibility.Collapsed;
         if (activity == LiveActivity.Charging)
         {
@@ -256,6 +263,9 @@ public partial class MainWindow
                 (title, subtitle, trailing) = DownloadWords(_downloads);
                 ShowDownloadProgress(_downloads[0].Percent);
                 break;
+            case LiveActivity.Job when RunningScriptJob is { } job:
+                (title, subtitle, trailing) = ScriptJobWords(job);
+                break;
             case LiveActivity.Charging when _chargeBattery is { } battery:
                 (title, subtitle, trailing) = ChargeWords(battery);
                 break;
@@ -264,7 +274,9 @@ public partial class MainWindow
         SetBubbleWords(BubbleSubtitle, subtitle);
         BubbleSubtitle.Foreground = subtitleBrush;
         BubbleSubtitle.Visibility = subtitle.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        BubbleTrailing.TextAlignment = _bubbleActivity == LiveActivity.Job ? TextAlignment.Right : TextAlignment.Left;
         SetBubbleWords(BubbleTrailing, trailing);
+        UpdateScriptJobDetailClock();
         UpdateBubbleClaudeCount();
         if (_bubbleListMode) UpdateBubbleList(animate: false);
         ApplyBubbleMusicSpin();
@@ -361,6 +373,7 @@ public partial class MainWindow
         if (ActivityBubble.Visibility != Visibility.Visible) return;
         if (_bubbleOpen && !_bubbleListMode) HideBubbleDetail(fast: true);
         _bubbleOpen = false;
+        UpdateScriptJobDetailClock();
         if (instant || AnimationConfig.ReduceMotion || !ActivityBubble.IsVisible) { FinishRetract(); return; }
         Motion.To(ActivityBubble, WidthProperty, BubbleSize, Motion.PopBack);
         Motion.To(ActivityBubble, HeightProperty, BubbleSize, Motion.PopBack);
@@ -453,6 +466,7 @@ public partial class MainWindow
         if (_bubbleListMode) { CloseBubbleList(); return; }
         _bubbleOpen = false;
         _bubbleCloseTimer?.Stop();
+        UpdateScriptJobDetailClock();
         HideBubbleDetail(fast: false);
         Motion.To(ActivityBubble, WidthProperty, BubbleSize, Motion.PopBack);
         Motion.To(ActivityBubble, HeightProperty, BubbleSize, Motion.PopBack);
@@ -824,7 +838,12 @@ public partial class MainWindow
         }
     }
 
-    private void ActivityBubble_MouseEnter(object sender, MouseEventArgs e) => _bubbleCloseTimer?.Stop();
+    private void ActivityBubble_MouseEnter(object sender, MouseEventArgs e)
+    {
+        _bubbleCloseTimer?.Stop();
+        if (e.StylusDevice == null && _bubbleActivity == LiveActivity.Job && _bubbleWanted == LiveActivity.Job)
+            OpenBubble();
+    }
 
     private void ActivityBubble_MouseLeave(object sender, MouseEventArgs e)
     {

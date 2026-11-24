@@ -1340,5 +1340,12 @@
   "settings.autoDismissNotify.hint": "Close the notification banner automatically after the timer runs out.",
   "settings.notificationDuration": "Notification duration",
   "settings.notificationDuration.hint": "How long each notification stays visible on the notch.",
-  "tooltip.autoDismissNotify": "Automatically hide notifications after the configured time."
+  "tooltip.autoDismissNotify": "Automatically hide notifications after the configured time.",
+  "settings.showScriptJobsInNotch": "Show script jobs in the notch",
+  "scriptJobs.done": "{0} done",
+  "scriptJobs.warning": "{0} done",
+  "scriptJobs.failed": "{0} failed",
+  "scriptJobs.stopped": "Stopped",
+  "scriptJobs.percent": "{0:0} %",
+  "scriptJobs.elapsed": "{0} min"
 }
