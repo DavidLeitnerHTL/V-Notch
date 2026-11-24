@@ -581,6 +581,7 @@ public partial class SettingsWindow
             snapshot.VisualizerAudioDeviceId = selectedAudioDevice.Id;
         snapshot.ShowMutedMicGlyph = ShowMutedMicGlyphCheck.IsChecked ?? true;
         snapshot.AutoStart = AutoStartCheck.IsChecked ?? false;
+        snapshot.AllowNotchDragging = AllowNotchDraggingCheck.IsChecked == true;
         snapshot.StayBehindWindows = StayBehindWindowsCheck.IsChecked ?? false;
         snapshot.EnableHelloGreeting = HelloGreetingCheck.IsChecked ?? true;
         snapshot.EnableSpotlight = EnableSpotlightCheck.IsChecked ?? true;

@@ -138,16 +138,8 @@ public partial class MainWindow : Window
         set => _shellState.CornerRadiusCollapsed = value;
     }
     private double _cornerRadiusExpanded => _shellState.CornerRadiusExpanded;
-    private int _fixedX
-    {
-        get => _shellState.FixedX;
-        set => _shellState.FixedX = value;
-    }
-    private int _fixedY
-    {
-        get => _shellState.FixedY;
-        set => _shellState.FixedY = value;
-    }
+    private int _fixedX => _shellState.FixedX;
+    private int _fixedY => _shellState.FixedY;
     private int _windowWidth => _shellState.WindowWidth;
     private int _windowHeight { get => _shellState.WindowHeight; set => _shellState.WindowHeight = value; }
 
@@ -157,11 +149,11 @@ public partial class MainWindow : Window
     private const double CompactThumbnailHoverExitMargin = 22.0;
     private DateTime _lastMediaActionTime = DateTime.MinValue;
 
-    private bool _isDraggingNotchDebug = false;
+    private bool _isDraggingNotch = false;
     private bool _hasActuallyDragged = false;
-    private Point _debugDragStartMouse;
-    private int _debugDragStartFixedX;
-    private int _debugDragStartFixedY;
+    private Point _notchDragStartMouse;
+    private int _notchDragStartFixedX;
+    private int _notchDragStartFixedY;
 
     private readonly VNotch.Controllers.CompactPillArbiter _compactPillArbiter = new();
     internal VNotch.Controllers.NotchTransitionCoordinator TransitionCoordinator => _transitionCoordinator;
@@ -313,6 +305,7 @@ public partial class MainWindow : Window
         UpdateInvisibleTrayVisibility();
         ResolveSettingsMonitor();
         _notchManager = new NotchManager(this, _settings);
+        _notchManager.GetAnchor = () => _shellState.HasFixedBounds ? NotchAnchor : null;
         _mediaService = mediaService;
         _updateService = updateService;
         if (_updateService != null)
@@ -393,7 +386,7 @@ public partial class MainWindow : Window
             () =>
             {
                 InvalidateGlassDpiScale();
-                PositionAtTop();
+                if (!_isDraggingNotch) ApplyNotchPlacement();
                 ControlCenter.RefreshDisplaysOnDisplayChange();
                 RestartIfTransparencyNoLongerFits();
             },
@@ -401,6 +394,7 @@ public partial class MainWindow : Window
         _overlayWindow.TargetScreen = () => MonitorSelection.Resolve(_settings);
         _overlayWindow.IsZOrderSuspended = isTopmostSuspended;
         _overlayWindow.IsPointInteractive = IsPointInteractive;
+        NotchBorder.SizeChanged += NotchBorder_PositionSizeChanged;
         // Size the layered HWND before Show allocates its first rendering surface.
         _overlayWindow.SetInitialSize(OverlaySurfaceWidth, _expandedHeight);
 
@@ -486,7 +480,7 @@ public partial class MainWindow : Window
     private void OnHoverThumbnailDelayTick(object? sender, EventArgs e)
     {
         _hoverThumbnailDelayTimer.Stop();
-        if (_isGestureActive || IsCodexJobPillShown) return;
+        if (_isGestureActive || (_settings.AllowNotchDragging && _isDraggingNotch) || IsCodexJobPillShown) return;
         if (IsScreenCaptureActive) return;
         if (IsCountdownCompletionVisualActive || _isVolumeIndicatorActive) return;
 
@@ -574,7 +568,7 @@ public partial class MainWindow : Window
 
         ApplySettings();
         ConfigureOverlayWindow();
-        PositionAtTop();
+        ApplyNotchPlacement();
         StartZOrderWatchdog();
         UpdateFullscreenAutoHideState(OverlayWindowController.GetForegroundWindowHandle(), force: true);
 
@@ -1270,17 +1264,17 @@ public partial class MainWindow : Window
         Math.Max(_clockViewHeight,
         Math.Max(_expandedHeight, _audioViewMaxHeight)))));
 
-    private void PositionAtTop()
+    private void ApplyNotchPlacement()
     {
         // Compact needs the same room as after a collapse. Taller views grow
         // their host before their entrance animation.
         double height = _isExpanded || _isAnimating ? MaxExpandedNotchHeight : _expandedHeight;
         if (_isAppNotificationBannerVisible || _isAppNotificationBannerExiting)
             height = Math.Max(height, _appNotificationBaseHeight);
-        _overlayWindow.PositionAtTop(OverlaySurfaceWidth, height);
+        _overlayWindow.PositionOnScreen(OverlaySurfaceWidth, height, _settings.CustomNotchPosition, VisibleNotchSize);
 
         // Initialize the global hover/top-edge bounds at startup as well as after
-        _notchManager.UpdatePosition();
+        _notchManager.UpdatePosition(_settings);
 
         if (_hwnd != IntPtr.Zero)
         {
@@ -1293,7 +1287,8 @@ public partial class MainWindow : Window
 
     private void ResetPosition()
     {
-        PositionAtTop();
+        if (_settings.CustomNotchPosition != null) StoreNotchPosition(null, null);
+        else ApplyNotchPlacement();
     }
     public (double Left, double Top, double Width, double Height, double CornerRadius) GetNotchScreenRect()
     {
@@ -1806,22 +1801,10 @@ public partial class MainWindow : Window
 
     private void NotchBorder_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-
-        if (_isDebugDraggable)
+        if (_isDebugDraggable && !_settings.AllowNotchDragging && TryBeginNotchDrag(e))
         {
-            var hit = e.OriginalSource as DependencyObject;
-            if (!IsInteractiveControl(hit))
-            {
-                _isDraggingNotchDebug = true;
-                _hasActuallyDragged = false;
-                Win32Interop.GetCursorPos(out var pt);
-                _debugDragStartMouse = new Point(pt.X, pt.Y);
-                _debugDragStartFixedX = _fixedX;
-                _debugDragStartFixedY = _fixedY;
-                NotchWrapper.CaptureMouse();
-                e.Handled = true;
-                return;
-            }
+            e.Handled = true;
+            return;
         }
 
         if (_isAnimating)
@@ -1842,6 +1825,16 @@ public partial class MainWindow : Window
         }
 
         if (TryBeginAskGesture(e) || TryBeginCopiedGesture(e))
+        {
+            e.Handled = true;
+            return;
+        }
+
+        if (_settings.AllowNotchDragging && !_isExpanded && !_isGestureActive &&
+            _compactPillArbiter.ActiveSlot == CompactPillSlot.None &&
+            !_isVolumeIndicatorActive && !_isVolumeIndicatorExiting && !_isGreetingActive &&
+            !IsCountdownCompletionVisualActive && !IsAppNotificationBannerActive && !_isAppNotificationBannerExiting &&
+            !_spotlightMorphSessionActive && !_spotlightMorphOwnsNotchVisibility && TryBeginNotchDrag(e))
         {
             e.Handled = true;
             return;
@@ -1895,7 +1888,7 @@ public partial class MainWindow : Window
                 return true;
             }
             if (element is Window) break;
-            element = VisualTreeHelper.GetParent(element);
+            element = WindowInteraction.Parent(element);
         }
         return false;
     }
@@ -1934,6 +1927,7 @@ public partial class MainWindow : Window
 
     private void NotchWrapper_MouseLeave(object sender, MouseEventArgs e)
     {
+        CancelUncapturedNotchDrag();
         if (_isGestureActive) return;
         OnNotchHoverForClaudePeek(entered: false);
         OnCodexJobHover(entered: false);
