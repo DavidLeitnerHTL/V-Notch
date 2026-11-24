@@ -3584,7 +3584,7 @@
                     <Grid x:Name="SchoolContent"
                           Opacity="0"
                           Visibility="Collapsed"
-                          Margin="16,30,16,0"
+                          Margin="0,30,0,0"
                           HorizontalAlignment="Center"
                           VerticalAlignment="Top"
                           MouseLeftButtonDown="SecondaryContent_Click"

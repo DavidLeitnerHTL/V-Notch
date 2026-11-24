@@ -40,6 +40,7 @@ public partial class MainWindow
         SchoolCenter.AttachBackdrop(SchoolBackdrop);
         PiCenter.ContentHeightChanged += OnHomeContentHeightChanged;
         SchoolCenter.ContentHeightChanged += OnSchoolContentHeightChanged;
+        SchoolCenter.SchoolCollapseRequested += CollapseAll;
         _piReminderTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = PiReminderPoll };
         _piReminderTimer.Tick += async (_, _) => await PollPiRemindersAsync();
         _piReminderTimer.Start();
@@ -52,6 +53,7 @@ public partial class MainWindow
         SchoolCenter.KeyboardInputRequested -= OnClaudeKeyboardInputRequested;
         PiCenter.ContentHeightChanged -= OnHomeContentHeightChanged;
         SchoolCenter.ContentHeightChanged -= OnSchoolContentHeightChanged;
+        SchoolCenter.SchoolCollapseRequested -= CollapseAll;
         PiCenter.Dispose();
         SchoolCenter.Dispose();
         _piClient?.Dispose();
