@@ -88,7 +88,7 @@ public partial class MainWindow
         if (_compactPillArbiter.ActiveSlot != CompactPillSlot.None)
             return false;
 
-        if (_isCountdownRunning || IsCountdownCompletionVisualActive || IsAppNotificationBannerActive)
+        if (_isCountdownRunning || IsCountdownCompletionVisualActive || IsAppNotificationBannerActive || RunningScriptJob != null)
             return false;
 
         if (_idlePointerInRevealZone || NotchWrapper.IsMouseOver)

@@ -995,7 +995,7 @@ public partial class SettingsWindow
         if (!_isLoadingSettings) PushLivePreview();
     }
 
-    private void ShowCodexJobsInNotchCheck_Changed(object sender, RoutedEventArgs e)
+    private void ShowNotchJobsCheck_Changed(object sender, RoutedEventArgs e)
     {
         if (!_isLoadingSettings) PushLivePreview();
     }

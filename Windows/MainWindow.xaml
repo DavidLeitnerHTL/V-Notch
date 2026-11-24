@@ -29,6 +29,14 @@
     <!-- Grayscale filtering softens glyph edges on transparent surfaces. -->
     <Window.Resources>
 
+        <ControlTemplate x:Key="AskChipTemplate" TargetType="Button">
+            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="1" CornerRadius="14" Padding="11,0"
+                    TextElement.Foreground="{TemplateBinding Foreground}">
+                <ContentPresenter VerticalAlignment="Center"/>
+            </Border>
+        </ControlTemplate>
+
         <!-- A microphone struck through (24×24, drawn as strokes). -->
         <StreamGeometry x:Key="MicMutedGeometry" po:Freeze="True">M12,3 A3,3 0 0 0 9,6 V11 A3,3 0 0 0 15,11 V6 A3,3 0 0 0 12,3 Z M6,11 A6,6 0 0 0 18,11 M12,17 V21 M8.5,21 H15.5 M4,4 L20,20</StreamGeometry>
 
@@ -617,6 +625,21 @@
                                         <TranslateTransform x:Name="BubbleDownloadArrowShift"/>
                                     </Path.RenderTransform>
                                 </Path>
+                            </Canvas>
+                        </Viewbox>
+                        <Viewbox x:Name="BubbleJobFace" Visibility="Collapsed">
+                            <Canvas Width="100" Height="100">
+                                <Ellipse Width="84" Height="84" Canvas.Left="8" Canvas.Top="8"
+                                         Stroke="#407FA6CC" StrokeThickness="12"/>
+                                <Path x:Name="BubbleJobArc" Stroke="#7FA6CC" StrokeThickness="12"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                <Grid Width="100" Height="100">
+                                    <TextBlock x:Name="BubbleJobGlyph" FontFamily="Segoe MDL2 Assets" FontSize="53"
+                                               Foreground="#E0FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="BubbleJobUploadGlyph" Text="&#xE74A;" FontFamily="Segoe MDL2 Assets"
+                                               FontSize="25" Foreground="#E0FFFFFF" Margin="0,7,0,0"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
+                                </Grid>
                             </Canvas>
                         </Viewbox>
                         <!-- Charging: a ring that fills with the battery around a bolt; a light leaves it towards the cable.

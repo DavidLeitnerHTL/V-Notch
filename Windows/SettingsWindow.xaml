@@ -1900,7 +1900,12 @@
 
                                         <Border Style="{StaticResource SettingRowBorder}">
                                             <CheckBox x:Name="ShowCodexJobsInNotchCheck" Content="Show Codex jobs in the notch"
-                                                      Checked="ShowCodexJobsInNotchCheck_Changed" Unchecked="ShowCodexJobsInNotchCheck_Changed"/>
+                                                      Checked="ShowNotchJobsCheck_Changed" Unchecked="ShowNotchJobsCheck_Changed"/>
+                                        </Border>
+
+                                        <Border Style="{StaticResource SettingRowBorder}">
+                                            <CheckBox x:Name="ShowScriptJobsInNotchCheck" Content="Show script jobs in the notch"
+                                                      Checked="ShowNotchJobsCheck_Changed" Unchecked="ShowNotchJobsCheck_Changed"/>
                                         </Border>
 
                                         <Border Style="{StaticResource SettingRowBorder}">

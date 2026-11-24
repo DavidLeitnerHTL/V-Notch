@@ -141,8 +141,8 @@ public sealed class NotchNavigationIntegrationTests
                     var hit = window.NotchContent.InputHitTest(new Point(bounds.Left + bounds.Width / 2, bounds.Top + bounds.Height / 2)) as DependencyObject;
                     while (hit != null && !ReferenceEquals(hit, window.SettingsButton)) hit = VisualTreeHelper.GetParent(hit);
                     Assert.Same(window.SettingsButton, hit);
-                    if (view == NotchView.Timer)
-                        Assert.IsType<Controls.WhiteNoiseStrip>(VisualTreeHelper.GetChild(window.WhiteNoiseWidget, 0));
+                    // Upstream checks its timer view's lazy white-noise strip here; in the fork NotchView.Timer is the
+                    // system control center, which has no white-noise strip.
                     if (view == NotchView.Secondary)
                     {
                         var tray = window.ClipboardTrayView;

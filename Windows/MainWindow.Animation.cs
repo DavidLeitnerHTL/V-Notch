@@ -1073,11 +1073,21 @@ public partial class MainWindow
         CancelMediaWidthAnimation();
         _shellState.UpdateExpandedWidth(IsNoWidgetMode, _isLyricsActive, _isMusicExpanded);
 
+        bool openingFittedPage = !switchingExpandedViews && effectiveTarget is
+            VNotch.Models.NotchView.Claude or VNotch.Models.NotchView.Pi or VNotch.Models.NotchView.School;
+        if (openingFittedPage)
+        {
+            // Refresh the destination while the compact shell still hides the open layer.
+            _notchContentPresenter?.SnapToView(effectiveTarget);
+            UpdateLayout();
+        }
+
         var (targetWidth, targetHeight) = PrepareExpansionLayout(effectiveTarget, switchingExpandedViews, currentHeight);
 
         _shellOpenWidth = targetWidth;
         _shellOpenHeight = targetHeight;
         if (!switchingExpandedViews) _shellAttachment.Attach(targetWidth, targetHeight);
+        if (openingFittedPage) _shellAttachment.SetOpenHeight(targetHeight);
         AnimateStatusBarReveal(true);
 
         NotchBorder.IsHitTestVisible = true;
@@ -1828,7 +1838,8 @@ public partial class MainWindow
             _ => (SchoolViewWidth, MeasureSchoolViewHeight())
         };
         content.Width = width - content.Margin.Left - content.Margin.Right;
-        content.Height = height - content.Margin.Top - content.Margin.Bottom;
+        // Replace any height clock left by an in-page resize before the shell reveals the page.
+        Motion.Stop(content, HeightProperty, height - content.Margin.Top - content.Margin.Bottom);
         if (height > currentHeight) ResizeHostWindowHeight(height);
         UpdateNavIconsActiveState();
         return (width, height);

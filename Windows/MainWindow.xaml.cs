@@ -215,8 +215,10 @@ public partial class MainWindow : Window
         ISpotlightController spotlightController,
         VNotch.Controllers.NotchTransitionCoordinator? transitionCoordinator = null,
         VNotch.Services.Clipboard.ClipboardHistoryStore? clipboardHistoryStore = null,
-        Func<AudioMixerService>? audioMixerFactory = null, Func<IVolumeService>? volumeFactory = null)
+        Func<AudioMixerService>? audioMixerFactory = null, Func<IVolumeService>? volumeFactory = null,
+        string? scriptJobsDirectory = null)
     {
+        _scriptJobsDirectory = scriptJobsDirectory;
         InitializeComponent();
         InitializeTransparency(settingsService);
         SettingsButton.AddHandler(Mouse.PreviewMouseDownEvent, new MouseButtonEventHandler((sender, e) =>
@@ -480,7 +482,7 @@ public partial class MainWindow : Window
     private void OnHoverThumbnailDelayTick(object? sender, EventArgs e)
     {
         _hoverThumbnailDelayTimer.Stop();
-        if (_isGestureActive || (_settings.AllowNotchDragging && _isDraggingNotch) || IsCodexJobPillShown) return;
+        if (_isGestureActive || (_settings.AllowNotchDragging && _isDraggingNotch) || IsJobPillShown || _askSheet != null) return;
         if (IsScreenCaptureActive) return;
         if (IsCountdownCompletionVisualActive || _isVolumeIndicatorActive) return;
 
@@ -1049,6 +1051,7 @@ public partial class MainWindow : Window
         if (NotchContainer == null) return;
 
         bool shouldBeVisible = IsEffectivelyNotchVisible;
+        if (!shouldBeVisible) HideAskSheet();
         _transitionCoordinator.SetEffectivelyVisible(shouldBeVisible, "ApplyNotchVisibilityState");
 
         if (shouldBeVisible == _fullscreenSlideVisible && !_isFullscreenSlideAnimating) return;
@@ -1226,6 +1229,8 @@ public partial class MainWindow : Window
         if (ScreenCaptureActivityProbe == null) _screenCaptureActivity.IsActive(hwnd);
 
         UpdateFullscreenAutoHideState(hwnd, force: true);
+        QueueScriptJobPill();
+        if (_askSheet != null && FullscreenDetector.IsForegroundWindowFullscreen(hwnd, _hwnd)) HideAskSheet();
         ScheduleFullscreenRecheck();
 
         if (!IsEffectivelyNotchVisible) return;
@@ -1897,6 +1902,11 @@ public partial class MainWindow : Window
     {
         if (_isDebugViewLocked) return;
         if (IsCountdownCompletionVisualActive || IsAppNotificationBannerActive) return;
+        if (_askSheet != null)
+        {
+            FoldAskSheet(() => ToggleNotchFromClick(clickCount));
+            return;
+        }
         if (_isExpanded)
         {
             if (_isSecondaryView)
@@ -1974,7 +1984,7 @@ public partial class MainWindow : Window
 
     private void QueueHoverExpand()
     {
-        if (_isGestureActive || IsCodexJobPillShown) return;
+        if (_isGestureActive || IsJobPillShown || _askSheet != null) return;
         if (IsScreenCaptureActive) return;
         if (IsCountdownCompletionVisualActive || IsAppNotificationBannerActive) return;
 
