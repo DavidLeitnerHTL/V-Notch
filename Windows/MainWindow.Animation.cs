@@ -1058,6 +1058,15 @@ public partial class MainWindow
         double targetWidth = _expandedWidth;
         double targetHeight = _expandedHeight;
 
+        bool openingFittedPage = !switchingExpandedViews && effectiveTarget is
+            VNotch.Models.NotchView.Claude or VNotch.Models.NotchView.Pi or VNotch.Models.NotchView.School;
+        if (openingFittedPage)
+        {
+            // Refresh the destination while the compact shell still hides the open layer.
+            _notchContentPresenter?.SnapToView(effectiveTarget);
+            UpdateLayout();
+        }
+
         if (effectiveTarget == VNotch.Models.NotchView.Timer)
         {
             if (!switchingExpandedViews) VNotch.Presenters.NotchContentTransitionPresenter.ClearTransformAndEffects(TimerContent);
@@ -1098,9 +1107,9 @@ public partial class MainWindow
             if (!switchingExpandedViews) VNotch.Presenters.NotchContentTransitionPresenter.ClearTransformAndEffects(ClaudeContent);
             targetWidth = ClaudeViewWidth;
             targetHeight = _claudeViewHeight = MeasureClaudeViewHeight();
-            // Laid out at its final size; the shell's clip reveals it while expanding.
+            // Replace any height clock left by an in-page resize before the shell reveals the page.
             ClaudeContent.Width = targetWidth - ClaudeContent.Margin.Left - ClaudeContent.Margin.Right;
-            ClaudeContent.Height = targetHeight - ClaudeContent.Margin.Top - ClaudeContent.Margin.Bottom;
+            Motion.Stop(ClaudeContent, HeightProperty, targetHeight - ClaudeContent.Margin.Top - ClaudeContent.Margin.Bottom);
             if (targetHeight > currentHeight)
                 ResizeHostWindowHeight(targetHeight);
             UpdateNavIconsActiveState();
@@ -1112,7 +1121,7 @@ public partial class MainWindow
             targetHeight = MeasureHomeViewHeight();
             // Laid out at its final size; the shell's clip reveals it while expanding.
             PiContent.Width = targetWidth - PiContent.Margin.Left - PiContent.Margin.Right;
-            PiContent.Height = targetHeight - PiContent.Margin.Top - PiContent.Margin.Bottom;
+            Motion.Stop(PiContent, HeightProperty, targetHeight - PiContent.Margin.Top - PiContent.Margin.Bottom);
             if (targetHeight > currentHeight)
                 ResizeHostWindowHeight(targetHeight);
             UpdateNavIconsActiveState();
@@ -1123,7 +1132,7 @@ public partial class MainWindow
             targetWidth = SchoolViewWidth;
             targetHeight = MeasureSchoolViewHeight();
             SchoolContent.Width = targetWidth - SchoolContent.Margin.Left - SchoolContent.Margin.Right;
-            SchoolContent.Height = targetHeight - SchoolContent.Margin.Top - SchoolContent.Margin.Bottom;
+            Motion.Stop(SchoolContent, HeightProperty, targetHeight - SchoolContent.Margin.Top - SchoolContent.Margin.Bottom);
             if (targetHeight > currentHeight)
                 ResizeHostWindowHeight(targetHeight);
             UpdateNavIconsActiveState();
@@ -1156,6 +1165,7 @@ public partial class MainWindow
         _shellOpenWidth = targetWidth;
         _shellOpenHeight = targetHeight;
         if (!switchingExpandedViews) _shellAttachment.Attach(targetWidth, targetHeight);
+        if (openingFittedPage) _shellAttachment.SetOpenHeight(targetHeight);
         AnimateStatusBarReveal(true);
 
         NotchBorder.IsHitTestVisible = true;

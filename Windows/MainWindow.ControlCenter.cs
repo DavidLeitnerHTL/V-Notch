@@ -231,9 +231,9 @@ public partial class MainWindow
     /// <summary>Grows or shrinks the open tab when sessions or requests come and go.</summary>
     private void SettleClaudeNotchToFit()
     {
-        if (!_isClaudeView || _isAnimating || _cleanedUp) return;
+        if (_transitionCoordinator.TargetView != NotchView.Claude || _cleanedUp) return;
         _claudeViewHeight = MeasureClaudeViewHeight();
-        SettleNotchToContent(ClaudeContent, _claudeViewHeight, () => _isClaudeView);
+        SettleNotchToContent(ClaudeContent, _claudeViewHeight, () => _transitionCoordinator.TargetView == NotchView.Claude);
     }
 
     #endregion
