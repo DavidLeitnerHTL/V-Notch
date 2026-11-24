@@ -244,6 +244,7 @@ public partial class MainWindow
     {
         if (oldSettings == null || oldSettings.ShowCodexJobsInNotch != _settings.ShowCodexJobsInNotch)
             SyncCodexJobs();
+        QuickLookBridge.Shared.SetEnabled(_settings.PreviewFilesWithQuickLook);
         UpdateMicRestGlyph();
         AccentTheme.Apply(_settings.AccentColor);
         InteractionSounds.Configure(_settings.EnableInteractionSounds, _settings.InteractionSoundVolume);

@@ -114,6 +114,7 @@ public partial class SpotlightWindow : Window
         _viewModel.HistoryEnabled = _settings.EnableSpotlightHistory;
         _launcher = launcher;
         DataContext = viewModel;
+        InitializeQuickLook();
         LoadAiHistory();
         RefreshLocalization();
         ApplyLiquidGlassSkin();
@@ -490,6 +491,7 @@ public partial class SpotlightWindow : Window
     internal void HandleGlobalEscape()
     {
         if (!IsSpotlightOpen) return;
+        if (EscapeQuickLook()) return;
         if (_aiMode) { EscapeAiMode(); return; }
         _pendingLaunchQuery = null;
         if (!_isClosing && !string.IsNullOrEmpty(SearchBox.Text))
@@ -506,6 +508,7 @@ public partial class SpotlightWindow : Window
     internal void HideSpotlight()
     {
         if (!IsSpotlightOpen || _isClosing) return;
+        EndQuickLook();
         PlaySpotlightClickSfx();
         CloseResultContextMenu();
         SaveAiHistory();
@@ -529,6 +532,8 @@ public partial class SpotlightWindow : Window
 
     internal void Shutdown()
     {
+        EndQuickLook();
+        _quickLook.Changed -= OnQuickLookChanged;
         ++_animationGeneration;
         _allowClose = true;
         CancelAiRequest();
@@ -688,6 +693,7 @@ public partial class SpotlightWindow : Window
             : Visibility.Collapsed;
         AutocompleteText.Visibility = Visibility.Collapsed;
         if (_allowClose || _isClosing) return;
+        EndQuickLook();
         if (_aiMode)
         {
             UpdateGlowingCaret();
@@ -868,6 +874,7 @@ public partial class SpotlightWindow : Window
         if (_personalizationOpen) return;
         if (HandleResultMenuKey(e)) return;
         if (HandleAiKey(e)) return;
+        if (TryHandleQuickLookSpace(e)) return;
         // Navigation keys must be intercepted on the tunnel: the search box's
         if (e.Key == Key.Down)
         {
@@ -1482,6 +1489,7 @@ public partial class SpotlightWindow : Window
         else next = Math.Clamp(current + direction, 0, count - 1);
         ResultsList.SelectedIndex = next;
         ResultsList.ScrollIntoView(ResultsList.SelectedItem);
+        FollowQuickLookSelection();
     }
 
     private void LaunchSelected() => LaunchItem(_viewModel.SelectedResult);
@@ -1822,7 +1830,12 @@ public partial class SpotlightWindow : Window
         _selectionGlide.Height = height;
         _glideTransform!.X = position.X;
 
-        if (_glideVisible && !AnimationConfig.ReduceMotion)
+        if (IsFilePreviewOpen)
+        {
+            Motion.Stop(_glideTransform, TranslateTransform.YProperty, position.Y);
+            Motion.Stop(_selectionGlide, OpacityProperty, 1);
+        }
+        else if (_glideVisible && !AnimationConfig.ReduceMotion)
         {
             // Held arrow keys retarget the glide while it moves; the spring carries its speed into the next row.
             Motion.To(_glideTransform, TranslateTransform.YProperty, position.Y, Motion.Glide);
@@ -2915,6 +2928,7 @@ public partial class SpotlightWindow : Window
 
     private void CompleteHide()
     {
+        IsFilePreviewOpen = false;
         // Set base values to 0 before removing animation clocks. A completed
         CancelPendingFreshEntrance();
         Shell.Opacity = 0;

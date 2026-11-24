@@ -294,6 +294,7 @@ public partial class ControlCenterView : UserControl, IDisposable
         else
         {
             Seen.Hidden();
+            EndSchoolPreview();
             _refreshTimer.Stop();
             _clockTimer.Stop();
             StopLiveTexts();

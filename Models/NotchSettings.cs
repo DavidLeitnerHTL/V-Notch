@@ -159,6 +159,7 @@ public partial class NotchSettings : IJsonOnDeserialized
     public bool EnableHelloGreeting { get; set; } = true;
 
     public bool EnableSpotlight { get; set; } = true;
+    public bool PreviewFilesWithQuickLook { get; set; } = true;
     public bool SpotlightDefaultAi { get; set; } = false;
     public int SpotlightAiWordsPerSecond { get; set; } = 9;
     public string SpotlightAiProvider { get; set; } = "OpenAI";
