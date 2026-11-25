@@ -74,6 +74,8 @@ public partial class MainWindow
         // Whether it holds the notch, takes the orb beside the music, or waits behind both.
         ArrangeLiveActivities(_currentMediaInfo, applyCompact: true);
         ApplyClaudeLiveMotion();
+        // Claude starting or finishing a turn hands the pill back and forth with Codex at once.
+        RefreshCodexJobPill();
     }
 
     private void UpdateClaudeLiveText()
