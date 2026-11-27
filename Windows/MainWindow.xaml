@@ -619,12 +619,14 @@
                                          Stroke="#4093BCD2" StrokeThickness="12"/>
                                 <Path x:Name="BubbleDownloadArc" Stroke="#93BCD2" StrokeThickness="12"
                                       StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                                <Path Data="M50,28 L50,64 M35,50 L50,65 L65,50" Stroke="White" StrokeThickness="9"
+                                <Path x:Name="BubbleDownloadArrow" Data="M50,28 L50,64 M35,50 L50,65 L65,50" Stroke="White" StrokeThickness="9"
                                       StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round">
                                     <Path.RenderTransform>
                                         <TranslateTransform x:Name="BubbleDownloadArrowShift"/>
                                     </Path.RenderTransform>
                                 </Path>
+                                <Path x:Name="BubbleDownloadCheck" Data="M32,50 L45,63 L68,37" Stroke="#F5F5F7" StrokeThickness="9"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Visibility="Collapsed"/>
                             </Canvas>
                         </Viewbox>
                         <Viewbox x:Name="BubbleJobFace" Visibility="Collapsed">
@@ -694,7 +696,7 @@
                         </Grid.RenderTransform>
                         <!-- Only attached while it blurs (ActiveBlur): no idle effect surface under the orb's text. -->
                         <ctrl:ActiveBlur.Blur><ctrl:BlurDefinition><BlurEffect x:Name="BubbleDetailBlur" Radius="0" RenderingBias="Performance"/></ctrl:BlurDefinition></ctrl:ActiveBlur.Blur>
-                        <StackPanel VerticalAlignment="Center">
+                        <StackPanel x:Name="BubbleSummaryWords" VerticalAlignment="Center">
                             <TextBlock x:Name="BubbleTitle"
                                        Foreground="{x:Static svc:UiPalette.PrimaryBrush}"
                                        FontSize="12" FontWeight="SemiBold"
@@ -714,6 +716,31 @@
                                    FontFamily="{StaticResource MainSystemFont}"
                                    VerticalAlignment="Center"
                                    Margin="10,0,0,0"/>
+                        <ScrollViewer x:Name="BubbleDownloadList" Grid.ColumnSpan="2" VerticalScrollBarVisibility="Hidden"
+                                      HorizontalScrollBarVisibility="Disabled" Visibility="Collapsed" Focusable="False">
+                            <ScrollViewer.Resources>
+                                <Style x:Key="DownloadRowButton" TargetType="Button">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="Row" Background="Transparent" CornerRadius="7" Padding="5,0">
+                                                    <ContentPresenter VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="Row" Property="Background" Value="#12FFFFFF"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsKeyboardFocused" Value="True">
+                                                        <Setter TargetName="Row" Property="Background" Value="#12FFFFFF"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ScrollViewer.Resources>
+                            <StackPanel x:Name="BubbleDownloadRows"/>
+                        </ScrollViewer>
                     </Grid>
                     <!-- Several Claude sessions: how many, on the closed orb. -->
                     <Border x:Name="BubbleCountBadge"
