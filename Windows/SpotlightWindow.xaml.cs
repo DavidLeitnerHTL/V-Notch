@@ -144,6 +144,7 @@ public partial class SpotlightWindow : Window
             if (args.NewValue is false)
             {
                 ReleaseMorphSession();
+                StopGlowingCaretBlink();
             }
         };
 
@@ -757,7 +758,7 @@ public partial class SpotlightWindow : Window
 
     private void SearchBox_GotFocus(object sender, RoutedEventArgs e) => UpdateGlowingCaret();
 
-    private void SearchBox_LostFocus(object sender, RoutedEventArgs e) => GlowingCaret.Visibility = Visibility.Collapsed;
+    private void SearchBox_LostFocus(object sender, RoutedEventArgs e) => StopGlowingCaretBlink();
 
     private void SearchBox_SelectionChanged(object sender, RoutedEventArgs e)
     {
@@ -769,7 +770,7 @@ public partial class SpotlightWindow : Window
     {
         if (!SearchBox.IsFocused || !IsVisible || SearchBox.SelectionLength > 0)
         {
-            GlowingCaret.Visibility = Visibility.Collapsed;
+            StopGlowingCaretBlink();
             return;
         }
 
@@ -823,8 +824,18 @@ public partial class SpotlightWindow : Window
             RepeatBehavior = RepeatBehavior.Forever,
             EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
         };
-        Timeline.SetDesiredFrameRate(blinkAnim, AnimationConfig.TargetFps);
+        // A slow blink looks the same at 30 fps. At the display rate, a blink left running behind a closed Spotlight
+        // kept every window of the app repainting at 165 Hz (a third of a core) until the next restart.
+        Timeline.SetDesiredFrameRate(blinkAnim, CaretBlinkFps);
         GlowingCaret.BeginAnimation(OpacityProperty, blinkAnim);
+    }
+
+    private const int CaretBlinkFps = 30;
+
+    private void StopGlowingCaretBlink()
+    {
+        GlowingCaret.BeginAnimation(OpacityProperty, null);
+        GlowingCaret.Visibility = Visibility.Collapsed;
     }
 
     private void PlayTypingAnimation()

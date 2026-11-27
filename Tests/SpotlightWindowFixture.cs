@@ -31,7 +31,11 @@ internal sealed class SpotlightWindowFixture : IDisposable
         {
             var isolatedSettings = settings.Clone();
             isolatedSettings.SaveAiChatHistory = saveChatHistory;
-            ChatStore = chatStore ?? new SpotlightChatStore(Path.Combine(DirectoryPath, "chats.enc"));
+            // UI tests with history disabled do not depend on the Windows encryption profile.
+            ChatStore = chatStore ?? (saveChatHistory
+                ? new SpotlightChatStore(Path.Combine(DirectoryPath, "chats.enc"))
+                : new VNotch.Infrastructure.Windows.EncryptedChatRepository(
+                    Path.Combine(DirectoryPath, "chats.enc.store"), static text => text, static text => text, static () => []));
             Window = new SpotlightWindow(viewModel, new SpotlightLauncher(), isolatedSettings, aiService,
                 ChatStore, systemTransparencyOverride ?? (static () => true))
             {

@@ -58,7 +58,7 @@ public sealed class MainWindowCompactFeedbackTests
         Assert.True(Field<bool>(window, "_isChargingNotificationVisible"));
         Assert.Equal($"{percent}%", window.ChargingPercentText.Text);
         Assert.Equal(Loc.Get(statusKey), window.ChargingStatusText.Text);
-        Assert.Equal(formattedWatts.Replace(".", System.Globalization.CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator), window.ChargingWattText.Text);
+        Assert.Equal(formattedWatts, window.ChargingWattText.Text);
         Assert.Equal(watts == 0 ? Visibility.Collapsed : Visibility.Visible, window.ChargingWattText.Visibility);
         Assert.Equal(percent / 100d, window.ChargingBatteryFillScale.ScaleX);
         await WpfFrameWaiter.UntilAsync(() => window.CollapsedContent.Visibility == Visibility.Collapsed,

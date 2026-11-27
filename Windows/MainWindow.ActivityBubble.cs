@@ -261,7 +261,7 @@ public partial class MainWindow
                 break;
             case LiveActivity.Download when _downloads.Count > 0:
                 (title, subtitle, trailing) = DownloadWords(_downloads);
-                ShowDownloadProgress(_downloads[0].Percent);
+                ShowDownloadProgress(_downloads[0]);
                 break;
             case LiveActivity.Job when RunningScriptJob is { } job:
                 (title, subtitle, trailing) = ScriptJobWords(job);
@@ -270,6 +270,7 @@ public partial class MainWindow
                 (title, subtitle, trailing) = ChargeWords(battery);
                 break;
         }
+        if (_bubbleOpen && _bubbleActivity == LiveActivity.Download) UpdateDownloadBubbleRows();
         SetBubbleWords(BubbleTitle, title);
         SetBubbleWords(BubbleSubtitle, subtitle);
         BubbleSubtitle.Foreground = subtitleBrush;
@@ -286,7 +287,7 @@ public partial class MainWindow
 
     private void SetBubbleWords(TextBlock text, string value)
     {
-        if (_bubbleWords.TryGetValue(text, out var pending) && pending == value) return;
+        if (_bubbleWords.TryGetValue(text, out var pending) && pending == value && text.IsVisible) return;
         _bubbleWords[text] = value;
         if (!text.IsVisible || !_bubbleOpen || AnimationConfig.ReduceMotion)
         {
@@ -370,6 +371,7 @@ public partial class MainWindow
         int token = ++_bubbleToken;
         _bubbleCloseTimer?.Stop();
         if (_bubbleActivity == LiveActivity.Charging) LeaveChargeFace(fast: true);
+        if (_bubbleActivity == LiveActivity.Download) CloseDownloadPreview();
         if (ActivityBubble.Visibility != Visibility.Visible) return;
         if (_bubbleOpen && !_bubbleListMode) HideBubbleDetail(fast: true);
         _bubbleOpen = false;
@@ -448,7 +450,7 @@ public partial class MainWindow
         UpdateBubbleContent();
         ApplyClaudeLiveMotion();
         Motion.To(ActivityBubble, WidthProperty, BubbleOpenTargetWidth(), Motion.Pop);
-        Motion.To(ActivityBubble, HeightProperty, BubbleOpenHeight, Motion.Pop);
+        Motion.To(ActivityBubble, HeightProperty, BubbleDetailHeight(), Motion.Pop);
         SpringBubbleFace(open: true, Motion.Pop);
         BubbleDetail.Margin = new Thickness(FaceMargin(_bubbleActivity, open: true).Left * 2 + FaceSize(_bubbleActivity, open: true), 0, 14, 0);
         bool entering = !BubbleDetail.IsVisible;
@@ -465,6 +467,7 @@ public partial class MainWindow
         if (!_bubbleOpen) return;
         if (_bubbleListMode) { CloseBubbleList(); return; }
         _bubbleOpen = false;
+        if (_bubbleActivity == LiveActivity.Download) CloseDownloadPreview();
         _bubbleCloseTimer?.Stop();
         UpdateScriptJobDetailClock();
         HideBubbleDetail(fast: false);
@@ -477,11 +480,14 @@ public partial class MainWindow
     private void HideBubbleDetail(bool fast)
     {
         int token = _bubbleToken;
+        BubbleDetail.IsHitTestVisible = false;
         Motion.To(BubbleDetailSlide, TranslateTransform.XProperty, -8, Motion.Exit);
         Motion.To(BubbleDetailBlur, BlurEffect.RadiusProperty, 5, Motion.Exit);
         Motion.To(BubbleDetail, OpacityProperty, 0, Motion.Exit, done: () =>
         {
-            if (token == _bubbleToken && !_bubbleOpen) BubbleDetail.Visibility = Visibility.Collapsed;
+            if (token != _bubbleToken || _bubbleOpen) return;
+            BubbleDetail.Visibility = Visibility.Collapsed;
+            ClearDownloadBubbleRows();
         });
     }
 
@@ -508,6 +514,7 @@ public partial class MainWindow
         Motion.Stop(BubbleDetail, OpacityProperty, 0);
         Motion.Stop(BubbleDetailSlide, TranslateTransform.XProperty, 0);
         BubbleDetail.Visibility = Visibility.Collapsed;
+        ClearDownloadBubbleRows();
         Motion.Stop(BubbleDetailBlur, BlurEffect.RadiusProperty, 0);
         Motion.Stop(BubbleCountBadge, OpacityProperty, 1);
         Motion.Stop(BubbleCountBadgeScale, ScaleTransform.ScaleXProperty, 1);
@@ -813,7 +820,7 @@ public partial class MainWindow
             return;
         }
         // In the list a row takes the tap; beside the rows it just closes.
-        bool list = _bubbleListMode;
+        bool list = _bubbleListMode || BubbleDownloadList.Visibility == Visibility.Visible;
         CloseBubble();
         if (list) return;
         switch (_bubbleActivity)
@@ -859,6 +866,7 @@ public partial class MainWindow
             _bubbleCloseTimer = new DispatcherTimer(DispatcherPriority.Background);
             _bubbleCloseTimer.Tick += (_, _) =>
             {
+                if (_bubbleActivity == LiveActivity.Download && QuickLookBridge.Shared.IsPreviewing(_downloadPreviewOwner)) return;
                 _bubbleCloseTimer.Stop();
                 CloseBubble();
             };
