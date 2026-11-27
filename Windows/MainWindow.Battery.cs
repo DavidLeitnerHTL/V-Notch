@@ -63,6 +63,10 @@ public partial class MainWindow
         if (!allowed) StopNotificationDrop();
         RefreshMusicMotionVisibility();
         RefreshCountdownCompleteTextFlash();
+        SettleHiddenCountdownShell();
+        RefreshIdleGlanceMotionVisibility();
+        RefreshClipboardPeekMotionVisibility();
+        RefreshClaudePillMotionVisibility();
         _phoneMirror?.RefreshMotionVisibility();
         RefreshAppNotificationMotionVisibility();
     }

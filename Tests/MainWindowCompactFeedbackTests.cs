@@ -172,8 +172,10 @@ public sealed class MainWindowCompactFeedbackTests
     {
         await using var fixture = CreateFixture();
         var window = fixture.Window;
+        using var host = new ChargeOrbCalmMotionTests.RenderHost(window);
         Set(window, "_isMusicCompactMode", true);
         Set(window, "_currentMediaInfo", new MediaInfo { CurrentTrack = "Fixture song", MediaSource = "Spotify", IsPlaying = true });
+        window.MusicCompactContent.Visibility = Visibility.Visible;
         Invoke(window, "PlayClipboardPeek");
         Assert.True(Field<bool>(window, "_isClipboardPeekActive"));
         Assert.Equal(Loc.Get("clipboard.copied").TrimStart('✓', ' '), window.ClipboardCopiedText.Text);
@@ -202,6 +204,7 @@ public sealed class MainWindowCompactFeedbackTests
     public void CopyFeedbackOutsideMusicModeOnlyBouncesTheCollapsedNotch() => SharedStaTestRunner.RunAsync(async ct =>
     {
         await using var fixture = CreateFixture();
+        using var host = new ChargeOrbCalmMotionTests.RenderHost(fixture.Window);
         Invoke(fixture.Window, "PlayClipboardPeek");
         Assert.False(Field<bool>(fixture.Window, "_isClipboardPeekActive"));
         await WpfFrameWaiter.UntilAsync(() => fixture.Window.NotchScale.ScaleX > 1, "copy bounce peak", ct);
