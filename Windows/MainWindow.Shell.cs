@@ -86,6 +86,9 @@ public partial class MainWindow
         ControlCenter.StatusChanged += UpdateCompactTabStatus;
         _shellAttachment = new NotchShellAttachment(NotchBorder, open, () => _collapsedHeight,
             CollapsedContent, MusicCompactContent);
+        // Wrap the music face before it loads, so a copy never unloads the live visualizer.
+        _clipboardCopiedAttachment = new(NotchBorder, MusicCompactContent, () => new Size(_collapsedWidth, _collapsedHeight));
+        _clipboardCopiedAttachment.Detach(true);
         NotchWrapper.PreviewMouseMove += ContinueScrollShellGesture;
         NotchWrapper.LostMouseCapture += (_, e) =>
         {
