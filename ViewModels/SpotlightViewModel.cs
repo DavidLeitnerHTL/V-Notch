@@ -62,6 +62,16 @@ internal sealed partial class SpotlightViewModel : ObservableObject, IDisposable
         if (!string.Equals(Query, query, StringComparison.Ordinal)) SelectedResult = null;
         Query = query;
         CancelPendingSearch();
+
+        if (SpotlightTodo.Parse(query) is { } todo)
+        {
+            IsSearching = false;
+            IsWindowsSearchUnavailable = false;
+            Publish([new SpotlightSearchItem("todo:" + todo, SpotlightResultKind.AddTodo,
+                Loc.Get("spotlight.addTodo"), todo, todo)]);
+            return;
+        }
+
         using var searchCts = new CancellationTokenSource();
         Interlocked.Exchange(ref _searchCts, searchCts)?.Cancel();
         CancellationToken cancellationToken = searchCts.Token;
@@ -84,15 +94,6 @@ internal sealed partial class SpotlightViewModel : ObservableObject, IDisposable
             }
             catch (OperationCanceledException) { /* Expected when query changes. */ }
             finally { Interlocked.CompareExchange(ref _searchCts, null, searchCts); }
-            return;
-        }
-
-        if (SpotlightTodo.Parse(query) is { } todo)
-        {
-            IsSearching = false;
-            IsWindowsSearchUnavailable = false;
-            Publish([new SpotlightSearchItem("todo:" + todo, SpotlightResultKind.AddTodo,
-                Loc.Get("spotlight.addTodo"), todo, todo)]);
             return;
         }
 

@@ -1043,16 +1043,12 @@ public partial class ControlCenterView : UserControl, IDisposable
 
     internal static string FormatBytes(long bytes) => bytes switch
     {
-        >= 1L << 30 => $"{bytes / (double)(1L << 30):0.0} GB",
-        _ => $"{bytes / (double)(1L << 20):0} MB"
+        >= 1L << 30 => string.Create(Loc.GetCulture(), $"{bytes / (double)(1L << 30):0.0} GB"),
+        _ => string.Create(Loc.GetCulture(), $"{bytes / (double)(1L << 20):0} MB")
     };
 
-    internal static string FormatRate(double bytesPerSecond) => bytesPerSecond switch
-    {
-        >= 1024 * 1024 => $"{bytesPerSecond / (1024 * 1024):0.0} MB/s",
-        >= 1024 => $"{bytesPerSecond / 1024:0} KB/s",
-        _ => $"{bytesPerSecond:0} B/s"
-    };
+    internal static string FormatRate(double bytesPerSecond) =>
+        LocalizedPresentation.FormatTransferRate(bytesPerSecond, roundKilobytes: true);
 
     /// <summary>The GPU sampler is shared and counts its users: one start per open tab, one stop when it closes.</summary>
     private void SetGpuSampling(bool on)
