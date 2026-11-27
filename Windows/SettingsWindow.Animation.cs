@@ -500,7 +500,7 @@ public partial class SettingsWindow
         AnimateEntranceItem(NavPanel, NavPanelTranslate, contentDelay + 40, applyBlur: false);
         AnimateSidebarMenuProgressiveBlur(contentDelay + 55, fps);
 
-        if (SettingsScrollViewer.IsVisible && _revealingPage == null)
+        if (SettingsScrollViewer.IsVisible && _sectionArrivals.Count == 0)
             AnimateActivePanel(_activeNav, baseDelayMs: 200);
 
         AnimateEntranceItem(FooterBar, FooterTranslate, contentDelay + 120, applyBlur: true);

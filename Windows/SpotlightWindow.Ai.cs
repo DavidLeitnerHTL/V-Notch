@@ -177,7 +177,7 @@ public partial class SpotlightWindow
             EscBadgeText.Text = "TAB · " + Loc.Get("spotlight.searchMode");
             EscBadge.ToolTip = Loc.Get("spotlight.ai.back");
             RefreshAiPanel();
-            AnimateAiArrival(AiPanel, 8, 350);
+            AnimateAiArrival(AiPanel);
         }
         else
         {
@@ -185,7 +185,6 @@ public partial class SpotlightWindow
             EscBadge.ToolTip = null;
             StopAiActivity();
             _viewModel.SearchAsync(SearchBox.Text).SafeFireAndForget("SPOTLIGHT-SEARCH");
-            AnimateAiArrival(ResultsList, 6, 240);
         }
         RefreshStatus();
         SearchBox.Focus();
@@ -230,7 +229,7 @@ public partial class SpotlightWindow
         if (_aiMode && AiStatus.Tag is "error")
         {
             PlayShake();
-            AnimateAiFade(AiStatus);
+            AnimateAiArrival(AiStatus);
         }
         else
         {

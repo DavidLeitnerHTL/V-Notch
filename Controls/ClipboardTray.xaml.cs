@@ -213,6 +213,9 @@ public sealed partial class ClipboardTray : UserControl, IDisposable
             {
                 _entranceWasHidden = true;
                 CloseLabelEditor(immediately: true);
+                CancelCardArrivals();
+                ResetShelfMotion();
+                CancelCategoryReorder();
                 StopEntranceWork();
                 StopCategoryScrolling();
                 StopViewportMotions();
@@ -406,10 +409,7 @@ public sealed partial class ClipboardTray : UserControl, IDisposable
             var masking = await PrepareCardMaskingAsync(entries, cancellation);
             if (version != _refreshVersion || cancellation.IsCancellationRequested || _disposed) return;
             if (_cards.Count > 0)
-            {
-                await PrepareResultsAsync(cancellation);
                 await AnimateCollectionChangesAsync(entries, cancellation);
-            }
             if (version != _refreshVersion || cancellation.IsCancellationRequested || _disposed || _trayLeaving) return;
             _categoryCounts = counts;
             bool wasEmpty = _cards.Count == 0;
@@ -424,6 +424,8 @@ public sealed partial class ClipboardTray : UserControl, IDisposable
             else if (!AreEntriesIdentical(entries))
             {
                 var positions = CaptureCardPositions();
+                if (!wasEmpty && !_animateResults && IsVisible && !AnimationConfig.ReduceMotion)
+                    RecordArrivingCards(entries);
                 ReconcilePreparedCards(entries, masking);
                 AnimateCardPositions(positions);
             }

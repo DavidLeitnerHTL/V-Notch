@@ -296,8 +296,10 @@ public partial class ChangelogView : UserControl
         else
         {
             RevealRequested?.Invoke(Array.Empty<UIElement>(), null);
-            Motion.To(ChangelogContent, OpacityProperty, 1, Motion.Tile, from: 0);
-            Motion.To(ReleaseOffset, TranslateTransform.YProperty, 0, Motion.Tile, from: 15);
+            bool moving = Motion.IsRunning(ReleaseOffset, TranslateTransform.YProperty);
+            Motion.To(ChangelogContent, OpacityProperty, 1, Motion.Exit, from: moving ? null : 0.72);
+            Motion.To(ReleaseOffset, TranslateTransform.YProperty, 0, Motion.Shift,
+                from: moving ? null : index > previous ? 6 : -6);
         }
     }
 
